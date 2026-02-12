@@ -1,0 +1,142 @@
+// ═══════════════════════════════════════════════
+// DIGITALIUM.IO — Formation Config: Pro (Business)
+// ═══════════════════════════════════════════════
+
+import type { FormationConfig } from "@/types/formation";
+
+export const PRO_FORMATION: FormationConfig = {
+    espaceRole: "pro",
+    titreBienvenue: "Bienvenue dans votre Espace Pro",
+    descriptionRole: "Votre espace professionnel centralise tous les outils de gestion documentaire, de signature électronique et d'intelligence artificielle pour votre organisation. Maîtrisez chaque module pour optimiser vos processus métier.",
+    responsabilites: [
+        "Gérer les documents de votre organisation (iDocument)",
+        "Signer et faire signer des documents électroniquement (iSignature)",
+        "Archiver les documents selon les obligations légales (iArchive)",
+        "Utiliser l'IA pour analyser et traiter vos documents (iAsted)",
+        "Gérer les membres de votre équipe",
+        "Suivre les analytics d'utilisation",
+        "Gérer votre abonnement et la facturation",
+    ],
+    fonctionnalites: [
+        {
+            id: "idocument",
+            onglet: "Principal",
+            icone: "FileText",
+            titre: "Gestion Documentaire (iDocument)",
+            description: "Créez, éditez, partagez et organisez tous vos documents avec des vues grille/liste et une recherche avancée.",
+            importance: "Critique",
+            tutorielIds: ["tut-doc-1"],
+        },
+        {
+            id: "isignature",
+            onglet: "Signatures",
+            icone: "PenTool",
+            titre: "Signature Électronique (iSignature)",
+            description: "Signez des documents et créez des circuits de validation avec signature électronique qualifiée.",
+            importance: "Haute",
+            tutorielIds: ["tut-sign-1"],
+        },
+        {
+            id: "iarchive",
+            onglet: "Archives",
+            icone: "Archive",
+            titre: "Archives Numériques (iArchive)",
+            description: "Archivez vos documents par catégorie (fiscal, social, juridique) avec coffre-fort numérique.",
+            importance: "Haute",
+            tutorielIds: ["tut-archive-1"],
+        },
+        {
+            id: "iasted",
+            onglet: "IA",
+            icone: "Bot",
+            titre: "Assistant IA (iAsted)",
+            description: "Analysez, classifiez et synthétisez vos documents grâce à l'intelligence artificielle.",
+            importance: "Moyenne",
+            tutorielIds: ["tut-ia-1"],
+        },
+        {
+            id: "team",
+            onglet: "Gestion",
+            icone: "Users",
+            titre: "Gestion d'Équipe",
+            description: "Invitez des collaborateurs, gérez les rôles et suivez l'activité.",
+            importance: "Moyenne",
+            tutorielIds: ["tut-team-1"],
+        },
+    ],
+    tutoriels: [
+        {
+            id: "tut-doc-1",
+            titre: "Créer votre premier document",
+            fonctionnaliteId: "idocument",
+            etapes: [
+                { numero: 1, instruction: "Accédez à iDocument depuis le menu latéral" },
+                { numero: 2, instruction: "Cliquez sur «Nouveau document»" },
+                { numero: 3, instruction: "Choisissez un template ou un document vierge" },
+                { numero: 4, instruction: "Rédigez et mettez en forme votre contenu" },
+                { numero: 5, instruction: "Ajoutez des tags pour faciliter la recherche", detail: "ex: Contrat, Finance, RH" },
+                { numero: 6, instruction: "Enregistrez votre document" },
+            ],
+            routeCible: "/pro/idocument",
+        },
+        {
+            id: "tut-sign-1",
+            titre: "Envoyer un document à signer",
+            fonctionnaliteId: "isignature",
+            etapes: [
+                { numero: 1, instruction: "Accédez à iSignature" },
+                { numero: 2, instruction: "Sélectionnez le document à signer" },
+                { numero: 3, instruction: "Ajoutez les signataires par email" },
+                { numero: 4, instruction: "Positionnez les zones de signature", detail: "Glissez-déposez les zones sur le document" },
+                { numero: 5, instruction: "Envoyez la demande de signature" },
+            ],
+            routeCible: "/pro/isignature",
+        },
+        {
+            id: "tut-archive-1",
+            titre: "Archiver un document",
+            fonctionnaliteId: "iarchive",
+            etapes: [
+                { numero: 1, instruction: "Accédez à iArchive" },
+                { numero: 2, instruction: "Choisissez la catégorie", detail: "Fiscal, Social, Juridique ou Coffre-Fort" },
+                { numero: 3, instruction: "Cliquez sur «Déposer»" },
+                { numero: 4, instruction: "Sélectionnez le fichier ou un document existant" },
+                { numero: 5, instruction: "Renseignez les métadonnées et validez" },
+            ],
+            routeCible: "/pro/iarchive",
+        },
+        {
+            id: "tut-ia-1",
+            titre: "Analyser un document avec l'IA",
+            fonctionnaliteId: "iasted",
+            etapes: [
+                { numero: 1, instruction: "Accédez à iAsted (IA)" },
+                { numero: 2, instruction: "Téléversez ou sélectionnez un document" },
+                { numero: 3, instruction: "Choisissez le type d'analyse", detail: "Classification, extraction, synthèse ou analyse de contrat" },
+                { numero: 4, instruction: "Lancez l'analyse" },
+                { numero: 5, instruction: "Consultez les résultats et exportez si nécessaire" },
+            ],
+            routeCible: "/pro/iasted",
+        },
+        {
+            id: "tut-team-1",
+            titre: "Inviter un collaborateur",
+            fonctionnaliteId: "team",
+            etapes: [
+                { numero: 1, instruction: "Accédez à Équipe" },
+                { numero: 2, instruction: "Cliquez sur «Inviter»" },
+                { numero: 3, instruction: "Saisissez l'email du collaborateur" },
+                { numero: 4, instruction: "Attribuez un rôle", detail: "Administrateur, Manager, Membre ou Lecteur" },
+                { numero: 5, instruction: "Envoyez l'invitation" },
+            ],
+            routeCible: "/pro/team",
+        },
+    ],
+    faq: [
+        { question: "Comment basculer entre la vue grille et liste ?", reponse: "Dans iDocument, utilisez les icônes grille/liste en haut à droite de la zone de documents. Votre préférence est sauvegardée automatiquement.", categorie: "Documents" },
+        { question: "Puis-je signer un document depuis mon mobile ?", reponse: "Oui, l'interface de signature est entièrement responsive et fonctionne sur mobile et tablette. Utilisez le même lien que sur desktop.", categorie: "Signature" },
+        { question: "L'IA peut-elle analyser des documents scannés ?", reponse: "Oui, iAsted utilise l'OCR pour extraire le texte des documents scannés avant de les analyser. La qualité de l'analyse dépend de la qualité du scan.", categorie: "IA" },
+        { question: "Comment changer mon plan d'abonnement ?", reponse: "Accédez à Paramètres ou Facturation, puis cliquez sur «Modifier le plan». Les upgrades sont immédiats, les downgrades prennent effet au prochain cycle de facturation.", categorie: "Abonnement" },
+        { question: "Qui peut voir mes documents archivés ?", reponse: "Seuls les utilisateurs ayant le rôle d'administrateur ou de manager de votre organisation peuvent accéder aux archives. Les documents dans le coffre-fort nécessitent un accès supplémentaire.", categorie: "Archives" },
+    ],
+};
