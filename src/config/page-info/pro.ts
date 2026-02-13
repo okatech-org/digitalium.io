@@ -3,8 +3,9 @@
 // ═══════════════════════════════════════════════
 
 import type { PageInfoMap } from "@/types/page-info";
+import { injectArchitecture } from "./architecture-data";
 
-export const PRO_PAGE_INFO: PageInfoMap = {
+export const PRO_PAGE_INFO: PageInfoMap = injectArchitecture({
     dashboard: {
         pageId: "pro-dashboard",
         titre: "Dashboard",
@@ -145,4 +146,4 @@ export const PRO_PAGE_INFO: PageInfoMap = {
             { page: "Dashboard", relation: "KPIs résumés", route: "/pro" },
         ],
     },
-};
+});

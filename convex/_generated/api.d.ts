@@ -9,8 +9,12 @@
  */
 
 import type * as archives from "../archives.js";
+import type * as auditLogs from "../auditLogs.js";
 import type * as documents from "../documents.js";
+import type * as organizations from "../organizations.js";
+import type * as seed from "../seed.js";
 import type * as signatures from "../signatures.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -20,8 +24,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   archives: typeof archives;
+  auditLogs: typeof auditLogs;
   documents: typeof documents;
+  organizations: typeof organizations;
+  seed: typeof seed;
   signatures: typeof signatures;
+  users: typeof users;
 }>;
 
 /**

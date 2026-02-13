@@ -67,6 +67,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
+import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { SUBADMIN_PAGE_INFO } from "@/config/page-info/subadmin";
 import {
     Tooltip,
@@ -473,7 +474,7 @@ export default function SubAdminSpaceLayout({
                             {(() => {
                                 const segment = pathname === "/subadmin" ? "dashboard" : pathname.replace("/subadmin/", "");
                                 const info = SUBADMIN_PAGE_INFO[segment];
-                                return info ? <PageInfoButton info={info} accentColor="violet" /> : null;
+                                return info ? <><PageArchitectButton info={info} accentColor="violet" /><PageInfoButton info={info} accentColor="violet" /></> : null;
                             })()}
 
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">

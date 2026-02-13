@@ -4,8 +4,9 @@
 // ═══════════════════════════════════════════════
 
 import type { PageInfoMap } from "@/types/page-info";
+import { injectArchitecture } from "./architecture-data";
 
-export const INSTITUTIONAL_PAGE_INFO: PageInfoMap = {
+export const INSTITUTIONAL_PAGE_INFO: PageInfoMap = injectArchitecture({
     institutional: {
         pageId: "inst-dashboard",
         titre: "Dashboard Institutionnel",
@@ -155,4 +156,4 @@ export const INSTITUTIONAL_PAGE_INFO: PageInfoMap = {
             { page: "Dashboard", route: "/institutional", relation: "Retour au tableau de bord" },
         ],
     },
-};
+});

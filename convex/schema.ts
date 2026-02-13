@@ -101,7 +101,49 @@ export default defineSchema({
         .index("by_org_role", ["organizationId", "role"]),
 
     // ═══════════════════════════════════════════
-    // 4. DOCUMENTS (iDocument)
+    // 4a. FOLDERS (iDocument — Dossiers)
+    // ═══════════════════════════════════════════
+    folders: defineTable({
+        name: v.string(),
+        description: v.optional(v.string()),
+        organizationId: v.optional(v.id("organizations")),
+        createdBy: v.string(), // ref users.userId
+        parentFolderId: v.optional(v.id("folders")),
+        tags: v.array(v.string()), // e.g. ["fiscal", "social"]
+        permissions: v.object({
+            visibility: v.union(
+                v.literal("private"),
+                v.literal("shared"),
+                v.literal("team")
+            ),
+            sharedWith: v.array(v.string()), // userIds
+            teamIds: v.array(v.string()),
+        }),
+        archiveSchedule: v.optional(v.object({
+            scheduledDate: v.number(), // timestamp
+            targetCategory: v.string(), // slug of archive_category
+            autoArchive: v.boolean(),
+        })),
+        isTemplate: v.boolean(),
+        templateConfig: v.optional(v.object({
+            defaultTags: v.array(v.string()),
+            defaultPermissions: v.any(),
+            subFolders: v.array(v.string()),
+        })),
+        status: v.union(v.literal("active"), v.literal("trashed")),
+        fileCount: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_createdBy", ["createdBy"])
+        .index("by_status", ["status"])
+        .index("by_parentFolderId", ["parentFolderId"])
+        .index("by_isTemplate", ["isTemplate"])
+        .index("by_org_status", ["organizationId", "status"]),
+
+    // ═══════════════════════════════════════════
+    // 4b. DOCUMENTS (iDocument — Fichiers)
     // ═══════════════════════════════════════════
     documents: defineTable({
         title: v.string(),
@@ -162,26 +204,50 @@ export default defineSchema({
         .index("by_documentId", ["documentId"]),
 
     // ═══════════════════════════════════════════
-    // 6. ARCHIVES (iArchive)
+    // 6a. ARCHIVE CATEGORIES (iArchive — Catégories gérées)
+    // ═══════════════════════════════════════════
+    archive_categories: defineTable({
+        name: v.string(),
+        slug: v.string(), // e.g. "fiscal", "social", "juridique"
+        description: v.optional(v.string()),
+        organizationId: v.optional(v.id("organizations")),
+        color: v.string(), // tailwind color: "amber", "blue", "emerald", "violet"
+        icon: v.string(), // lucide icon name: "Landmark", "Briefcase", "Scale"
+        retentionYears: v.number(), // default retention in years
+        defaultConfidentiality: v.union(
+            v.literal("public"),
+            v.literal("internal"),
+            v.literal("confidential"),
+            v.literal("secret")
+        ),
+        isFixed: v.boolean(), // true for Coffre-Fort (non-deletable)
+        isActive: v.boolean(),
+        sortOrder: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_slug", ["slug"])
+        .index("by_isActive", ["isActive"])
+        .index("by_sortOrder", ["sortOrder"]),
+
+    // ═══════════════════════════════════════════
+    // 6b. ARCHIVES (iArchive — Fichiers archivés)
     // ═══════════════════════════════════════════
     archives: defineTable({
         title: v.string(),
         description: v.optional(v.string()),
-        category: v.union(
-            v.literal("fiscal"),
-            v.literal("social"),
-            v.literal("legal"),
-            v.literal("client"),
-            v.literal("vault")
-        ),
+        categoryId: v.optional(v.id("archive_categories")),
+        categorySlug: v.string(), // denormalized for quick filter
         organizationId: v.optional(v.id("organizations")),
         uploadedBy: v.string(), // ref users.userId
+        folderId: v.optional(v.id("folders")), // source folder from iDocument
         fileUrl: v.string(),
         fileName: v.string(),
         fileSize: v.number(),
         mimeType: v.string(),
         sha256Hash: v.string(),
-        retentionYears: v.number(),     // 10 fiscal, 5 social
+        retentionYears: v.number(),
         retentionExpiresAt: v.number(), // timestamp
         status: v.union(
             v.literal("active"),
@@ -201,6 +267,8 @@ export default defineSchema({
                 )
             ),
         }),
+        isVault: v.boolean(), // true if stored in coffre-fort
+        vaultFolderId: v.optional(v.id("folders")), // sub-folder in vault
         certificateId: v.optional(v.id("archive_certificates")),
         createdAt: v.number(),
         updatedAt: v.number(),
@@ -208,9 +276,11 @@ export default defineSchema({
         .index("by_organizationId", ["organizationId"])
         .index("by_uploadedBy", ["uploadedBy"])
         .index("by_status", ["status"])
-        .index("by_category", ["category"])
+        .index("by_categorySlug", ["categorySlug"])
+        .index("by_categoryId", ["categoryId"])
         .index("by_sha256Hash", ["sha256Hash"])
-        .index("by_org_category", ["organizationId", "category"]),
+        .index("by_isVault", ["isVault"])
+        .index("by_org_category", ["organizationId", "categorySlug"]),
 
     // ═══════════════════════════════════════════
     // 7. ARCHIVE CERTIFICATES
@@ -357,7 +427,62 @@ export default defineSchema({
         .index("by_plan", ["plan"]),
 
     // ═══════════════════════════════════════════
-    // 12. LEADS (prospects)
+    // 12. iASTED CONVERSATIONS
+    // ═══════════════════════════════════════════
+    iasted_conversations: defineTable({
+        organizationId: v.optional(v.id("organizations")),
+        userId: v.string(),
+        messages: v.array(
+            v.object({
+                role: v.union(v.literal("user"), v.literal("assistant")),
+                content: v.string(),
+                timestamp: v.number(),
+                context: v.optional(
+                    v.object({
+                        module: v.optional(v.string()),
+                        documentId: v.optional(v.string()),
+                    })
+                ),
+            })
+        ),
+        title: v.optional(v.string()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"])
+        .index("by_organizationId", ["organizationId"]),
+
+    // ═══════════════════════════════════════════
+    // 13. INVOICES (facturation détaillée)
+    // ═══════════════════════════════════════════
+    invoices: defineTable({
+        organizationId: v.id("organizations"),
+        invoiceNumber: v.string(),
+        amount: v.number(),
+        currency: v.string(),
+        status: v.union(
+            v.literal("paid"),
+            v.literal("pending"),
+            v.literal("failed"),
+            v.literal("cancelled")
+        ),
+        paymentMethod: v.union(
+            v.literal("mobile_money"),
+            v.literal("bank_transfer"),
+            v.literal("card")
+        ),
+        paymentDetails: v.optional(v.any()),
+        periodStart: v.number(),
+        periodEnd: v.number(),
+        paidAt: v.optional(v.number()),
+        createdAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_status", ["status"])
+        .index("by_invoiceNumber", ["invoiceNumber"]),
+
+    // ═══════════════════════════════════════════
+    // 14. LEADS (prospects)
     // ═══════════════════════════════════════════
     leads: defineTable({
         name: v.string(),

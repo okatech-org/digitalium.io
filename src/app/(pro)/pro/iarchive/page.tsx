@@ -2,14 +2,15 @@
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — iArchive: Dashboard
-// Overview with category cards, donut chart, timeline, alerts
+// Overview with category cards, charts, search, alerts, stats
 // ═══════════════════════════════════════════════
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
     Archive,
     Landmark,
@@ -27,6 +28,13 @@ import {
     CheckCircle2,
     Upload,
     TrendingUp,
+    Search,
+    Shield,
+    SlidersHorizontal,
+    CalendarPlus,
+    Eye,
+    HardDrive,
+    BarChart3,
 } from "lucide-react";
 import {
     PieChart,
@@ -34,7 +42,13 @@ import {
     Cell,
     ResponsiveContainer,
     Tooltip,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
 } from "recharts";
+import ArchiveSearchBar from "@/components/modules/iarchive/ArchiveSearchBar";
 
 // ─── Category config ────────────────────────────
 
@@ -123,6 +137,27 @@ const CATEGORIES = [
 
 const TOTAL_DOCS = CATEGORIES.reduce((s, c) => s + c.count, 0);
 const TOTAL_SIZE = CATEGORIES.reduce((s, c) => s + c.sizeGB, 0);
+const QUOTA_SIZE = 10; // Go
+
+// ─── Monthly bar chart data ─────────────────────
+
+const MONTHLY_DATA = [
+    { month: "Sep", count: 8 },
+    { month: "Oct", count: 12 },
+    { month: "Nov", count: 15 },
+    { month: "Déc", count: 9 },
+    { month: "Jan", count: 22 },
+    { month: "Fév", count: 18 },
+];
+
+// ─── File type distribution ─────────────────────
+
+const FILE_TYPES = [
+    { name: "PDF", value: 62, color: "#ef4444" },
+    { name: "Images", value: 21, color: "#3b82f6" },
+    { name: "Word", value: 12, color: "#8b5cf6" },
+    { name: "Excel", value: 5, color: "#10b981" },
+];
 
 // ─── Timeline data ──────────────────────────────
 
@@ -134,15 +169,17 @@ const TIMELINE = [
     { id: 5, title: "Brevet logiciel — iDETUDE v3", category: "vault", user: "Daniel Nguema", time: "Il y a 3j", hash: "92b5c8d1…1a4e", cert: "CERT-2026-07993" },
 ];
 
-// ─── Alerts data ────────────────────────────────
+// ─── Alerts data (enhanced with expiration alerts) ──
 
 const ALERTS = [
-    { id: 1, type: "expiration" as const, title: "Contrat SHO 2016 — expire dans 3 mois", category: "fiscal", severity: "warning" as const },
-    { id: 2, type: "expiration" as const, title: "Convention syndicale 2021 — expire dans 5 mois", category: "social", severity: "warning" as const },
-    { id: 3, type: "integrity" as const, title: "PV Assemblée 2024 — vérification d'intégrité recommandée", category: "legal", severity: "error" as const },
+    { id: 1, type: "expiration" as const, title: "Contrat SHO 2016 — expire dans 3 mois", category: "fiscal", severity: "warning" as const, expiresAt: Date.now() + 90 * 24 * 3600 * 1000, action: "extend" as const },
+    { id: 2, type: "expiration" as const, title: "Convention syndicale 2021 — expire dans 5 mois", category: "social", severity: "warning" as const, expiresAt: Date.now() + 150 * 24 * 3600 * 1000, action: "extend" as const },
+    { id: 3, type: "integrity" as const, title: "PV Assemblée 2024 — vérification d'intégrité recommandée", category: "legal", severity: "error" as const, expiresAt: 0, action: "verify" as const },
+    { id: 4, type: "expiration" as const, title: "Attestation CNSS 2021 — expire dans 15 jours", category: "social", severity: "error" as const, expiresAt: Date.now() + 15 * 24 * 3600 * 1000, action: "extend" as const },
+    { id: 5, type: "expiration" as const, title: "Contrat bail local B — expire dans 28 jours", category: "legal", severity: "error" as const, expiresAt: Date.now() + 28 * 24 * 3600 * 1000, action: "extend" as const },
 ];
 
-// ─── Donut chart data ───────────────────────────
+// ─── Chart data ─────────────────────────────────
 
 const CHART_DATA = CATEGORIES.map((c) => ({
     name: c.label,
@@ -151,6 +188,8 @@ const CHART_DATA = CATEGORIES.map((c) => ({
 }));
 
 export default function IArchiveDashboard() {
+    const [searchQuery, setSearchQuery] = useState("");
+
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             {/* ═══ HEADER ═══ */}
@@ -171,6 +210,12 @@ export default function IArchiveDashboard() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Link href="/pro/iarchive/certificates">
+                        <Button variant="outline" size="sm" className="text-xs border-white/10">
+                            <Shield className="h-3.5 w-3.5 mr-1.5" />
+                            Certificats
+                        </Button>
+                    </Link>
                     <Link href="/pro/iarchive/upload">
                         <Button
                             size="sm"
@@ -183,6 +228,23 @@ export default function IArchiveDashboard() {
                 </div>
             </motion.div>
 
+            {/* ═══ SEARCH BAR ═══ */}
+            <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.02 }}
+            >
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Rechercher dans les archives (titres, descriptions, contenu OCR, hash)…"
+                        className="h-9 pl-9 text-xs bg-white/5 border-white/10 focus-visible:ring-violet-500/30"
+                    />
+                </div>
+            </motion.div>
+
             {/* ═══ STATS BAR ═══ */}
             <motion.div
                 initial={{ opacity: 0, y: -5 }}
@@ -192,9 +254,9 @@ export default function IArchiveDashboard() {
             >
                 {[
                     { label: "Total archives", value: TOTAL_DOCS.toString(), icon: Archive, color: "text-violet-400" },
-                    { label: "Stockage utilisé", value: `${TOTAL_SIZE.toFixed(1)} Go`, icon: TrendingUp, color: "text-blue-400" },
+                    { label: "Stockage utilisé", value: `${TOTAL_SIZE.toFixed(1)} Go`, icon: HardDrive, color: "text-blue-400" },
                     { label: "Certificats émis", value: TOTAL_DOCS.toString(), icon: CheckCircle2, color: "text-emerald-400" },
-                    { label: "Alertes", value: ALERTS.length.toString(), icon: AlertTriangle, color: "text-amber-400" },
+                    { label: "Alertes actives", value: ALERTS.length.toString(), icon: AlertTriangle, color: "text-amber-400" },
                 ].map((stat, i) => {
                     const StatIcon = stat.icon;
                     return (
@@ -217,7 +279,7 @@ export default function IArchiveDashboard() {
                 })}
             </motion.div>
 
-            {/* ═══ CATEGORY CARDS + CHART ═══ */}
+            {/* ═══ CATEGORY CARDS + CHARTS ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Category cards (2 cols) */}
                 <div className="lg:col-span-2 space-y-3">
@@ -256,7 +318,6 @@ export default function IArchiveDashboard() {
                                             {cat.count} documents · {cat.sizeGB} Go
                                         </p>
 
-                                        {/* Progress gauge */}
                                         <div className="relative">
                                             <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                                                 <motion.div
@@ -279,73 +340,162 @@ export default function IArchiveDashboard() {
                     </div>
                 </div>
 
-                {/* Donut chart */}
-                <div className="space-y-3">
-                    <h2 className="text-sm font-semibold flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-blue-400" />
-                        Répartition
-                    </h2>
+                {/* Charts column */}
+                <div className="space-y-4">
+                    {/* Donut chart */}
+                    <div className="space-y-2">
+                        <h2 className="text-sm font-semibold flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-blue-400" />
+                            Répartition
+                        </h2>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.15 }}
+                            className="p-4 rounded-xl bg-white/[0.02] border border-white/5"
+                        >
+                            <ResponsiveContainer width="100%" height={180}>
+                                <PieChart>
+                                    <Pie
+                                        data={CHART_DATA}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={45}
+                                        outerRadius={70}
+                                        paddingAngle={3}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {CHART_DATA.map((entry, idx) => (
+                                            <Cell key={idx} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: "rgba(24,24,27,0.95)",
+                                            border: "1px solid rgba(255,255,255,0.1)",
+                                            borderRadius: "8px",
+                                            fontSize: "11px",
+                                        }}
+                                        formatter={(value: number, name: string) => [`${value} docs`, name]}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+
+                            <div className="space-y-1.5">
+                                {CATEGORIES.map((c) => (
+                                    <div
+                                        key={c.key}
+                                        className="flex items-center gap-2 text-[11px]"
+                                    >
+                                        <div
+                                            className="h-2.5 w-2.5 rounded-sm shrink-0"
+                                            style={{ backgroundColor: c.chartColor }}
+                                        />
+                                        <span className="text-zinc-400 flex-1 truncate">{c.label}</span>
+                                        <span className="text-zinc-300 font-medium">{c.count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    </div>
+
+                    {/* Storage gauge */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.15 }}
+                        transition={{ delay: 0.2 }}
                         className="p-4 rounded-xl bg-white/[0.02] border border-white/5"
                     >
-                        <ResponsiveContainer width="100%" height={200}>
-                            <PieChart>
-                                <Pie
-                                    data={CHART_DATA}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={80}
-                                    paddingAngle={3}
-                                    dataKey="value"
-                                    stroke="none"
-                                >
-                                    {CHART_DATA.map((entry, idx) => (
-                                        <Cell key={idx} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: "rgba(24,24,27,0.95)",
-                                        border: "1px solid rgba(255,255,255,0.1)",
-                                        borderRadius: "8px",
-                                        fontSize: "11px",
-                                    }}
-                                    formatter={(value: number, name: string) => [`${value} docs`, name]}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Espace stockage</span>
+                            <span className="text-xs font-medium">{TOTAL_SIZE.toFixed(1)} / {QUOTA_SIZE} Go</span>
+                        </div>
+                        <div className="h-2.5 rounded-full bg-white/5 overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(TOTAL_SIZE / QUOTA_SIZE) * 100}%` }}
+                                transition={{ delay: 0.4, duration: 0.8 }}
+                                className={`h-full rounded-full ${
+                                    TOTAL_SIZE / QUOTA_SIZE > 0.8
+                                        ? "bg-gradient-to-r from-red-500 to-red-400"
+                                        : TOTAL_SIZE / QUOTA_SIZE > 0.6
+                                        ? "bg-gradient-to-r from-amber-500 to-amber-400"
+                                        : "bg-gradient-to-r from-violet-500 to-indigo-400"
+                                }`}
+                            />
+                        </div>
+                        <p className="text-[9px] text-zinc-500 mt-1">
+                            {Math.round((TOTAL_SIZE / QUOTA_SIZE) * 100)}% utilisé
+                        </p>
+                    </motion.div>
 
-                        {/* Legend */}
-                        <div className="space-y-1.5 mt-2">
-                            {CATEGORIES.map((c) => (
-                                <div
-                                    key={c.key}
-                                    className="flex items-center gap-2 text-[11px]"
-                                >
-                                    <div
-                                        className="h-2.5 w-2.5 rounded-sm shrink-0"
-                                        style={{ backgroundColor: c.chartColor }}
-                                    />
-                                    <span className="text-zinc-400 flex-1 truncate">{c.label}</span>
-                                    <span className="text-zinc-300 font-medium">{c.count}</span>
+                    {/* File type pie */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.25 }}
+                        className="p-4 rounded-xl bg-white/[0.02] border border-white/5"
+                    >
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 block">Types de fichier</span>
+                        <div className="space-y-1.5">
+                            {FILE_TYPES.map((ft) => (
+                                <div key={ft.name} className="flex items-center gap-2">
+                                    <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: ft.color }} />
+                                    <span className="text-[11px] text-zinc-400 flex-1">{ft.name}</span>
+                                    <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full"
+                                            style={{ width: `${ft.value}%`, backgroundColor: ft.color }}
+                                        />
+                                    </div>
+                                    <span className="text-[10px] text-zinc-300 w-8 text-right">{ft.value}%</span>
                                 </div>
                             ))}
-                        </div>
-
-                        {/* Center text */}
-                        <div className="text-center mt-3 pt-3 border-t border-white/5">
-                            <p className="text-2xl font-bold">{TOTAL_DOCS}</p>
-                            <p className="text-[10px] text-zinc-500">Total archives</p>
                         </div>
                     </motion.div>
                 </div>
             </div>
 
-            {/* ═══ ALERTS ═══ */}
+            {/* ═══ MONTHLY BAR CHART ═══ */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.18 }}
+                className="space-y-3"
+            >
+                <h2 className="text-sm font-semibold flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-violet-400" />
+                    Volume d&apos;archivage par mois
+                </h2>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                    <ResponsiveContainer width="100%" height={160}>
+                        <BarChart data={MONTHLY_DATA}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                            <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#71717a" }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: "#71717a" }} axisLine={false} tickLine={false} />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: "rgba(24,24,27,0.95)",
+                                    border: "1px solid rgba(255,255,255,0.1)",
+                                    borderRadius: "8px",
+                                    fontSize: "11px",
+                                }}
+                                formatter={(value: number) => [`${value} archives`, "Volume"]}
+                            />
+                            <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} />
+                            <defs>
+                                <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#7c3aed" />
+                                    <stop offset="100%" stopColor="#6366f1" />
+                                </linearGradient>
+                            </defs>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </motion.div>
+
+            {/* ═══ ALERTS (enhanced) ═══ */}
             {ALERTS.length > 0 && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -355,7 +505,7 @@ export default function IArchiveDashboard() {
                 >
                     <h2 className="text-sm font-semibold flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4 text-amber-400" />
-                        Alertes
+                        Alertes d&apos;expiration
                         <Badge variant="outline" className="text-[9px] h-4 ml-1 border-amber-500/20 text-amber-400">
                             {ALERTS.length}
                         </Badge>
@@ -385,16 +535,39 @@ export default function IArchiveDashboard() {
                                     </p>
                                     <p className="text-[10px] text-zinc-500 capitalize">{alert.category}</p>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className={`h-6 text-[10px] ${alert.severity === "error"
-                                            ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                            : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                                        }`}
-                                >
-                                    {alert.type === "integrity" ? "Vérifier" : "Voir"}
-                                </Button>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {alert.action === "extend" && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={`h-6 text-[10px] ${
+                                                alert.severity === "error"
+                                                    ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                    : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                                            }`}
+                                        >
+                                            <CalendarPlus className="h-2.5 w-2.5 mr-1" />
+                                            Prolonger
+                                        </Button>
+                                    )}
+                                    {alert.action === "verify" && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                        >
+                                            <Shield className="h-2.5 w-2.5 mr-1" />
+                                            Vérifier
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-zinc-500 hover:text-zinc-300"
+                                    >
+                                        <Eye className="h-3 w-3" />
+                                    </Button>
+                                </div>
                             </motion.div>
                         ))}
                     </div>

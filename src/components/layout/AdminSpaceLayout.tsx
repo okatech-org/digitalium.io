@@ -52,6 +52,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
+import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { ADMIN_PAGE_INFO } from "@/config/page-info/admin";
 import {
     Tooltip,
@@ -401,7 +402,7 @@ export default function AdminSpaceLayout({
                             {(() => {
                                 const segment = pathname === "/admin" ? "dashboard" : pathname.replace("/admin/", "");
                                 const info = ADMIN_PAGE_INFO[segment];
-                                return info ? <PageInfoButton info={info} accentColor="blue" /> : null;
+                                return info ? <><PageArchitectButton info={info} accentColor="blue" /><PageInfoButton info={info} accentColor="blue" /></> : null;
                             })()}
 
                             {/* Notifications */}

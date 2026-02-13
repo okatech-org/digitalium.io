@@ -128,6 +128,292 @@ export const createArchiveEntry = mutation({
     },
 });
 
+// ─── List Certificates ───────────────────────────
+
+export const listCertificates = query({
+    args: {
+        organizationId: v.optional(v.id("organizations")),
+    },
+    handler: async (ctx, args) => {
+        const certs = await ctx.db
+            .query("archive_certificates")
+            .order("desc")
+            .collect();
+
+        // Enrich with archive data
+        const enriched = await Promise.all(
+            certs.map(async (cert) => {
+                const archive = await ctx.db.get(cert.archiveId);
+                if (
+                    args.organizationId &&
+                    archive?.organizationId !== args.organizationId
+                ) {
+                    return null;
+                }
+                return { ...cert, archive };
+            })
+        );
+
+        return enriched.filter(Boolean);
+    },
+});
+
+export const getCertificateByNumber = query({
+    args: { certificateNumber: v.string() },
+    handler: async (ctx, args) => {
+        const cert = await ctx.db
+            .query("archive_certificates")
+            .withIndex("by_certificateNumber", (q) =>
+                q.eq("certificateNumber", args.certificateNumber)
+            )
+            .first();
+        if (!cert) return null;
+
+        const archive = await ctx.db.get(cert.archiveId);
+        return { ...cert, archive };
+    },
+});
+
+// ─── Verify Integrity ────────────────────────────
+
+export const verifyIntegrity = mutation({
+    args: {
+        archiveId: v.id("archives"),
+        currentHash: v.string(),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const archive = await ctx.db.get(args.archiveId);
+        if (!archive) throw new Error("Archive not found");
+
+        const isValid = archive.sha256Hash === args.currentHash;
+        const now = Date.now();
+
+        // Log in audit
+        await ctx.db.insert("audit_logs", {
+            organizationId: archive.organizationId,
+            userId: args.userId,
+            action: isValid
+                ? "archive.integrity_verified"
+                : "archive.integrity_failed",
+            resourceType: "archive",
+            resourceId: args.archiveId,
+            details: {
+                originalHash: archive.sha256Hash,
+                currentHash: args.currentHash,
+                isValid,
+            },
+            createdAt: now,
+        });
+
+        return {
+            isValid,
+            originalHash: archive.sha256Hash,
+            currentHash: args.currentHash,
+            verifiedAt: now,
+        };
+    },
+});
+
+// ─── Expiration Alerts ───────────────────────────
+
+export const getExpiringArchives = query({
+    args: {
+        organizationId: v.optional(v.id("organizations")),
+        daysThreshold: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const threshold = args.daysThreshold ?? 30;
+        const now = Date.now();
+        const cutoff = now + threshold * 24 * 3600 * 1000;
+
+        let archives;
+        if (args.organizationId) {
+            archives = await ctx.db
+                .query("archives")
+                .withIndex("by_organizationId", (q) =>
+                    q.eq("organizationId", args.organizationId!)
+                )
+                .collect();
+        } else {
+            archives = await ctx.db.query("archives").collect();
+        }
+
+        return archives.filter(
+            (a) =>
+                a.status === "active" &&
+                a.retentionExpiresAt <= cutoff &&
+                a.retentionExpiresAt > now
+        );
+    },
+});
+
+// ─── Extend Retention ────────────────────────────
+
+export const extendRetention = mutation({
+    args: {
+        archiveId: v.id("archives"),
+        additionalYears: v.number(),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const archive = await ctx.db.get(args.archiveId);
+        if (!archive) throw new Error("Archive not found");
+
+        const extraMs = args.additionalYears * 365.25 * 24 * 3600 * 1000;
+        const newExpiry = archive.retentionExpiresAt + extraMs;
+        const newRetention = archive.retentionYears + args.additionalYears;
+
+        await ctx.db.patch(args.archiveId, {
+            retentionExpiresAt: newExpiry,
+            retentionYears: newRetention,
+            updatedAt: Date.now(),
+        });
+
+        // Also update certificate validity if exists
+        if (archive.certificateId) {
+            await ctx.db.patch(archive.certificateId, {
+                validUntil: newExpiry,
+            });
+        }
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: archive.organizationId,
+            userId: args.userId,
+            action: "archive.retention_extended",
+            resourceType: "archive",
+            resourceId: args.archiveId,
+            details: {
+                additionalYears: args.additionalYears,
+                newRetentionYears: newRetention,
+                newExpiresAt: newExpiry,
+            },
+            createdAt: Date.now(),
+        });
+    },
+});
+
+// ─── Revoke Certificate ──────────────────────────
+
+export const revokeCertificate = mutation({
+    args: {
+        certificateId: v.id("archive_certificates"),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const cert = await ctx.db.get(args.certificateId);
+        if (!cert) throw new Error("Certificate not found");
+
+        await ctx.db.patch(args.certificateId, { status: "revoked" });
+
+        const archive = await ctx.db.get(cert.archiveId);
+
+        await ctx.db.insert("audit_logs", {
+            organizationId: archive?.organizationId,
+            userId: args.userId,
+            action: "archive.certificate_revoked",
+            resourceType: "archive",
+            resourceId: cert.archiveId,
+            details: { certificateNumber: cert.certificateNumber },
+            createdAt: Date.now(),
+        });
+    },
+});
+
+// ─── Update Archive Metadata (OCR, etc) ──────────
+
+export const updateMetadata = mutation({
+    args: {
+        archiveId: v.id("archives"),
+        ocrText: v.optional(v.string()),
+        extractedData: v.optional(v.any()),
+        confidentiality: v.optional(
+            v.union(
+                v.literal("public"),
+                v.literal("internal"),
+                v.literal("confidential"),
+                v.literal("secret")
+            )
+        ),
+    },
+    handler: async (ctx, args) => {
+        const archive = await ctx.db.get(args.archiveId);
+        if (!archive) throw new Error("Archive not found");
+
+        const metadata = { ...archive.metadata };
+        if (args.ocrText !== undefined) metadata.ocrText = args.ocrText;
+        if (args.extractedData !== undefined)
+            metadata.extractedData = args.extractedData;
+        if (args.confidentiality !== undefined)
+            metadata.confidentiality = args.confidentiality;
+
+        await ctx.db.patch(args.archiveId, {
+            metadata,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+// ─── Search Archives ─────────────────────────────
+
+export const search = query({
+    args: {
+        organizationId: v.optional(v.id("organizations")),
+        query: v.string(),
+        category: v.optional(archiveCategory),
+        status: v.optional(
+            v.union(
+                v.literal("active"),
+                v.literal("expired"),
+                v.literal("on_hold"),
+                v.literal("destroyed")
+            )
+        ),
+        mimeType: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        let archives;
+        if (args.organizationId && args.category) {
+            archives = await ctx.db
+                .query("archives")
+                .withIndex("by_org_category", (q) =>
+                    q
+                        .eq("organizationId", args.organizationId!)
+                        .eq("category", args.category!)
+                )
+                .collect();
+        } else if (args.organizationId) {
+            archives = await ctx.db
+                .query("archives")
+                .withIndex("by_organizationId", (q) =>
+                    q.eq("organizationId", args.organizationId!)
+                )
+                .collect();
+        } else {
+            archives = await ctx.db.query("archives").collect();
+        }
+
+        const q = args.query.toLowerCase();
+
+        return archives.filter((a) => {
+            if (args.status && a.status !== args.status) return false;
+            if (args.mimeType && !a.mimeType.includes(args.mimeType))
+                return false;
+
+            const matchTitle = a.title.toLowerCase().includes(q);
+            const matchDesc =
+                a.description?.toLowerCase().includes(q) ?? false;
+            const matchOcr =
+                a.metadata?.ocrText?.toLowerCase().includes(q) ?? false;
+            const matchHash = a.sha256Hash.toLowerCase().includes(q);
+            const matchFile = a.fileName.toLowerCase().includes(q);
+
+            return matchTitle || matchDesc || matchOcr || matchHash || matchFile;
+        });
+    },
+});
+
 export const createCertificate = mutation({
     args: {
         archiveId: v.id("archives"),

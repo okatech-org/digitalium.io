@@ -1,0 +1,16 @@
+{
+  "name": "DIGITALIUM.IO",
+  "short_name": "Digitalium",
+  "description": "Plateforme d'archivage intelligent et de gestion documentaire pour le Gabon",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

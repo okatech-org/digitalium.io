@@ -1,96 +1,148 @@
-// ═══════════════════════════════════════════════
-// DIGITALIUM.IO — Page: Signatures en Attente
-// ═══════════════════════════════════════════════
-
 "use client";
 
-import React from "react";
-import { motion } from "framer-motion";
-import { Clock, Search, Plus, Filter, Download, ChevronRight } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+// ═══════════════════════════════════════════════
+// DIGITALIUM.IO — iSignature: Pending Page
+// Documents awaiting my signature
+// ═══════════════════════════════════════════════
 
-export default function SignaturesenAttentePage() {
+import React from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    ArrowLeft,
+    Clock,
+    PenTool,
+    Calendar,
+    CheckCircle2,
+    ChevronRight,
+    AlertTriangle,
+} from "lucide-react";
+
+const PENDING = [
+    {
+        id: "sig-1",
+        title: "Contrat prestation SOGARA — Q2 2026",
+        requester: "Daniel Nguema",
+        avatar: "DN",
+        deadline: Date.now() + 3 * 24 * 3600 * 1000,
+        signers: 2,
+        signed: 1,
+    },
+    {
+        id: "sig-2",
+        title: "Avenant bail Immeuble Triomphal 2026",
+        requester: "Marie Obame",
+        avatar: "MO",
+        deadline: Date.now() + 7 * 24 * 3600 * 1000,
+        signers: 1,
+        signed: 0,
+    },
+    {
+        id: "sig-3",
+        title: "Procuration générale — Mission Afrique du Sud",
+        requester: "Aimée Gondjout",
+        avatar: "AG",
+        deadline: Date.now() + 2 * 24 * 3600 * 1000,
+        signers: 2,
+        signed: 0,
+    },
+];
+
+function daysUntil(ts: number): number {
+    return Math.max(0, Math.ceil((ts - Date.now()) / (24 * 3600 * 1000)));
+}
+
+export default function PendingSignaturesPage() {
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                className="flex items-center gap-3"
             >
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center">
-                        <Clock className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold">En Attente de Signature</h1>
-                        <p className="text-xs text-muted-foreground">Documents nécessitant votre signature.</p>
-                    </div>
+                <Link href="/pro/isignature">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white/5">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                </Link>
+                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-600 to-orange-500 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-white" />
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="text-xs border-white/10">
-                        <Filter className="h-3.5 w-3.5 mr-1.5" />Filtrer
-                    </Button>
-                    <Button size="sm" className="text-xs bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600">
-                        <Plus className="h-3.5 w-3.5 mr-1.5" />Nouveau
-                    </Button>
+                <div>
+                    <h1 className="text-xl font-bold">En attente de ma signature</h1>
+                    <p className="text-xs text-muted-foreground">
+                        {PENDING.length} document{PENDING.length > 1 ? "s" : ""} en attente
+                    </p>
                 </div>
             </motion.div>
 
-            {/* Search */}
-            <Card className="glass border-white/5">
-                <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input placeholder="Rechercher…" className="h-8 pl-8 text-xs bg-white/5 border-white/10 focus-visible:ring-violet-500/30" />
-                        </div>
-                        <Button variant="outline" size="sm" className="text-xs border-white/10 h-8">
-                            <Download className="h-3.5 w-3.5 mr-1.5" />Exporter
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* List */}
+            <div className="space-y-2">
+                {PENDING.map((item, i) => {
+                    const days = daysUntil(item.deadline);
+                    const urgent = days <= 2;
 
-            {/* Content */}
-            <Card className="glass border-white/5">
-                <CardHeader>
-                    <CardTitle className="text-base">Contenu</CardTitle>
-                    <CardDescription className="text-xs">
-                        Les données apparaîtront ici une fois connectées à Convex.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-1">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <React.Fragment key={i}>
-                                <div className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-white/3 transition-colors cursor-pointer group">
-                                    <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                                        <Clock className="h-4 w-4 text-violet-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate group-hover:text-violet-300 transition-colors">
-                                            Élément {i} — Signatures en Attente
-                                        </p>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Dernière modification il y a {i}h
-                                        </p>
-                                    </div>
-                                    <Badge variant="secondary" className="text-[10px] h-5 bg-violet-500/15 text-violet-300 border-0">
-                                        Actif
-                                    </Badge>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                    return (
+                        <Link key={item.id} href={`/pro/isignature/${item.id}`}>
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer group ${
+                                    urgent
+                                        ? "bg-red-500/5 border-red-500/15 hover:border-red-500/30"
+                                        : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                                }`}
+                            >
+                                {/* Avatar */}
+                                <div className="h-10 w-10 rounded-full bg-violet-500/15 flex items-center justify-center shrink-0">
+                                    <span className="text-xs text-violet-300 font-bold">{item.avatar}</span>
                                 </div>
-                                {i < 5 && <Separator className="bg-white/3" />}
-                            </React.Fragment>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
+
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate group-hover:text-violet-300 transition-colors">
+                                        {item.title}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-[11px] text-zinc-500">Par {item.requester}</span>
+                                        <span className="text-[11px] text-zinc-600">·</span>
+                                        <span className={`text-[11px] flex items-center gap-0.5 ${urgent ? "text-red-400 font-medium" : "text-zinc-500"}`}>
+                                            {urgent && <AlertTriangle className="h-2.5 w-2.5" />}
+                                            <Calendar className="h-2.5 w-2.5" />
+                                            {days === 0 ? "Aujourd'hui" : days === 1 ? "Demain" : `${days} jours`}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Progress */}
+                                <div className="text-right shrink-0">
+                                    <span className="text-[10px] text-zinc-400 font-mono">{item.signed}/{item.signers}</span>
+                                    <div className="h-1 w-10 rounded-full bg-white/5 mt-1 overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full bg-violet-500"
+                                            style={{ width: `${(item.signed / item.signers) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Action */}
+                                <Button
+                                    size="sm"
+                                    className="h-8 text-xs bg-gradient-to-r from-violet-600 to-indigo-500 shrink-0"
+                                    onClick={(e) => e.preventDefault()}
+                                >
+                                    <PenTool className="h-3.5 w-3.5 mr-1" />
+                                    Signer
+                                </Button>
+                            </motion.div>
+                        </Link>
+                    );
+                })}
+            </div>
         </div>
     );
 }

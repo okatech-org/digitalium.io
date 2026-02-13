@@ -6,8 +6,9 @@
 // ═══════════════════════════════════════════════
 
 import type { PageInfoMap } from "@/types/page-info";
+import { injectArchitecture } from "./architecture-data";
 
-export const SUBADMIN_PAGE_INFO: PageInfoMap = {
+export const SUBADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
 
     /* ─── Dashboard ──────────────────────────── */
 
@@ -372,5 +373,5 @@ export const SUBADMIN_PAGE_INFO: PageInfoMap = {
         tachesDisponibles: ["Modifier votre profil", "Changer le thème"],
         liens: [],
     },
-};
+});
 

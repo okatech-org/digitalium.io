@@ -3,8 +3,9 @@
 // ═══════════════════════════════════════════════
 
 import type { PageInfoMap } from "@/types/page-info";
+import { injectArchitecture } from "./architecture-data";
 
-export const SYSADMIN_PAGE_INFO: PageInfoMap = {
+export const SYSADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
     dashboard: {
         pageId: "sysadmin-dashboard",
         titre: "Dashboard Système",
@@ -333,4 +334,4 @@ export const SYSADMIN_PAGE_INFO: PageInfoMap = {
         ],
         liens: [],
     },
-};
+});

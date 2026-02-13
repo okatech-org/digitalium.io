@@ -63,7 +63,9 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
+import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { PRO_PAGE_INFO } from "@/config/page-info/pro";
+import { AstedChat } from "@/components/modules/iasted";
 import {
     Tooltip,
     TooltipContent,
@@ -114,6 +116,7 @@ const NAV_SECTIONS: NavSection[] = [
             { label: "Juridique", href: "/pro/iarchive/legal", icon: Scale },
             { label: "Client", href: "/pro/iarchive/client", icon: Building2 },
             { label: "Coffre-Fort", href: "/pro/iarchive/vault", icon: Lock },
+            { label: "Certificats", href: "/pro/iarchive/certificates", icon: Shield },
             { label: "Upload", href: "/pro/iarchive/upload", icon: Upload },
         ],
     },
@@ -121,8 +124,9 @@ const NAV_SECTIONS: NavSection[] = [
         title: "Signatures",
         items: [
             { label: "iSignature", href: "/pro/isignature", icon: PenTool },
-            { label: "En attente", href: "/pro/isignature/pending", icon: Clock, badge: 4 },
+            { label: "En attente", href: "/pro/isignature/pending", icon: Clock, badge: 3 },
             { label: "Workflows", href: "/pro/isignature/workflows", icon: Workflow },
+            { label: "Analytics Sig.", href: "/pro/isignature/analytics", icon: ChartArea },
         ],
     },
     {
@@ -161,6 +165,8 @@ const ROUTE_LABELS: Record<string, string> = {
     social: "Social",
     legal: "Juridique",
     vault: "Coffre-Fort",
+    certificates: "Certificats",
+    upload: "Upload",
     pending: "En attente",
     workflows: "Workflows",
     analytics: "Analytics",
@@ -488,7 +494,7 @@ export default function ProLayout({
                             {(() => {
                                 const segment = pathname === "/pro" ? "dashboard" : pathname.replace("/pro/", "");
                                 const info = PRO_PAGE_INFO[segment];
-                                return info ? <PageInfoButton info={info} accentColor="violet" /> : null;
+                                return info ? <><PageArchitectButton info={info} accentColor="violet" /><PageInfoButton info={info} accentColor="violet" /></> : null;
                             })()}
 
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">
@@ -540,6 +546,9 @@ export default function ProLayout({
                         {children}
                     </main>
                 </div>
+
+                {/* Floating AI Chat */}
+                <AstedChat />
             </div>
         </TooltipProvider>
     );

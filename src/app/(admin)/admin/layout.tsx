@@ -1,14 +1,15 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Admin sub-layout
-// Wraps /admin/* pages in AdminSpaceLayout
+// Wraps /admin/* pages in AdminUnifiedLayout
+// Unified: Business + Infrastructure + Modules
 // ═══════════════════════════════════════════════
 
-import AdminSpaceLayout from "@/components/layout/AdminSpaceLayout";
+import AdminUnifiedLayout from "@/components/layout/AdminUnifiedLayout";
 
 export default function AdminSubLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    return <AdminSpaceLayout>{children}</AdminSpaceLayout>;
+    return <AdminUnifiedLayout>{children}</AdminUnifiedLayout>;
 }

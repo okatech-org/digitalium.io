@@ -46,6 +46,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
+import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { INSTITUTIONAL_PAGE_INFO } from "@/config/page-info/institutional";
 import {
     DropdownMenu,
@@ -385,7 +386,7 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                         {(() => {
                             const segment = pathname === "/institutional" ? "institutional" : pathname.replace("/institutional/", "");
                             const info = INSTITUTIONAL_PAGE_INFO[segment];
-                            return info ? <PageInfoButton info={info} accentColor="emerald" /> : null;
+                            return info ? <><PageArchitectButton info={info} accentColor="emerald" /><PageInfoButton info={info} accentColor="emerald" /></> : null;
                         })()}
 
                         {/* Notifications */}

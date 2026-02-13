@@ -59,6 +59,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
+import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { SYSADMIN_PAGE_INFO } from "@/config/page-info/sysadmin";
 import {
     Tooltip,
@@ -490,7 +491,7 @@ export default function SysAdminSpaceLayout({
                             {(() => {
                                 const segment = pathname === "/sysadmin" ? "dashboard" : pathname.replace("/sysadmin/", "");
                                 const info = SYSADMIN_PAGE_INFO[segment];
-                                return info ? <PageInfoButton info={info} accentColor="orange" /> : null;
+                                return info ? <><PageArchitectButton info={info} accentColor="orange" /><PageInfoButton info={info} accentColor="orange" /></> : null;
                             })()}
 
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">

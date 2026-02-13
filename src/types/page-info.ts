@@ -15,6 +15,16 @@ export interface LienInfo {
     route: string;
 }
 
+export interface ArchitectureInfo {
+    stack: string[];
+    pattern: string;
+    dataFlow: string;
+    diagram: string;
+    keyComponents: string[];
+    apiEndpoints?: string[];
+    stateManagement?: string;
+}
+
 export interface PageInfo {
     pageId: string;
     titre: string;
@@ -24,6 +34,7 @@ export interface PageInfo {
     tachesDisponibles: string[];
     liens: LienInfo[];
     conseil?: string;
+    architecture?: ArchitectureInfo;
 }
 
 export type PageInfoMap = Record<string, PageInfo>;
