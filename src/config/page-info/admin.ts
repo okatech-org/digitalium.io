@@ -203,6 +203,9 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
             { page: "Profil Entreprise", relation: "Informations légales", route: "/admin/digitalium/profile" },
             { page: "Équipe", relation: "Membres DIGITALIUM", route: "/admin/digitalium/team" },
             { page: "Bureaux", relation: "Implantations", route: "/admin/digitalium/offices" },
+            { page: "iDocument", relation: "Gestion documentaire", route: "/admin/digitalium/idocument" },
+            { page: "iArchive", relation: "Archivage légal", route: "/admin/digitalium/iarchive" },
+            { page: "iSignature", relation: "Signature électronique", route: "/admin/digitalium/isignature" },
         ],
     },
     "digitalium/profile": {
@@ -265,6 +268,72 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
         liens: [
             { page: "Dashboard DIGITALIUM", relation: "Vue d'ensemble", route: "/admin/digitalium" },
             { page: "Équipe", relation: "Membres par bureau", route: "/admin/digitalium/team" },
+        ],
+    },
+    "digitalium/idocument": {
+        pageId: "digitalium-idocument",
+        titre: "iDocument — DIGITALIUM",
+        but: "Gestion documentaire interne de DIGITALIUM.",
+        description: "Accès au gestionnaire de documents interne : création, édition, organisation en dossiers, recherche et filtres.",
+        elements: [
+            { nom: "Gestionnaire de fichiers", type: "autre", description: "Vue grille/liste avec dossiers et documents" },
+            { nom: "Recherche et filtres", type: "filtre", description: "Recherche par nom, auteur, tags, statut" },
+            { nom: "Bouton Nouveau", type: "bouton", description: "Crée un nouveau document" },
+        ],
+        tachesDisponibles: [
+            "Créer un document",
+            "Rechercher et filtrer les documents",
+            "Organiser les dossiers",
+        ],
+        liens: [
+            { page: "Dashboard DIGITALIUM", relation: "Vue d'ensemble", route: "/admin/digitalium" },
+            { page: "iArchive", relation: "Archivage légal", route: "/admin/digitalium/iarchive" },
+            { page: "iSignature", relation: "Signature électronique", route: "/admin/digitalium/isignature" },
+        ],
+    },
+    "digitalium/iarchive": {
+        pageId: "digitalium-iarchive",
+        titre: "iArchive — DIGITALIUM",
+        but: "Archivage légal interne de DIGITALIUM.",
+        description: "Dashboard d'archivage avec catégories (Fiscal, Social, Juridique, Clients, Coffre-Fort), graphiques de répartition, timeline d'activité et alertes d'expiration.",
+        elements: [
+            { nom: "Cartes KPI", type: "carte", description: "Total archives, stockage, certificats, alertes" },
+            { nom: "Cartes catégories", type: "carte", description: "5 catégories avec compteurs et barres de progression" },
+            { nom: "Graphiques", type: "graphique", description: "Répartition par catégorie et archivages mensuels" },
+            { nom: "Timeline", type: "tableau", description: "Activité récente avec hash et certificats" },
+            { nom: "Alertes", type: "carte", description: "Alertes d'expiration et de vérification d'intégrité" },
+        ],
+        tachesDisponibles: [
+            "Consulter les archives par catégorie",
+            "Vérifier les alertes d'expiration",
+            "Analyser la répartition des archives",
+        ],
+        liens: [
+            { page: "Dashboard DIGITALIUM", relation: "Vue d'ensemble", route: "/admin/digitalium" },
+            { page: "iDocument", relation: "Gestion documentaire", route: "/admin/digitalium/idocument" },
+            { page: "iSignature", relation: "Signature électronique", route: "/admin/digitalium/isignature" },
+        ],
+    },
+    "digitalium/isignature": {
+        pageId: "digitalium-isignature",
+        titre: "iSignature — DIGITALIUM",
+        but: "Signature électronique interne de DIGITALIUM.",
+        description: "Gestion des demandes de signature avec 3 onglets (À signer, En attente, Signés), recherche, détails des signataires avec progression.",
+        elements: [
+            { nom: "Cartes KPI", type: "carte", description: "À signer, en attente, complétés" },
+            { nom: "Onglets", type: "autre", description: "3 onglets : À signer, En attente, Signés" },
+            { nom: "Liste de demandes", type: "tableau", description: "Demandes avec signataires, progression et actions" },
+            { nom: "Bouton Nouvelle demande", type: "bouton", description: "Ouvre le modal de demande de signature" },
+        ],
+        tachesDisponibles: [
+            "Signer un document en attente",
+            "Créer une nouvelle demande de signature",
+            "Suivre les signatures en cours",
+        ],
+        liens: [
+            { page: "Dashboard DIGITALIUM", relation: "Vue d'ensemble", route: "/admin/digitalium" },
+            { page: "iDocument", relation: "Gestion documentaire", route: "/admin/digitalium/idocument" },
+            { page: "iArchive", relation: "Archivage légal", route: "/admin/digitalium/iarchive" },
         ],
     },
     "digitalium/settings": {
@@ -455,12 +524,11 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
             { nom: "Configurations récentes", type: "tableau", description: "Dernières activations et modifications" },
             { nom: "Actions rapides", type: "bouton", description: "Nouveau client, liens config modules" },
         ],
-        tachesDisponibles: ["Consulter les clients et leurs modules", "Créer un nouveau client", "Accéder aux configs modules"],
+        tachesDisponibles: ["Consulter les clients et leurs modules", "Créer un nouveau client", "Consulter le design system"],
         liens: [
             { page: "Clients", relation: "Liste complète des clients", route: "/admin/modules/clients" },
-            { page: "Config iDocument", relation: "Configuration globale iDocument", route: "/admin/modules/config/idocument" },
-            { page: "Config iArchive", relation: "Configuration globale iArchive", route: "/admin/modules/config/iarchive" },
-            { page: "Config iSignature", relation: "Configuration globale iSignature", route: "/admin/modules/config/isignature" },
+            { page: "Nouveau client", relation: "Wizard de création", route: "/admin/modules/clients/new" },
+            { page: "Design System", relation: "Thème et couleurs", route: "/admin/modules/design-theme" },
         ],
     },
     "modules/clients": {
@@ -508,75 +576,6 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
         ],
         liens: [
             { page: "Clients", relation: "Liste des clients", route: "/admin/modules/clients" },
-        ],
-    },
-    "modules/config/idocument": {
-        pageId: "admin-modules-config-idocument",
-        titre: "Configuration iDocument",
-        but: "Paramètres globaux du module de gestion documentaire.",
-        description: "Feature flags (module, templates, archivage auto, import en masse, versionnage), templates par défaut, politiques de stockage (taille max, types, rétention), quotas par plan.",
-        elements: [
-            { nom: "Feature flags", type: "bouton", description: "Toggles pour activer/désactiver les fonctionnalités" },
-            { nom: "Templates par défaut", type: "tableau", description: "Modèles de documents disponibles pour tous les clients" },
-            { nom: "Politiques stockage", type: "carte", description: "Taille max, types autorisés, rétention corbeille" },
-            { nom: "Quotas par plan", type: "tableau", description: "Limites par plan (Starter, Pro, Enterprise)" },
-        ],
-        tachesDisponibles: [
-            "Activer ou désactiver des fonctionnalités",
-            "Gérer les templates par défaut",
-            "Configurer les politiques de stockage",
-            "Ajuster les quotas par plan",
-        ],
-        liens: [
-            { page: "Dashboard Modules", relation: "Vue d'ensemble", route: "/admin/modules" },
-            { page: "Config iArchive", relation: "Module d'archivage", route: "/admin/modules/config/iarchive" },
-            { page: "Config iSignature", relation: "Module de signature", route: "/admin/modules/config/isignature" },
-        ],
-    },
-    "modules/config/iarchive": {
-        pageId: "admin-modules-config-iarchive",
-        titre: "Configuration iArchive",
-        but: "Paramètres globaux du module d'archivage légal.",
-        description: "Feature flags (module, coffre-fort, certificats, rétention auto, OCR, catégories dynamiques), catégories par défaut, templates certificats, politiques de rétention par catégorie.",
-        elements: [
-            { nom: "Feature flags", type: "bouton", description: "Toggles pour activer/désactiver les fonctionnalités" },
-            { nom: "Catégories par défaut", type: "carte", description: "Fiscal, Social, Juridique, Clients, Coffre-Fort" },
-            { nom: "Templates certificats", type: "tableau", description: "Modèles de certificats d'archivage" },
-            { nom: "Politiques rétention", type: "tableau", description: "Durée de rétention par catégorie" },
-        ],
-        tachesDisponibles: [
-            "Activer ou désactiver des fonctionnalités",
-            "Gérer les catégories par défaut",
-            "Configurer les templates de certificats",
-            "Ajuster les politiques de rétention",
-        ],
-        liens: [
-            { page: "Dashboard Modules", relation: "Vue d'ensemble", route: "/admin/modules" },
-            { page: "Config iDocument", relation: "Module documentaire", route: "/admin/modules/config/idocument" },
-            { page: "Config iSignature", relation: "Module de signature", route: "/admin/modules/config/isignature" },
-        ],
-    },
-    "modules/config/isignature": {
-        pageId: "admin-modules-config-isignature",
-        titre: "Configuration iSignature",
-        but: "Paramètres globaux du module de signature électronique.",
-        description: "Feature flags (module, signature avancée, multi-signataires, délégation, horodatage, audit trail), fournisseurs (DIGITALIUM Signer, DocuSign, Yousign), conformité, workflows par défaut.",
-        elements: [
-            { nom: "Feature flags", type: "bouton", description: "Toggles pour activer/désactiver les fonctionnalités" },
-            { nom: "Fournisseurs", type: "carte", description: "Fournisseurs de signature disponibles avec statut" },
-            { nom: "Conformité", type: "carte", description: "Niveau certification, vérification identité, algorithme" },
-            { nom: "Workflows par défaut", type: "carte", description: "Circuits de signature pré-configurés" },
-        ],
-        tachesDisponibles: [
-            "Activer ou désactiver des fonctionnalités",
-            "Configurer les fournisseurs de signature",
-            "Ajuster les paramètres de conformité",
-            "Gérer les workflows par défaut",
-        ],
-        liens: [
-            { page: "Dashboard Modules", relation: "Vue d'ensemble", route: "/admin/modules" },
-            { page: "Config iDocument", relation: "Module documentaire", route: "/admin/modules/config/idocument" },
-            { page: "Config iArchive", relation: "Module d'archivage", route: "/admin/modules/config/iarchive" },
         ],
     },
     "modules/design-theme": {

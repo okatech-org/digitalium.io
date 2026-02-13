@@ -224,14 +224,6 @@ const MODULES_NAV: NavSection[] = [
         ],
     },
     {
-        title: "Configuration Modules",
-        items: [
-            { label: "iDocument", href: "/admin/modules/config/idocument", icon: FileText },
-            { label: "iArchive", href: "/admin/modules/config/iarchive", icon: FolderOpen },
-            { label: "iSignature", href: "/admin/modules/config/isignature", icon: PenTool },
-        ],
-    },
-    {
         title: "Thème & Design",
         items: [
             { label: "Design System", href: "/admin/modules/design-theme", icon: Palette },
@@ -248,6 +240,14 @@ const DIGITALIUM_NAV: NavSection[] = [
             { label: "Équipe", href: "/admin/digitalium/team", icon: Users },
             { label: "Bureaux", href: "/admin/digitalium/offices", icon: Building2 },
             { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings },
+        ],
+    },
+    {
+        title: "Nos Modules",
+        items: [
+            { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText },
+            { label: "iArchive", href: "/admin/digitalium/iarchive", icon: FolderOpen },
+            { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool },
         ],
     },
 ];
@@ -296,7 +296,6 @@ const ROUTE_LABELS: Record<string, string> = {
     modules: "Modules",
     clients: "Clients",
     new: "Nouveau",
-    config: "Configuration",
     idocument: "iDocument",
     iarchive: "iArchive",
     isignature: "iSignature",
@@ -472,6 +471,7 @@ function SidebarContent({
         if (href === "/admin") return pathname === "/admin";
         if (href === "/admin/infrastructure") return pathname === "/admin/infrastructure";
         if (href === "/admin/modules") return pathname === "/admin/modules";
+        if (href === "/admin/digitalium") return pathname === "/admin/digitalium";
         return pathname.startsWith(href);
     };
 

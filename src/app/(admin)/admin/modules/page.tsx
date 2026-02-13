@@ -206,19 +206,14 @@ export default function ModulesDashboardPage() {
                                     <Plus className="h-3.5 w-3.5" /> Nouveau client
                                 </Button>
                             </Link>
-                            <Link href="/admin/modules/config/idocument">
+                            <Link href="/admin/modules/clients">
                                 <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-300 mt-2">
-                                    <FileText className="h-3.5 w-3.5" /> Config iDocument
+                                    <UserCircle className="h-3.5 w-3.5" /> Liste des clients
                                 </Button>
                             </Link>
-                            <Link href="/admin/modules/config/iarchive">
-                                <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-300 mt-2">
-                                    <Archive className="h-3.5 w-3.5" /> Config iArchive
-                                </Button>
-                            </Link>
-                            <Link href="/admin/modules/config/isignature">
+                            <Link href="/admin/modules/design-theme">
                                 <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-300 mt-2">
-                                    <PenTool className="h-3.5 w-3.5" /> Config iSignature
+                                    <Sparkles className="h-3.5 w-3.5" /> Design System
                                 </Button>
                             </Link>
                         </div>

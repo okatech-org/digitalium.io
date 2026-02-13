@@ -209,7 +209,7 @@ const cardHover = {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export default function DocumentListPage() {
+export default function DocumentListPage({ basePath = "/pro/idocument" }: { basePath?: string }) {
     const router = useRouter();
 
     // ─── State ──────────────────────────────────────────────────
@@ -679,7 +679,7 @@ export default function DocumentListPage() {
                                                 </div>
 
                                                 {/* Title + excerpt */}
-                                                <div onClick={() => router.push(`/pro/idocument/edit/${doc.id}`)} className="cursor-pointer">
+                                                <div onClick={() => router.push(`${basePath}/edit/${doc.id}`)} className="cursor-pointer">
                                                     <h3 className="text-sm font-semibold leading-snug line-clamp-2 group-hover:text-violet-300 transition-colors">
                                                         {doc.title}
                                                     </h3>
@@ -801,7 +801,7 @@ export default function DocumentListPage() {
                                                                 className="border-white/20 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600"
                                                             />
                                                         </td>
-                                                        <td className="py-2.5 px-3 cursor-pointer" onClick={() => router.push(`/pro/idocument/edit/${doc.id}`)}>
+                                                        <td className="py-2.5 px-3 cursor-pointer" onClick={() => router.push(`${basePath}/edit/${doc.id}`)}>
                                                             <div className="flex items-center gap-2.5">
                                                                 <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
                                                                     <FileText className="h-4 w-4 text-violet-400" />

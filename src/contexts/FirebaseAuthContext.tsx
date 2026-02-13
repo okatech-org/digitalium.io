@@ -219,49 +219,18 @@ export function FirebaseAuthProvider({
     const [error, setError] = useState<string | null>(null);
 
     // ── Resolve RBAC roles after Firebase auth ──
+    // NOTE: Cloud Function "checkAdminRole" requires Cloud SQL (digitalium-db)
+    // which is not provisioned. We use the local email→role mapping for all
+    // environments. When a real database is set up, re-enable the CF call.
     const resolveRoles = useCallback(
         async (firebaseUser: FirebaseUser): Promise<AuthUser> => {
-            try {
-                // 1. Try Cloud Function
-                const checkAdminRole = httpsCallable<
-                    unknown,
-                    AdminRoleResponse
-                >(functions, "checkAdminRole");
-                const result = await checkAdminRole();
-                return buildAuthUser(firebaseUser, result.data);
-            } catch (cfError) {
-                // 2. Dev fallback
-                if (isDev()) {
-                    console.warn(
-                        "[Auth] Cloud Function indisponible — fallback dev activé",
-                        cfError
-                    );
-                    const fallback = buildDevFallback(
-                        firebaseUser.email ?? ""
-                    );
-                    return buildAuthUser(firebaseUser, {
-                        ...fallback,
-                        organizations: [],
-                    });
-                }
-
-                // 3. Production fallback: minimal role
-                console.error(
-                    "[Auth] Erreur résolution des rôles",
-                    cfError
-                );
-                return buildAuthUser(firebaseUser, {
-                    isAdmin: false,
-                    role: "org_viewer",
-                    level: 5,
-                    isSystemAdmin: false,
-                    isPlatformAdmin: false,
-                    isOrgAdmin: false,
-                    isManager: false,
-                    roles: [{ role: "org_viewer", level: 5 }],
-                    organizations: [],
-                });
-            }
+            const fallback = buildDevFallback(
+                firebaseUser.email ?? ""
+            );
+            return buildAuthUser(firebaseUser, {
+                ...fallback,
+                organizations: [],
+            });
         },
         []
     );

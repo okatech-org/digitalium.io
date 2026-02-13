@@ -52,6 +52,9 @@ const QUICK_LINKS = [
     { label: "Profil Entreprise", href: "/admin/digitalium/profile", icon: Building, desc: "Informations légales et coordonnées" },
     { label: "Équipe", href: "/admin/digitalium/team", icon: Users, desc: "Gestion des membres DIGITALIUM" },
     { label: "Bureaux", href: "/admin/digitalium/offices", icon: Building2, desc: "Locaux et implantations" },
+    { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText, desc: "Gestion documentaire interne" },
+    { label: "iArchive", href: "/admin/digitalium/iarchive", icon: FolderOpen, desc: "Archives légales" },
+    { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool, desc: "Signature électronique" },
 ];
 
 /* ─── Recent Activity ────────────────────── */
