@@ -1,10 +1,18 @@
-// DIGITALIUM.IO — SubAdmin: Design Theme
+// ═══════════════════════════════════════════════
+// DIGITALIUM.IO — Modules: Design Theme
+// Personnalisation visuelle de la plateforme
+// ═══════════════════════════════════════════════
+
 "use client";
+
 import React from "react";
 import { motion } from "framer-motion";
 import { Palette, Type } from "lucide-react";
 
-const fadeUp = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } } };
+const fadeUp = {
+    hidden: { opacity: 0, y: 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
+};
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 
 const COLORS = [
@@ -16,12 +24,14 @@ const COLORS = [
     { name: "Background", value: "#030712", label: "Gray 950" },
 ];
 
-export default function DesignThemePage() {
+export default function ModulesDesignThemePage() {
     return (
         <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6 max-w-[1000px] mx-auto">
             <motion.div variants={fadeUp}>
-                <h1 className="text-2xl font-bold flex items-center gap-2"><Palette className="h-6 w-6 text-violet-400" /> Thème</h1>
-                <p className="text-sm text-muted-foreground mt-1">Personnalisation visuelle de votre espace</p>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                    <Palette className="h-6 w-6 text-violet-400" /> Thème &amp; Design
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">Personnalisation visuelle de la plateforme</p>
             </motion.div>
             <motion.div variants={fadeUp}>
                 <h2 className="text-sm font-semibold mb-3">Palette de couleurs</h2>
@@ -36,10 +46,18 @@ export default function DesignThemePage() {
                 </div>
             </motion.div>
             <motion.div variants={fadeUp}>
-                <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Type className="h-4 w-4 text-violet-400" />Typographie</h2>
+                <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Type className="h-4 w-4 text-violet-400" />Typographie
+                </h2>
                 <div className="glass-card rounded-2xl p-6 space-y-4">
-                    <div><p className="text-2xl font-bold">Inter — Heading Bold</p><p className="text-xs text-muted-foreground">font-family: Inter, sans-serif</p></div>
-                    <div><p className="text-base">Inter — Body Regular</p><p className="text-xs text-muted-foreground">font-size: 14-16px</p></div>
+                    <div>
+                        <p className="text-2xl font-bold">Inter — Heading Bold</p>
+                        <p className="text-xs text-muted-foreground">font-family: Inter, sans-serif</p>
+                    </div>
+                    <div>
+                        <p className="text-base">Inter — Body Regular</p>
+                        <p className="text-xs text-muted-foreground">font-size: 14-16px</p>
+                    </div>
                 </div>
             </motion.div>
         </motion.div>

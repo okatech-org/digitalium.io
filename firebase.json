@@ -1,0 +1,20 @@
+{
+    "hosting": {
+        "site": "digitalium-ga",
+        "public": "public",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "run": {
+                    "serviceId": "digitalium-nextjs",
+                    "region": "europe-west1"
+                }
+            }
+        ]
+    }
+}

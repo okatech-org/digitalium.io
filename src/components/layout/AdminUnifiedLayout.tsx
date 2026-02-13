@@ -30,14 +30,7 @@ import {
     DatabaseBackup,
     FileText,
     FolderOpen,
-    FileStack,
-    Trash2,
-    Lock,
-    Award,
     PenTool,
-    Clock,
-    CheckCircle2,
-    Workflow,
     Building,
     Palette,
     UserCircle,
@@ -54,7 +47,6 @@ import {
     SlidersHorizontal,
     GraduationCap,
     Shield,
-    Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -225,39 +217,24 @@ const MODULES_NAV: NavSection[] = [
         ],
     },
     {
-        title: "iDocument",
+        title: "Clients",
         items: [
-            { label: "Dossiers", href: "/admin/idocument", icon: FolderOpen },
-            { label: "Templates", href: "/admin/idocument/templates", icon: FileStack },
-            { label: "Corbeille", href: "/admin/idocument/trash", icon: Trash2 },
+            { label: "Liste des clients", href: "/admin/modules/clients", icon: UserCircle },
+            { label: "Nouveau client", href: "/admin/modules/clients/new", icon: Users },
         ],
     },
     {
-        title: "iArchive",
+        title: "Configuration Modules",
         items: [
-            { label: "Vue Globale", href: "/admin/iarchive", icon: FileText },
-            { label: "Coffre-Fort", href: "/admin/iarchive/vault", icon: Lock },
-            { label: "Catégories", href: "/admin/iarchive/categories", icon: SlidersHorizontal },
-            { label: "Certificats", href: "/admin/iarchive/certificates", icon: Award },
+            { label: "iDocument", href: "/admin/modules/config/idocument", icon: FileText },
+            { label: "iArchive", href: "/admin/modules/config/iarchive", icon: FolderOpen },
+            { label: "iSignature", href: "/admin/modules/config/isignature", icon: PenTool },
         ],
     },
     {
-        title: "iSignature",
+        title: "Thème & Design",
         items: [
-            { label: "À signer", href: "/admin/isignature/pending", icon: PenTool, badge: 3 },
-            { label: "En attente", href: "/admin/isignature/waiting", icon: Clock, badge: 5 },
-            { label: "Signés", href: "/admin/isignature/completed", icon: CheckCircle2 },
-            { label: "Workflows", href: "/admin/isignature/workflows", icon: Workflow },
-        ],
-    },
-    {
-        title: "Organisation",
-        items: [
-            { label: "Profil", href: "/admin/organization", icon: Building },
-            { label: "Personnel", href: "/admin/organization/personnel", icon: Users },
-            { label: "Structure", href: "/admin/organization/structure", icon: Network },
-            { label: "Workflows", href: "/admin/organization/workflows", icon: Workflow },
-            { label: "Thème", href: "/admin/design-theme", icon: Palette },
+            { label: "Design System", href: "/admin/modules/design-theme", icon: Palette },
         ],
     },
 ];
@@ -285,7 +262,7 @@ const SPACE_NAVS: Record<AdminSpace, NavSection[]> = {
 /* ─── Detect Active Space ──────────────────────── */
 
 const INFRA_PREFIXES = ["/admin/infrastructure", "/admin/monitoring", "/admin/databases", "/admin/logs", "/admin/security", "/admin/iam"];
-const MODULES_PREFIXES = ["/admin/modules", "/admin/idocument", "/admin/iarchive", "/admin/isignature", "/admin/organization", "/admin/design-theme"];
+const MODULES_PREFIXES = ["/admin/modules"];
 const DIGITALIUM_PREFIXES = ["/admin/digitalium"];
 
 function detectSpace(pathname: string): AdminSpace {
@@ -317,23 +294,13 @@ const ROUTE_LABELS: Record<string, string> = {
     security: "Sécurité",
     iam: "IAM",
     modules: "Modules",
+    clients: "Clients",
+    new: "Nouveau",
+    config: "Configuration",
     idocument: "iDocument",
     iarchive: "iArchive",
     isignature: "iSignature",
-    templates: "Templates",
-    trash: "Corbeille",
-    categories: "Catégories",
-    vault: "Coffre-Fort",
-    certificates: "Certificats",
-    pending: "À signer",
-    waiting: "En attente",
-    completed: "Signés",
-    workflows: "Workflows",
-    organization: "Organisation",
-    personnel: "Personnel",
-    structure: "Structure",
-    "design-theme": "Thème",
-    "workflow-templates": "Workflow Templates",
+    "design-theme": "Thème & Design",
     digitalium: "DIGITALIUM",
     profile: "Profil",
     team: "Équipe",
@@ -537,8 +504,8 @@ function SidebarContent({
                         animate={{ opacity: 1, width: "auto" }}
                         className="font-bold text-sm overflow-hidden whitespace-nowrap"
                     >
-                        <span className={`bg-gradient-to-r ${activeSpace === "business" ? "from-blue-400 to-violet-400" : activeSpace === "infra" ? "from-red-400 to-orange-400" : "from-violet-400 to-indigo-400"} bg-clip-text text-transparent`}>
-                            {activeSpace === "business" ? "DIGITALIUM" : activeSpace === "infra" ? "INFRASTRUCTURE" : "MODULES"}
+                        <span className={`bg-gradient-to-r ${activeSpace === "business" ? "from-blue-400 to-violet-400" : activeSpace === "infra" ? "from-red-400 to-orange-400" : activeSpace === "digitalium" ? "from-emerald-400 to-teal-400" : "from-violet-400 to-indigo-400"} bg-clip-text text-transparent`}>
+                            {activeSpace === "business" ? "DIGITALIUM" : activeSpace === "infra" ? "INFRASTRUCTURE" : activeSpace === "digitalium" ? "DIGITALIUM" : "MODULES"}
                         </span>
                     </motion.span>
                 )}

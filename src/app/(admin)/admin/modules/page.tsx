@@ -1,26 +1,27 @@
 // ═══════════════════════════════════════════════
-// DIGITALIUM.IO — SubAdmin Dashboard
-// Module overview: iDocument · iArchive · iSignature
-// Recent docs, pending signatures, team activity
+// DIGITALIUM.IO — Modules: Dashboard Client-Centric
+// Vue d'ensemble des clients et de leurs modules
 // ═══════════════════════════════════════════════
 
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
+    Sparkles,
+    UserCircle,
+    Package,
+    Settings,
+    HardDrive,
+    Plus,
+    ArrowUpRight,
     FileText,
     Archive,
     PenTool,
-    ArrowUpRight,
-    Clock,
-    Users,
-    FolderOpen,
     CheckCircle2,
-    AlertCircle,
+    Clock,
     Activity,
-    TrendingUp,
-    Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,271 +32,198 @@ const fadeUp = {
 };
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 
-/* ─── Module Cards ──────────────────────────────── */
+/* ─── Mock Data ─────────────────────────── */
 
-const MODULES = [
-    {
-        name: "iDocument",
-        icon: FileText,
-        color: "from-blue-600 to-cyan-500",
-        textColor: "text-blue-400",
-        bgColor: "bg-blue-500/10",
-        stats: [
-            { label: "Mes documents", value: "124" },
-            { label: "Partagés", value: "47" },
-            { label: "Templates", value: "12" },
-            { label: "Corbeille", value: "3" },
-        ],
-        href: "/subadmin/idocument",
-    },
-    {
-        name: "iArchive",
-        icon: Archive,
-        color: "from-amber-600 to-orange-500",
-        textColor: "text-amber-400",
-        bgColor: "bg-amber-500/10",
-        stats: [
-            { label: "Fiscales", value: "89" },
-            { label: "Sociales", value: "156" },
-            { label: "Juridiques", value: "34" },
-            { label: "Coffre-Fort", value: "7" },
-        ],
-        href: "/subadmin/iarchive/fiscal",
-    },
-    {
-        name: "iSignature",
-        icon: PenTool,
-        color: "from-violet-600 to-purple-500",
-        textColor: "text-violet-400",
-        bgColor: "bg-violet-500/10",
-        stats: [
-            { label: "À signer", value: "3" },
-            { label: "En attente", value: "5" },
-            { label: "Signés ce mois", value: "28" },
-            { label: "Workflows actifs", value: "4" },
-        ],
-        href: "/subadmin/isignature/pending",
-    },
+const KPIS = [
+    { label: "Total clients", value: "5", icon: UserCircle, color: "text-violet-400", bg: "bg-violet-500/15" },
+    { label: "Modules actifs", value: "12", icon: Package, color: "text-blue-400", bg: "bg-blue-500/15" },
+    { label: "Configs en cours", value: "2", icon: Settings, color: "text-amber-400", bg: "bg-amber-500/15" },
+    { label: "Stockage", value: "128 GB", sub: "/ 500 GB", icon: HardDrive, color: "text-emerald-400", bg: "bg-emerald-500/15" },
 ];
 
-/* ─── Recent Documents ──────────────────────────── */
-
-const RECENT_DOCS = [
-    { name: "Rapport Q4 2025 — Finances.pdf", type: "PDF", size: "2.4 MB", date: "Il y a 2h", module: "iDocument", status: "modifié" },
-    { name: "Convention collective 2026.docx", type: "DOCX", size: "890 KB", date: "Il y a 5h", module: "iArchive", status: "archivé" },
-    { name: "Contrat prestation — SEEG.pdf", type: "PDF", size: "1.1 MB", date: "Hier", module: "iSignature", status: "signé" },
-    { name: "Budget prévisionnel 2026.xlsx", type: "XLSX", size: "3.2 MB", date: "Hier", module: "iDocument", status: "partagé" },
-    { name: "PV AG Extraordinaire.pdf", type: "PDF", size: "456 KB", date: "Il y a 3j", module: "iArchive", status: "archivé" },
+const CLIENTS_SUMMARY = [
+    { id: "seeg", name: "SEEG", type: "Établissement public", modules: ["iDocument", "iArchive", "iSignature"], hebergement: "Data Center", statut: "Actif", stockage: "45 GB" },
+    { id: "dgdi", name: "DGDI", type: "Gouvernement", modules: ["iDocument", "iArchive"], hebergement: "Cloud", statut: "Actif", stockage: "32 GB" },
+    { id: "minterieur", name: "Min. Intérieur", type: "Gouvernement", modules: ["iDocument", "iArchive", "iSignature"], hebergement: "Local", statut: "Actif", stockage: "28 GB" },
+    { id: "gabtelecom", name: "Gabon Télécom", type: "Entreprise", modules: ["iDocument", "iSignature"], hebergement: "Cloud", statut: "Config", stockage: "15 GB" },
+    { id: "pgl", name: "Port-Gentil Logistique", type: "Entreprise", modules: ["iDocument"], hebergement: "Cloud", statut: "Config", stockage: "8 GB" },
 ];
 
-/* ─── Pending Signatures ────────────────────────── */
+const MODULE_COLORS: Record<string, { bg: string; text: string }> = {
+    iDocument: { bg: "bg-blue-500/15", text: "text-blue-400" },
+    iArchive: { bg: "bg-amber-500/15", text: "text-amber-400" },
+    iSignature: { bg: "bg-violet-500/15", text: "text-violet-400" },
+};
 
-const PENDING_SIGS = [
-    { doc: "Contrat CDI — M. Obiang", requestedBy: "Marie Nzé", date: "Il y a 1h", priority: "haute" as const },
-    { doc: "Ordre de mission #242", requestedBy: "Patrick Akogo", date: "Il y a 3h", priority: "normale" as const },
-    { doc: "Avenant bail bureau Libreville", requestedBy: "Sylvie Moussavou", date: "Hier", priority: "haute" as const },
+const RECENT_CONFIGS = [
+    { action: "Activation iSignature", client: "SEEG", date: "Il y a 2h", icon: PenTool, color: "text-violet-400" },
+    { action: "Workflow ajouté", client: "DGDI", date: "Il y a 5h", icon: Activity, color: "text-blue-400" },
+    { action: "Hébergement migré", client: "Min. Intérieur", date: "Hier", icon: HardDrive, color: "text-emerald-400" },
+    { action: "Archivage configuré", client: "SEEG", date: "Hier", icon: Archive, color: "text-amber-400" },
+    { action: "Templates importés", client: "Gabon Télécom", date: "Il y a 3j", icon: FileText, color: "text-blue-400" },
 ];
 
-/* ─── Team Activity ─────────────────────────────── */
+/* ═══════════════════════════════════════════ */
 
-const TEAM_ACTIVITY = [
-    { user: "Marie Nzé", action: "a partagé", target: "Rapport RH Q4.pdf", time: "Il y a 30 min", avatar: "MN" },
-    { user: "Patrick Obiang", action: "a archivé", target: "Facture #2026-089", time: "Il y a 1h", avatar: "PO" },
-    { user: "David Mba", action: "a signé", target: "Contrat prestation IT", time: "Il y a 2h", avatar: "DM" },
-    { user: "Sylvie Moussavou", action: "a créé", target: "Template — Ordre de mission", time: "Il y a 4h", avatar: "SM" },
-    { user: "Chantal Ayo", action: "a commenté", target: "Budget 2026 v3.xlsx", time: "Hier", avatar: "CA" },
-];
-
-/* ═══════════════════════════════════════════════ */
-
-export default function SubAdminDashboardPage() {
+export default function ModulesDashboardPage() {
     return (
-        <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={stagger}
-            className="space-y-6 max-w-[1400px] mx-auto"
-        >
-            {/* Title */}
+        <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6 max-w-[1400px] mx-auto">
+            {/* Header */}
             <motion.div variants={fadeUp} className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
                         <Sparkles className="h-6 w-6 text-violet-400" />
-                        Espace DIGITALIUM
+                        Espace Modules
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Vue d&apos;ensemble de vos modules · Aujourd&apos;hui, 12 fév 2026
+                        Gestion et configuration des modules pour vos clients
                     </p>
                 </div>
-                <Button className="bg-gradient-to-r from-violet-600 to-indigo-500 text-white border-0 hover:opacity-90 gap-2 text-xs h-8 hidden sm:flex">
-                    <Activity className="h-3.5 w-3.5" /> Rapport d&apos;activité
-                </Button>
+                <Link href="/admin/modules/clients/new">
+                    <Button className="bg-gradient-to-r from-violet-600 to-indigo-500 text-white border-0 hover:opacity-90 gap-2 text-xs h-8">
+                        <Plus className="h-3.5 w-3.5" /> Nouveau client
+                    </Button>
+                </Link>
             </motion.div>
 
-            {/* Module Cards */}
-            <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {MODULES.map((mod) => {
-                    const Icon = mod.icon;
+            {/* KPI Cards */}
+            <motion.div variants={fadeUp} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {KPIS.map((kpi) => {
+                    const Icon = kpi.icon;
                     return (
-                        <div
-                            key={mod.name}
-                            className="glass-card rounded-2xl p-5 relative overflow-hidden group"
-                        >
-                            <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${mod.color}`} />
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <div className={`h-9 w-9 rounded-xl ${mod.bgColor} flex items-center justify-center`}>
-                                        <Icon className={`h-5 w-5 ${mod.textColor}`} />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-base">{mod.name}</h3>
-                                    </div>
-                                </div>
-                                <a href={mod.href}>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground group-hover:text-foreground">
-                                        <ArrowUpRight className="h-4 w-4" />
-                                    </Button>
-                                </a>
+                        <div key={kpi.label} className="glass-card rounded-xl p-4 border border-white/5 flex items-center gap-3">
+                            <div className={`h-10 w-10 rounded-lg ${kpi.bg} flex items-center justify-center shrink-0`}>
+                                <Icon className={`h-5 w-5 ${kpi.color}`} />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                {mod.stats.map((stat) => (
-                                    <div key={stat.label}>
-                                        <p className="text-lg font-bold">{stat.value}</p>
-                                        <p className="text-[10px] text-muted-foreground">{stat.label}</p>
-                                    </div>
-                                ))}
+                            <div>
+                                <p className="text-xl font-bold">
+                                    {kpi.value}
+                                    {kpi.sub && <span className="text-xs text-muted-foreground font-normal ml-1">{kpi.sub}</span>}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">{kpi.label}</p>
                             </div>
                         </div>
                     );
                 })}
             </motion.div>
 
-            {/* Main Grid: Recent Docs + Pending Signatures + Activity */}
+            {/* Main grid */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4">
-                {/* Left column */}
+                {/* Left: Client Table */}
+                <motion.div variants={fadeUp} className="glass-card rounded-2xl p-5 border border-white/5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-semibold text-sm flex items-center gap-2">
+                            <UserCircle className="h-4 w-4 text-violet-400" />
+                            Clients & Modules
+                        </h2>
+                        <Link href="/admin/modules/clients">
+                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground gap-1">
+                                Voir tout <ArrowUpRight className="h-3 w-3" />
+                            </Button>
+                        </Link>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="border-b border-white/5 text-muted-foreground">
+                                    <th className="text-left py-2 px-2">Client</th>
+                                    <th className="text-left py-2 px-2 hidden md:table-cell">Type</th>
+                                    <th className="text-left py-2 px-2">Modules</th>
+                                    <th className="text-left py-2 px-2 hidden sm:table-cell">Hébergement</th>
+                                    <th className="text-center py-2 px-2">Statut</th>
+                                    <th className="text-right py-2 px-2 hidden lg:table-cell">Stockage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {CLIENTS_SUMMARY.map((c) => (
+                                    <tr key={c.id} className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer group">
+                                        <td className="py-2.5 px-2">
+                                            <Link href={`/admin/modules/clients/${c.id}`} className="font-medium hover:text-violet-300 transition-colors">
+                                                {c.name}
+                                            </Link>
+                                        </td>
+                                        <td className="py-2.5 px-2 text-muted-foreground hidden md:table-cell">{c.type}</td>
+                                        <td className="py-2.5 px-2">
+                                            <div className="flex items-center gap-1 flex-wrap">
+                                                {c.modules.map((m) => (
+                                                    <Badge key={m} variant="secondary" className={`text-[8px] border-0 px-1.5 ${MODULE_COLORS[m]?.bg} ${MODULE_COLORS[m]?.text}`}>
+                                                        {m}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="py-2.5 px-2 text-muted-foreground hidden sm:table-cell">{c.hebergement}</td>
+                                        <td className="py-2.5 px-2 text-center">
+                                            <Badge variant="secondary" className={`text-[9px] border-0 ${c.statut === "Actif" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
+                                                {c.statut === "Actif" ? <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> : <Clock className="h-2.5 w-2.5 mr-1" />}
+                                                {c.statut}
+                                            </Badge>
+                                        </td>
+                                        <td className="py-2.5 px-2 text-right font-mono text-muted-foreground hidden lg:table-cell">{c.stockage}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </motion.div>
+
+                {/* Right: Recent Configs + Quick Actions */}
                 <div className="space-y-4">
-                    {/* Recent Documents */}
-                    <motion.div variants={fadeUp} className="glass-card rounded-2xl p-5">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="font-semibold text-sm flex items-center gap-2">
-                                <FolderOpen className="h-4 w-4 text-violet-400" />
-                                Documents récents
-                            </h2>
-                            <Badge variant="secondary" className="text-[9px] bg-white/5 border-0">
-                                {RECENT_DOCS.length} éléments
-                            </Badge>
-                        </div>
-                        <div className="space-y-1">
-                            {RECENT_DOCS.map((doc, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/[0.03] transition-colors"
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                                            <FileText className="h-4 w-4 text-violet-400" />
+                    {/* Recent Configs */}
+                    <motion.div variants={fadeUp} className="glass-card rounded-2xl p-5 border border-white/5">
+                        <h2 className="font-semibold text-sm flex items-center gap-2 mb-4">
+                            <Activity className="h-4 w-4 text-violet-400" />
+                            Configurations récentes
+                        </h2>
+                        <div className="space-y-3">
+                            {RECENT_CONFIGS.map((cfg, i) => {
+                                const Icon = cfg.icon;
+                                return (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <div className="h-7 w-7 rounded-lg bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
+                                            <Icon className={`h-3.5 w-3.5 ${cfg.color}`} />
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-medium truncate">{doc.name}</p>
-                                            <p className="text-[10px] text-muted-foreground">
-                                                {doc.type} · {doc.size} · {doc.module}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs">
+                                                <span className="font-medium">{cfg.action}</span>
+                                                <span className="text-muted-foreground"> — </span>
+                                                <span className="text-violet-300">{cfg.client}</span>
                                             </p>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">{cfg.date}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                                        <Badge
-                                            variant="secondary"
-                                            className={`text-[9px] border-0 ${doc.status === "signé"
-                                                    ? "bg-emerald-500/15 text-emerald-400"
-                                                    : doc.status === "archivé"
-                                                        ? "bg-amber-500/15 text-amber-400"
-                                                        : "bg-blue-500/15 text-blue-400"
-                                                }`}
-                                        >
-                                            {doc.status}
-                                        </Badge>
-                                        <span className="text-[10px] text-muted-foreground hidden sm:block">{doc.date}</span>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </motion.div>
 
-                    {/* Pending Signatures */}
-                    <motion.div variants={fadeUp} className="glass-card rounded-2xl p-5">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="font-semibold text-sm flex items-center gap-2">
-                                <PenTool className="h-4 w-4 text-violet-400" />
-                                Signatures en attente
-                            </h2>
-                            <Badge variant="secondary" className="text-[9px] bg-violet-500/15 text-violet-400 border-0">
-                                {PENDING_SIGS.length} à signer
-                            </Badge>
-                        </div>
+                    {/* Quick Actions */}
+                    <motion.div variants={fadeUp} className="glass-card rounded-2xl p-5 border border-white/5">
+                        <h2 className="font-semibold text-sm mb-3">Actions rapides</h2>
                         <div className="space-y-2">
-                            {PENDING_SIGS.map((sig, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center justify-between px-3 py-3 rounded-lg bg-white/[0.02] border border-white/5"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`h-2 w-2 rounded-full shrink-0 ${sig.priority === "haute" ? "bg-red-400" : "bg-blue-400"}`} />
-                                        <div>
-                                            <p className="text-xs font-medium">{sig.doc}</p>
-                                            <p className="text-[10px] text-muted-foreground">
-                                                Par {sig.requestedBy} · {sig.date}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-[10px] border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
-                                    >
-                                        Signer
-                                    </Button>
-                                </div>
-                            ))}
+                            <Link href="/admin/modules/clients/new">
+                                <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-300">
+                                    <Plus className="h-3.5 w-3.5" /> Nouveau client
+                                </Button>
+                            </Link>
+                            <Link href="/admin/modules/config/idocument">
+                                <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-300 mt-2">
+                                    <FileText className="h-3.5 w-3.5" /> Config iDocument
+                                </Button>
+                            </Link>
+                            <Link href="/admin/modules/config/iarchive">
+                                <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-300 mt-2">
+                                    <Archive className="h-3.5 w-3.5" /> Config iArchive
+                                </Button>
+                            </Link>
+                            <Link href="/admin/modules/config/isignature">
+                                <Button variant="outline" size="sm" className="w-full justify-start text-xs gap-2 border-white/10 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-300 mt-2">
+                                    <PenTool className="h-3.5 w-3.5" /> Config iSignature
+                                </Button>
+                            </Link>
                         </div>
                     </motion.div>
                 </div>
-
-                {/* Right column: Team Activity */}
-                <motion.div variants={fadeUp} className="glass-card rounded-2xl p-5">
-                    <h2 className="font-semibold text-sm flex items-center gap-2 mb-4">
-                        <Users className="h-4 w-4 text-violet-400" />
-                        Activité de l&apos;équipe
-                    </h2>
-                    <div className="space-y-3">
-                        {TEAM_ACTIVITY.map((act, i) => (
-                            <div key={i} className="flex gap-3">
-                                <div className="h-7 w-7 rounded-full bg-violet-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                                    <span className="text-[9px] font-bold text-violet-300">{act.avatar}</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs">
-                                        <span className="font-medium">{act.user}</span>{" "}
-                                        <span className="text-muted-foreground">{act.action}</span>{" "}
-                                        <span className="font-medium text-violet-300">{act.target}</span>
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{act.time}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Quick stats */}
-                    <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-2 gap-3">
-                        <div className="text-center">
-                            <p className="text-lg font-bold text-violet-400">47</p>
-                            <p className="text-[10px] text-muted-foreground">Actions aujourd&apos;hui</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-lg font-bold text-emerald-400">12</p>
-                            <p className="text-[10px] text-muted-foreground">Membres actifs</p>
-                        </div>
-                    </div>
-                </motion.div>
             </div>
         </motion.div>
     );
