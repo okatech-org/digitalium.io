@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, lazy, Suspense } from "react";
-import dynamic from "next/dynamic";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,7 @@ const JourneySection = lazy(() => import("@/components/sections/JourneySection")
 const FinalCTASection = lazy(() => import("@/components/sections/FinalCTASection"));
 const FooterSection = lazy(() => import("@/components/sections/FooterSection"));
 
-// Demo switcher — client only, deferred
-const DemoAccountSwitcher = dynamic(
-    () => import("@/components/shared/DemoAccountSwitcher"),
-    { ssr: false }
-);
+
 
 // Auth modals — lazy loaded
 const LoginModal = lazy(() => import("@/components/auth/LoginModal"));
@@ -176,9 +172,7 @@ export default function LandingPage() {
                 <FooterSection />
             </Suspense>
 
-            {/* Demo switcher — always rendered (shows floating button),
-                Firebase inits only inside DemoAccountSwitcher when Sheet opens */}
-            <DemoAccountSwitcher />
+
 
             {/* Auth modals — floating overlays */}
             <Suspense fallback={null}>
