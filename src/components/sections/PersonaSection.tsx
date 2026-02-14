@@ -7,6 +7,7 @@ import {
     Users,
     Building2,
     Landmark,
+    Heart,
     ArrowRight,
     Star,
     ExternalLink,
@@ -39,6 +40,8 @@ const personas = [
         ctaHref: "https://identite.ga",
         ctaExternal: true,
         ctaNote: "→ identite.ga",
+        solutionHref: "https://identite.ga",
+        solutionExternal: true,
     },
     {
         id: "enterprise",
@@ -65,6 +68,35 @@ const personas = [
         ctaHref: "/register",
         ctaExternal: false,
         ctaNote: null,
+        solutionHref: "/solutions/entreprises",
+        solutionExternal: false,
+    },
+    {
+        id: "organism",
+        icon: Heart,
+        segment: "ORGANISMES",
+        subtitle: "ONG, Associations & Fondations",
+        monthlyPrice: "8 000",
+        annualPrice: "6 500",
+        currency: "XAF/user/mois",
+        popular: false,
+        gradient: "from-emerald-500/10 to-teal-500/5",
+        borderColor: "border-emerald-500/20",
+        accentColor: "text-emerald-400",
+        features: [
+            "Gestion multi-projets",
+            "Rapports bailleurs (UE, USAID…)",
+            "Collaboration siège-terrain",
+            "Tarifs préférentiels ONG",
+            "Mode hors-ligne PWA",
+            "Transparence & audit trail",
+        ],
+        cta: "Contacter notre équipe",
+        ctaHref: "/register",
+        ctaExternal: false,
+        ctaNote: "→ tarifs préférentiels",
+        solutionHref: "/solutions/organismes",
+        solutionExternal: false,
     },
     {
         id: "institution",
@@ -91,6 +123,8 @@ const personas = [
         ctaHref: "/register",
         ctaExternal: false,
         ctaNote: "→ formulaire contact",
+        solutionHref: "/solutions/administrations",
+        solutionExternal: false,
     },
 ];
 
@@ -108,7 +142,7 @@ export default function PersonaSection() {
 
     return (
         <section id="pricing" className="py-24 px-6 relative border-t border-white/5">
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-7xl mx-auto">
                 <motion.div
                     className="text-center mb-10"
                     initial={{ opacity: 0, y: 20 }}
@@ -158,7 +192,7 @@ export default function PersonaSection() {
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
                     {personas.map((p, i) => (
                         <motion.div
                             key={p.id}
@@ -225,8 +259,8 @@ export default function PersonaSection() {
                                 <Link href={p.ctaHref}>
                                     <Button
                                         className={`w-full ${p.popular
-                                                ? "bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90"
-                                                : ""
+                                            ? "bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90"
+                                            : ""
                                             }`}
                                         variant={p.popular ? "default" : "outline"}
                                         size="lg"
@@ -242,6 +276,29 @@ export default function PersonaSection() {
                                     {p.ctaNote}
                                 </p>
                             )}
+
+                            {/* Solution page link */}
+                            <div className="mt-4 text-center">
+                                {p.solutionExternal ? (
+                                    <a
+                                        href={p.solutionHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`text-xs ${p.accentColor} hover:underline inline-flex items-center gap-1 transition-colors`}
+                                    >
+                                        En savoir plus
+                                        <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                ) : (
+                                    <Link
+                                        href={p.solutionHref}
+                                        className={`text-xs ${p.accentColor} hover:underline inline-flex items-center gap-1 transition-colors`}
+                                    >
+                                        En savoir plus
+                                        <ArrowRight className="h-3 w-3" />
+                                    </Link>
+                                )}
+                            </div>
                         </motion.div>
                     ))}
                 </div>

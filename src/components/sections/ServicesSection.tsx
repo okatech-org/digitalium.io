@@ -9,6 +9,7 @@ import {
     Check,
     ChevronRight,
 } from "lucide-react";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 
 const modules = [
@@ -93,8 +94,19 @@ const cardVariants = {
 
 export default function ServicesSection() {
     return (
-        <section id="modules" className="py-24 px-6 relative">
-            <div className="max-w-6xl mx-auto">
+        <section id="modules" className="py-24 px-6 relative overflow-hidden">
+            {/* Background Image Element - Right Side */}
+            <div className="absolute top-0 right-0 w-1/2 h-full opacity-5 pointer-events-none hidden lg:block">
+                <Image
+                    src="/images/sections/digital_tablet_pro.png"
+                    alt="Digital Tablet Professional"
+                    fill
+                    className="object-cover object-left mask-linear-fade"
+                />
+                <div className="absolute inset-0 bg-gradient-to-l from-background via-transparent to-background" />
+            </div>
+
+            <div className="max-w-6xl mx-auto relative z-10">
                 <motion.div
                     className="text-center mb-16"
                     initial={{ opacity: 0, y: 20 }}
@@ -120,7 +132,7 @@ export default function ServicesSection() {
                             initial="hidden"
                             whileInView="visible"
                             viewport={{ once: true }}
-                            className={`group relative rounded-xl border ${mod.borderColor} bg-gradient-to-br ${mod.gradient} p-8 hover:-translate-y-2 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden`}
+                            className={`group relative rounded-xl border ${mod.borderColor} bg-gradient-to-br ${mod.gradient} p-8 hover:-translate-y-2 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden glass-card backdrop-blur-md`}
                         >
                             {/* Badge */}
                             <Badge
@@ -132,11 +144,15 @@ export default function ServicesSection() {
 
                             <div className="flex items-start gap-5">
                                 <div
-                                    className="flex-shrink-0 h-14 w-14 rounded-xl flex items-center justify-center"
-                                    style={{ backgroundColor: `${mod.color}20` }}
+                                    className="flex-shrink-0 h-16 w-16 rounded-2xl flex items-center justify-center relative overflow-hidden group-hover:scale-110 transition-transform duration-300"
+                                    style={{
+                                        background: `linear-gradient(135deg, ${mod.color}10 0%, ${mod.color}30 100%)`,
+                                        boxShadow: `inset 0 0 0 1px ${mod.color}40, 0 4px 20px ${mod.color}20`
+                                    }}
                                 >
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
                                     <mod.icon
-                                        className="h-7 w-7"
+                                        className="h-8 w-8 relative z-10 drop-shadow-md"
                                         style={{ color: mod.color }}
                                     />
                                 </div>

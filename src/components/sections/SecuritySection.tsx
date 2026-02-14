@@ -1,39 +1,48 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Lock, Flag, ScrollText, ShieldCheck, Award } from "lucide-react";
+import Image from "next/image";
+import { Award } from "lucide-react";
 
 const pillars = [
     {
-        icon: Lock,
         title: "Chiffrement AES-256",
         desc: "End-to-end, at rest et in transit. Vos documents sont illisibles sans vos clés.",
-        color: "#3B82F6",
+        image: "/images/security/encryption.png",
     },
     {
-        icon: Flag,
         title: "Hébergement Souverain",
         desc: "Données stockées au Gabon. Aucune donnée ne quitte le territoire national.",
-        color: "#10B981",
+        image: "/images/security/hosting.png",
     },
     {
-        icon: ScrollText,
         title: "Conformité Totale",
         desc: "Rétention fiscale 10 ans, sociale 5 ans. RGPD + loi gabonaise respectées.",
-        color: "#8B5CF6",
+        image: "/images/security/compliance.png",
     },
     {
-        icon: ShieldCheck,
         title: "Audit Immutable",
         desc: "Chaque action est tracée et horodatée. Intégrité SHA-256 inviolable.",
-        color: "#F59E0B",
+        image: "/images/security/audit.png",
     },
 ];
 
 export default function SecuritySection() {
     return (
-        <section className="py-24 px-6 relative border-t border-white/5">
-            <div className="max-w-6xl mx-auto">
+        <section className="relative py-24 px-6 border-t border-white/5 overflow-hidden">
+            {/* Main Background Image */}
+            <div className="absolute inset-0 z-0">
+                <Image
+                    src="/images/security/sovereignty_main.png"
+                    alt="Centre de données sécurisé au Gabon"
+                    fill
+                    className="object-cover opacity-20"
+                    priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background/90" />
+            </div>
+
+            <div className="max-w-6xl mx-auto relative z-10">
                 <motion.div
                     className="text-center mb-14"
                     initial={{ opacity: 0, y: 20 }}
@@ -57,25 +66,31 @@ export default function SecuritySection() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: i * 0.1, duration: 0.6 }}
-                            className="glass-card p-6 text-center hover:glow transition-all duration-300"
+                            className="glass-card overflow-hidden hover:glow transition-all duration-300 flex flex-col"
                         >
-                            <div
-                                className="h-14 w-14 mx-auto rounded-xl flex items-center justify-center mb-4"
-                                style={{ backgroundColor: `${p.color}15` }}
-                            >
-                                <p.icon className="h-7 w-7" style={{ color: p.color }} />
+                            <div className="relative h-48 w-full">
+                                <Image
+                                    src={p.image}
+                                    alt={p.title}
+                                    fill
+                                    className="object-cover transition-transform duration-500 hover:scale-105"
+                                />
                             </div>
-                            <h3 className="text-base font-bold mb-2">{p.title}</h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                {p.desc}
-                            </p>
+                            <div className="p-6 text-center flex-1 flex flex-col justify-between">
+                                <div>
+                                    <h3 className="text-base font-bold mb-2">{p.title}</h3>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {p.desc}
+                                    </p>
+                                </div>
+                            </div>
                         </motion.div>
                     ))}
                 </div>
 
                 {/* Trust badge */}
                 <motion.div
-                    className="glass-card p-6 text-center max-w-3xl mx-auto"
+                    className="glass-card p-6 text-center max-w-3xl mx-auto backdrop-blur-md bg-background/40"
                     initial={{ opacity: 0, scale: 0.95 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}

@@ -336,7 +336,7 @@ function getRedirectPath(account: DemoAccount): string {
     if (account.roleLevel === 2) {
         return account.personaType === "institutional"
             ? "/institutional"
-            : "/subadmin";
+            : "/pro";
     }
     if (account.personaType === "institutional") return "/institutional";
     return "/pro";
@@ -513,6 +513,8 @@ export default function DemoAccountSwitcher() {
                                         const { signOut: firebaseSignOut } = await import("firebase/auth");
                                         await firebaseSignOut(firebaseAuth);
                                         toast.info("Déconnecté");
+                                        setOpen(false);
+                                        router.push("/");
                                     }}
                                 >
                                     <LogOut className="h-3 w-3 mr-1" /> Déconnexion

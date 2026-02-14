@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, lazy, Suspense } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 /* ═══════════════════════════════════════════════
    EAGERLY LOADED — above the fold only
@@ -17,10 +20,6 @@ import HeroSection from "@/components/sections/HeroSection";
 const ProblemSection = lazy(() => import("@/components/sections/ProblemSection"));
 const ServicesSection = lazy(() => import("@/components/sections/ServicesSection"));
 const JourneySection = lazy(() => import("@/components/sections/JourneySection"));
-const PersonaSection = lazy(() => import("@/components/sections/PersonaSection"));
-const SocialProofSection = lazy(() => import("@/components/sections/SocialProofSection"));
-const SecuritySection = lazy(() => import("@/components/sections/SecuritySection"));
-const FAQSection = lazy(() => import("@/components/sections/FAQSection"));
 const FinalCTASection = lazy(() => import("@/components/sections/FinalCTASection"));
 const FooterSection = lazy(() => import("@/components/sections/FooterSection"));
 
@@ -29,6 +28,10 @@ const DemoAccountSwitcher = dynamic(
     () => import("@/components/shared/DemoAccountSwitcher"),
     { ssr: false }
 );
+
+// Auth modals — lazy loaded
+const LoginModal = lazy(() => import("@/components/auth/LoginModal"));
+const RegisterModal = lazy(() => import("@/components/auth/RegisterModal"));
 
 /* ═══════════════════════════════════════════════
    Section placeholder — minimal to avoid CLS
@@ -41,50 +44,93 @@ function SectionSkeleton() {
    Navigation
    ═══════════════════════════════════════════════ */
 
-function Navbar() {
+interface NavbarProps {
+    onOpenLogin: () => void;
+    onOpenRegister: () => void;
+}
+
+function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
     return (
         <nav className="fixed top-0 left-0 right-0 z-40 glass border-b border-white/5">
-            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                <Link href="/" className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-digitalium-blue to-digitalium-violet flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">D</span>
-                    </div>
-                    <span className="font-bold text-lg text-gradient">
-                        DIGITALIUM.IO
-                    </span>
-                </Link>
-                <div className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-                    <a
-                        href="#modules"
+            <div className="w-full max-w-[95%] mx-auto px-4 h-16 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Link href="/" className="flex items-center gap-0">
+                        <div className="relative z-50">
+                            <Image
+                                src="/logo_digitalium.png"
+                                alt="DIGITALIUM.IO"
+                                width={96}
+                                height={96}
+                                className="h-24 w-24 rounded-xl translate-y-6"
+                            />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-2xl tracking-tight">
+                                <span className="text-foreground">DIGITALIUM</span>
+                                <span className="text-[#F59E0B]">.IO</span>
+                            </span>
+                            <span className="hidden xl:inline-block text-[11px] font-medium text-muted-foreground leading-tight tracking-[0.26em]">
+                                L&apos;archivage intelligent
+                            </span>
+                        </div>
+                    </Link>
+                </div>
+                <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
+                    <Link
+                        href="/"
+                        className="text-foreground font-medium transition-colors"
+                    >
+                        Accueil
+                    </Link>
+                    <Link
+                        href="/solutions/administrations"
                         className="hover:text-foreground transition-colors"
                     >
-                        Modules
-                    </a>
-                    <a
-                        href="#pricing"
+                        Administrations
+                    </Link>
+                    <Link
+                        href="/solutions/entreprises"
                         className="hover:text-foreground transition-colors"
                     >
-                        Tarifs
+                        Entreprises
+                    </Link>
+                    <Link
+                        href="/solutions/organismes"
+                        className="hover:text-foreground transition-colors"
+                    >
+                        Organismes
+                    </Link>
+                    <a
+                        href="https://identite.ga/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-foreground transition-colors"
+                    >
+                        Particuliers
                     </a>
-                    <a href="#faq" className="hover:text-foreground transition-colors">
-                        FAQ
-                    </a>
+                    <Link
+                        href="/guide"
+                        className="hover:text-foreground transition-colors"
+                    >
+                        Guide d&apos;utilisation
+                    </Link>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Link href="/login">
-                        <Button variant="ghost" size="sm">
-                            Connexion
-                        </Button>
-                    </Link>
-                    <Link href="/register">
-                        <Button
-                            size="sm"
-                            className="bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90 transition-opacity"
-                        >
-                            Commencer
-                            <ArrowRight className="ml-1 h-4 w-4" />
-                        </Button>
-                    </Link>
+                    <div className="hidden sm:flex items-center gap-1 mr-2">
+                        <ThemeToggle />
+                        <LanguageSwitcher />
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={onOpenLogin}>
+                        Connexion
+                    </Button>
+                    <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90 transition-opacity"
+                        onClick={onOpenRegister}
+                    >
+                        Commencer
+                        <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
                 </div>
             </div>
         </nav>
@@ -97,10 +143,26 @@ function Navbar() {
 
 export default function LandingPage() {
     const [demoOpen, setDemoOpen] = useState(false);
+    const [loginOpen, setLoginOpen] = useState(false);
+    const [registerOpen, setRegisterOpen] = useState(false);
+
+    const handleSwitchToRegister = useCallback(() => {
+        setLoginOpen(false);
+        // Small delay to allow exit animation
+        setTimeout(() => setRegisterOpen(true), 150);
+    }, []);
+
+    const handleSwitchToLogin = useCallback(() => {
+        setRegisterOpen(false);
+        setTimeout(() => setLoginOpen(true), 150);
+    }, []);
 
     return (
         <div className="min-h-screen">
-            <Navbar />
+            <Navbar
+                onOpenLogin={() => setLoginOpen(true)}
+                onOpenRegister={() => setRegisterOpen(true)}
+            />
 
             {/* Above the fold — loaded immediately */}
             <HeroSection onOpenDemo={() => setDemoOpen(true)} />
@@ -110,10 +172,6 @@ export default function LandingPage() {
                 <ProblemSection />
                 <ServicesSection />
                 <JourneySection />
-                <PersonaSection />
-                <SocialProofSection />
-                <SecuritySection />
-                <FAQSection />
                 <FinalCTASection />
                 <FooterSection />
             </Suspense>
@@ -121,6 +179,20 @@ export default function LandingPage() {
             {/* Demo switcher — always rendered (shows floating button),
                 Firebase inits only inside DemoAccountSwitcher when Sheet opens */}
             <DemoAccountSwitcher />
+
+            {/* Auth modals — floating overlays */}
+            <Suspense fallback={null}>
+                <LoginModal
+                    open={loginOpen}
+                    onOpenChange={setLoginOpen}
+                    onSwitchToRegister={handleSwitchToRegister}
+                />
+                <RegisterModal
+                    open={registerOpen}
+                    onOpenChange={setRegisterOpen}
+                    onSwitchToLogin={handleSwitchToLogin}
+                />
+            </Suspense>
         </div>
     );
 }

@@ -63,11 +63,6 @@ export default function PendingSignaturesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-3"
             >
-                <Link href="/pro/isignature">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white/5">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                </Link>
                 <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-600 to-orange-500 flex items-center justify-center">
                     <Clock className="h-5 w-5 text-white" />
                 </div>
@@ -91,11 +86,10 @@ export default function PendingSignaturesPage() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.05 }}
-                                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer group ${
-                                    urgent
+                                className={`flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer group ${urgent
                                         ? "bg-red-500/5 border-red-500/15 hover:border-red-500/30"
                                         : "bg-white/[0.02] border-white/5 hover:border-white/10"
-                                }`}
+                                    }`}
                             >
                                 {/* Avatar */}
                                 <div className="h-10 w-10 rounded-full bg-violet-500/15 flex items-center justify-center shrink-0">

@@ -4,23 +4,38 @@ import { motion } from "framer-motion";
 import { ArrowRight, Phone, Zap, Smartphone, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function FinalCTASection() {
     return (
         <section className="py-24 px-6 relative">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-7xl mx-auto">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.96 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
-                    className="glass-card rounded-2xl p-12 md:p-16 relative overflow-hidden text-center"
+                    className="glass-card rounded-2xl relative overflow-hidden flex flex-col md:flex-row"
                 >
                     {/* Background gradient */}
                     <div className="absolute inset-0 bg-gradient-to-br from-digitalium-blue/15 via-digitalium-violet/10 to-transparent pointer-events-none" />
                     {/* Grain texture */}
                     <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJmIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iLjc1IiBudW1PY3RhdmVzPSI0IiBzZWVkPSIyIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2YpIiBvcGFjaXR5PSIuNCIvPjwvc3ZnPg==')]" />
 
-                    <div className="relative z-10">
+                    {/* Left Image — flush to the card edge */}
+                    <div className="relative w-full md:w-[35%] min-h-[280px] md:min-h-full flex-shrink-0">
+                        <Image
+                            src="/images/security/cta_promo.png"
+                            alt="Professionnelle utilisant DIGITALIUM"
+                            fill
+                            className="object-cover"
+                        />
+                        {/* Subtle gradient overlay blending into the card */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background/60 hidden md:block" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/60 md:hidden" />
+                    </div>
+
+                    {/* Right Content */}
+                    <div className="relative z-10 flex-1 p-10 md:p-14 flex flex-col justify-center text-center">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}

@@ -13,20 +13,13 @@ import { motion } from "framer-motion";
 import {
     LayoutDashboard,
     FileText,
-    FolderOpen,
-    FileStack,
     Archive,
-    Landmark,
-    Briefcase,
-    Scale,
-    Lock,
     PenTool,
-    Clock,
-    CheckCircle2,
+    Bot,
+    BarChart3,
     Workflow,
     Users,
     Settings,
-    CreditCard,
     GraduationCap,
     ChevronLeft,
     ChevronRight as ChevronRightIcon,
@@ -38,7 +31,11 @@ import {
     SlidersHorizontal,
     Building2,
     Shield,
-    Award,
+    Landmark,
+    Sun,
+    Moon,
+    PanelLeftClose,
+    PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +45,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
 import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { INSTITUTIONAL_PAGE_INFO } from "@/config/page-info/institutional";
+import { useAuth } from "@/hooks/useAuth";
+import { useThemeContext } from "@/contexts/ThemeContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { getUserInitials, getUserDisplayName, getRoleLabel } from "@/config/role-helpers";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -82,55 +83,50 @@ interface NavSection {
     items: NavItem[];
 }
 
-const NAV_SECTIONS: NavSection[] = [
-    {
-        title: "Principal",
-        items: [
-            { label: "Dashboard", href: "/institutional", icon: LayoutDashboard },
-        ],
-    },
-    {
-        title: "iDocument",
-        items: [
-            { label: "Mes Documents", href: "/institutional/idocument", icon: FileText },
-            { label: "Documents Partagés", href: "/institutional/idocument/shared", icon: FolderOpen },
-            { label: "Templates", href: "/institutional/idocument/templates", icon: FileStack },
-        ],
-    },
-    {
-        title: "iArchive",
-        items: [
-            { label: "Archives Légales", href: "/institutional/iarchive/legal", icon: Scale },
-            { label: "Archives Fiscales", href: "/institutional/iarchive/fiscal", icon: Landmark },
-            { label: "Archives Sociales", href: "/institutional/iarchive/social", icon: Briefcase },
-            { label: "Coffre-Fort", href: "/institutional/iarchive/vault", icon: Lock },
-            { label: "Certifications", href: "/institutional/iarchive/certificates", icon: Award },
-        ],
-    },
-    {
-        title: "iSignature",
-        items: [
-            { label: "À signer", href: "/institutional/isignature/pending", icon: PenTool, badge: 2 },
-            { label: "En attente", href: "/institutional/isignature/waiting", icon: Clock, badge: 3 },
-            { label: "Signés", href: "/institutional/isignature/completed", icon: CheckCircle2 },
-            { label: "Workflows", href: "/institutional/isignature/workflows", icon: Workflow },
-        ],
-    },
-    {
-        title: "Administration",
-        items: [
-            { label: "Utilisateurs", href: "/institutional/users", icon: Users },
-            { label: "Sécurité & Conformité", href: "/institutional/compliance", icon: Shield },
-        ],
-    },
-    {
+function buildNavSections(userLevel: number): NavSection[] {
+    const sections: NavSection[] = [
+        {
+            title: "Principal",
+            items: [
+                { label: "Dashboard", href: "/institutional", icon: LayoutDashboard },
+            ],
+        },
+        {
+            title: "Modules",
+            items: [
+                { label: "iDocument", href: "/institutional/idocument", icon: FileText },
+                { label: "iArchive", href: "/institutional/iarchive", icon: Archive },
+                { label: "iSignature", href: "/institutional/isignature", icon: PenTool },
+                { label: "iAsted", href: "/institutional/iasted", icon: Bot },
+            ],
+        },
+    ];
+
+    // Admin section only for level ≤ 3 (managers and above)
+    if (userLevel <= 3) {
+        sections.push({
+            title: "Administration",
+            items: [
+                { label: "Workflows", href: "/institutional/workflows", icon: Workflow },
+                { label: "Utilisateurs", href: "/institutional/users", icon: Users },
+                { label: "Sécurité & Conformité", href: "/institutional/compliance", icon: Shield },
+                ...(userLevel <= 2
+                    ? [{ label: "Console SubAdmin", href: "/subadmin", icon: SlidersHorizontal }]
+                    : []),
+            ],
+        });
+    }
+
+    sections.push({
         title: "Compte",
         items: [
             { label: "Formation", href: "/institutional/formation", icon: GraduationCap },
             { label: "Paramètres", href: "/institutional/parametres", icon: Settings },
         ],
-    },
-];
+    });
+
+    return sections;
+}
 
 /* ─── Breadcrumb builder ────────────────────────── */
 
@@ -139,16 +135,8 @@ const ROUTE_LABELS: Record<string, string> = {
     idocument: "iDocument",
     iarchive: "iArchive",
     isignature: "iSignature",
-    shared: "Partagés",
-    templates: "Templates",
-    fiscal: "Fiscales",
-    social: "Sociales",
-    legal: "Légales",
-    vault: "Coffre-Fort",
-    certificates: "Certifications",
-    pending: "À signer",
-    waiting: "En attente",
-    completed: "Signés",
+    iasted: "iAsted",
+    analytics: "Analytics IA",
     workflows: "Workflows",
     users: "Utilisateurs",
     compliance: "Conformité",
@@ -179,12 +167,12 @@ function NavLink({
     const content = (
         <Link
             href={item.href}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${active
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium transition-all ${active
+                ? "bg-emerald-500/20 text-foreground"
+                : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground"
                 }`}
         >
-            <item.icon className={`h-4 w-4 shrink-0 ${active ? "text-emerald-400" : ""}`} />
+            <item.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-emerald-400" : ""}`} />
             {!collapsed && (
                 <>
                     <span className="truncate flex-1">{item.label}</span>
@@ -192,6 +180,9 @@ function NavLink({
                         <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-emerald-500/15 text-emerald-400 border-0">
                             {item.badge}
                         </Badge>
+                    )}
+                    {active && (
+                        <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
                     )}
                 </>
             )}
@@ -222,7 +213,16 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const { theme, toggleTheme } = useThemeContext();
     const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
+
+    const { user } = useAuth();
+    const { orgName } = useOrganization();
+    const userLevel = user?.level ?? 4;
+    const userInitials = getUserInitials(user);
+    const userDisplayName = getUserDisplayName(user);
+    const userRoleLabel = getRoleLabel(user);
+    const navSections = useMemo(() => buildNavSections(userLevel), [userLevel]);
 
     const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
 
@@ -238,7 +238,7 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
     const sidebarContent = (
         <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className="flex items-center gap-2.5 px-4 py-5 border-b border-white/5">
+            <div className="flex items-center gap-2.5 px-4 py-5">
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center shrink-0">
                     <Landmark className="h-4 w-4 text-white" />
                 </div>
@@ -248,22 +248,16 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                         animate={{ opacity: 1, width: "auto" }}
                         className="overflow-hidden"
                     >
-                        <p className="text-sm font-bold whitespace-nowrap">Institutionnel</p>
-                        <p className="text-[10px] text-muted-foreground whitespace-nowrap">Administration Souveraine</p>
+                        <p className="text-sm font-bold whitespace-nowrap">{orgName}</p>
+                        <p className="text-[10px] text-muted-foreground whitespace-nowrap uppercase tracking-wider">Administration Souveraine</p>
                     </motion.div>
                 )}
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
-                {NAV_SECTIONS.map((section) => (
+            <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
+                {navSections.map((section) => (
                     <div key={section.title}>
-                        {!collapsed && (
-                            <p className="px-3 mb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold">
-                                {section.title}
-                            </p>
-                        )}
-                        {collapsed && <Separator className="my-2 bg-white/5" />}
                         <div className="space-y-0.5">
                             {section.items.map((item) => (
                                 <NavLink
@@ -278,61 +272,84 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                 ))}
             </nav>
 
-            {/* Footer / Profile */}
-            <div className="border-t border-white/5 px-3 py-3">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-2.5 w-full px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
-                            <Avatar className="h-8 w-8 shrink-0">
-                                <AvatarFallback className="bg-emerald-500/15 text-emerald-400 text-xs">IN</AvatarFallback>
-                            </Avatar>
-                            {!collapsed && (
-                                <div className="text-left min-w-0 flex-1">
-                                    <p className="text-xs font-medium truncate">Administrateur</p>
-                                    <p className="text-[10px] text-muted-foreground truncate">Institution Gov</p>
-                                </div>
-                            )}
+            {/* Footer */}
+            <div className="px-3 pb-4 pt-2 space-y-1">
+                {!collapsed ? (
+                    <>
+                        <button
+                            onClick={toggleTheme}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                        >
+                            {theme === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
+                            <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
                         </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="top" align="start" className="w-56">
-                        <DropdownMenuLabel className="text-xs">Mon Compte</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push("/institutional/parametres")} className="text-xs gap-2">
-                            <UserIcon className="h-3.5 w-3.5" /> Mon Profil
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push("/institutional/parametres")} className="text-xs gap-2">
-                            <SlidersHorizontal className="h-3.5 w-3.5" /> Paramètres
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-xs gap-2 text-red-400 focus:text-red-400">
-                            <LogOut className="h-3.5 w-3.5" /> Déconnexion
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                        <button
+                            onClick={toggleCollapsed}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                        >
+                            <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
+                            <span>Réduire</span>
+                        </button>
+                        <button
+                            onClick={() => router.push('/')}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
+                        >
+                            <LogOut className="h-[18px] w-[18px] shrink-0" />
+                            <span>Déconnexion</span>
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={toggleTheme}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                                >
+                                    {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{theme === "dark" ? "Mode clair" : "Mode sombre"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={toggleCollapsed}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                                >
+                                    <PanelLeftOpen className="h-[18px] w-[18px]" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">Agrandir</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={() => router.push('/')}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
+                                >
+                                    <LogOut className="h-[18px] w-[18px]" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">Déconnexion</TooltipContent>
+                        </Tooltip>
+                    </>
+                )}
             </div>
         </div>
     );
 
     return (
         <TooltipProvider>
-            <div className="min-h-screen flex bg-background">
+            <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
                 {/* ─── Desktop Sidebar ─── */}
                 <motion.aside
                     animate={{ width: collapsed ? 64 : 256 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="hidden md:flex flex-col glass border-r border-white/5 relative shrink-0"
+                    className="hidden md:flex flex-col glass-panel rounded-2xl relative shrink-0 overflow-hidden"
                 >
                     {sidebarContent}
-                    <button
-                        onClick={toggleCollapsed}
-                        className="absolute -right-3 top-8 h-6 w-6 rounded-full bg-background border border-white/10 flex items-center justify-center hover:bg-white/5 transition-colors z-10"
-                    >
-                        {collapsed ? (
-                            <ChevronRightIcon className="h-3 w-3 text-muted-foreground" />
-                        ) : (
-                            <ChevronLeft className="h-3 w-3 text-muted-foreground" />
-                        )}
-                    </button>
+
                 </motion.aside>
 
                 {/* ─── Mobile Sidebar ─── */}
@@ -344,9 +361,9 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                 </Sheet>
 
                 {/* ─── Main Area ─── */}
-                <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl overflow-hidden">
                     {/* Header */}
-                    <header className="h-14 border-b border-white/5 flex items-center gap-3 px-4 glass shrink-0">
+                    <header className="h-14 border-b border-border/40 flex items-center gap-3 px-4 shrink-0">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -379,7 +396,7 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                             <Input
                                 placeholder="Rechercher…"
-                                className="h-8 w-56 pl-8 text-xs bg-white/5 border-white/10"
+                                className="h-8 w-56 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
                             />
                         </div>
 

@@ -8,6 +8,7 @@
 
 import React, { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -32,10 +33,10 @@ import {
     FolderOpen,
     PenTool,
     Building,
+    Plus,
     Palette,
     UserCircle,
     Terminal,
-    Sparkles,
     ChevronLeft,
     ChevronRight as ChevronRightIcon,
     ChevronDown,
@@ -47,6 +48,10 @@ import {
     SlidersHorizontal,
     GraduationCap,
     Shield,
+    Sun,
+    Moon,
+    PanelLeftClose,
+    PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,10 +80,11 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useThemeContext } from "@/contexts/ThemeContext";
 
 /* ─── Space Types ──────────────────────────────── */
 
-type AdminSpace = "business" | "infra" | "modules" | "digitalium";
+type AdminSpace = "business" | "infra" | "digitalium";
 
 /* ─── Space Theme Config ───────────────────────── */
 
@@ -96,7 +102,7 @@ const SPACE_THEMES: Record<AdminSpace, {
 }> = {
     business: {
         gradient: "from-digitalium-blue to-digitalium-violet",
-        activeBg: "bg-digitalium-blue/15",
+        activeBg: "bg-digitalium-blue/20",
         activeText: "text-digitalium-blue",
         border: "border-white/5",
         indicator: "bg-digitalium-blue",
@@ -108,7 +114,7 @@ const SPACE_THEMES: Record<AdminSpace, {
     },
     infra: {
         gradient: "from-red-600 to-orange-500",
-        activeBg: "bg-red-500/15",
+        activeBg: "bg-red-500/20",
         activeText: "text-orange-400",
         border: "border-red-900/20",
         indicator: "bg-orange-500",
@@ -118,21 +124,9 @@ const SPACE_THEMES: Record<AdminSpace, {
         ringColor: "focus-visible:ring-orange-500/30",
         pageInfoAccent: "orange",
     },
-    modules: {
-        gradient: "from-violet-600 to-indigo-500",
-        activeBg: "bg-violet-500/15",
-        activeText: "text-violet-300",
-        border: "border-violet-900/20",
-        indicator: "bg-violet-500",
-        badgeBg: "bg-violet-500/20",
-        badgeText: "text-violet-300",
-        notifBg: "bg-violet-500",
-        ringColor: "focus-visible:ring-violet-500/30",
-        pageInfoAccent: "violet",
-    },
     digitalium: {
         gradient: "from-emerald-600 to-teal-500",
-        activeBg: "bg-emerald-500/15",
+        activeBg: "bg-emerald-500/20",
         activeText: "text-emerald-400",
         border: "border-emerald-900/20",
         indicator: "bg-emerald-500",
@@ -149,7 +143,6 @@ const SPACE_THEMES: Record<AdminSpace, {
 const SPACES: { id: AdminSpace; label: string; icon: React.ElementType; href: string; color: string; activeColor: string }[] = [
     { id: "business", label: "Gestion Business", icon: LayoutDashboard, href: "/admin", color: "text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10", activeColor: "bg-blue-500/20 text-blue-400" },
     { id: "infra", label: "Infrastructure", icon: Terminal, href: "/admin/infrastructure", color: "text-zinc-500 hover:text-orange-400 hover:bg-orange-500/10", activeColor: "bg-orange-500/20 text-orange-400" },
-    { id: "modules", label: "Modules DIGITALIUM", icon: Sparkles, href: "/admin/modules", color: "text-zinc-500 hover:text-violet-400 hover:bg-violet-500/10", activeColor: "bg-violet-500/20 text-violet-400" },
     { id: "digitalium", label: "DIGITALIUM", icon: Building, href: "/admin/digitalium", color: "text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10", activeColor: "bg-emerald-500/20 text-emerald-400" },
 ];
 
@@ -209,28 +202,6 @@ const INFRA_NAV: NavSection[] = [
     },
 ];
 
-const MODULES_NAV: NavSection[] = [
-    {
-        title: "Principal",
-        items: [
-            { label: "Dashboard Modules", href: "/admin/modules", icon: LayoutDashboard },
-        ],
-    },
-    {
-        title: "Clients",
-        items: [
-            { label: "Liste des clients", href: "/admin/modules/clients", icon: UserCircle },
-            { label: "Nouveau client", href: "/admin/modules/clients/new", icon: Users },
-        ],
-    },
-    {
-        title: "Thème & Design",
-        items: [
-            { label: "Design System", href: "/admin/modules/design-theme", icon: Palette },
-        ],
-    },
-];
-
 const DIGITALIUM_NAV: NavSection[] = [
     {
         title: "DIGITALIUM",
@@ -255,20 +226,17 @@ const DIGITALIUM_NAV: NavSection[] = [
 const SPACE_NAVS: Record<AdminSpace, NavSection[]> = {
     business: BUSINESS_NAV,
     infra: INFRA_NAV,
-    modules: MODULES_NAV,
     digitalium: DIGITALIUM_NAV,
 };
 
 /* ─── Detect Active Space ──────────────────────── */
 
 const INFRA_PREFIXES = ["/admin/infrastructure", "/admin/monitoring", "/admin/databases", "/admin/logs", "/admin/security", "/admin/iam"];
-const MODULES_PREFIXES = ["/admin/modules"];
 const DIGITALIUM_PREFIXES = ["/admin/digitalium"];
 
 function detectSpace(pathname: string): AdminSpace {
     if (DIGITALIUM_PREFIXES.some((p) => pathname.startsWith(p))) return "digitalium";
     if (INFRA_PREFIXES.some((p) => pathname.startsWith(p))) return "infra";
-    if (MODULES_PREFIXES.some((p) => pathname.startsWith(p))) return "modules";
     return "business";
 }
 
@@ -293,7 +261,6 @@ const ROUTE_LABELS: Record<string, string> = {
     logs: "Journaux",
     security: "Sécurité",
     iam: "IAM",
-    modules: "Modules",
     clients: "Clients",
     new: "Nouveau",
     idocument: "iDocument",
@@ -334,21 +301,15 @@ function NavLink({
         <Link
             href={item.href}
             className={`
-                flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
                 transition-all duration-200 group relative
                 ${active
-                    ? `${theme.activeBg} ${theme.activeText}`
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    ? `${theme.activeBg} text-foreground`
+                    : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
                 }
                 ${collapsed ? "justify-center px-2" : ""}
             `}
         >
-            {active && (
-                <motion.div
-                    layoutId="admin-unified-nav-indicator"
-                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full ${theme.indicator}`}
-                />
-            )}
             <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
             {!collapsed && (
                 <>
@@ -360,6 +321,9 @@ function NavLink({
                         >
                             {item.badge}
                         </Badge>
+                    )}
+                    {active && (
+                        <span className={`ml-auto h-2 w-2 rounded-full ${theme.indicator} shrink-0`} />
                     )}
                 </>
             )}
@@ -408,7 +372,7 @@ function NavGroup({
                 <TooltipTrigger asChild>
                     <Link
                         href={item.href}
-                        className={`flex items-center justify-center px-2 py-2 rounded-lg text-sm font-medium transition-all ${isChildActive ? `${theme.activeBg} ${theme.activeText}` : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+                        className={`flex items-center justify-center px-2 py-2.5 rounded-full text-sm font-medium transition-all ${isChildActive ? `${theme.activeBg} text-foreground` : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"}`}
                     >
                         <Icon className={`h-[18px] w-[18px] ${isChildActive ? theme.activeText : ""}`} />
                     </Link>
@@ -422,14 +386,14 @@ function NavGroup({
         <div>
             <button
                 onClick={() => setExpanded((p) => !p)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${isChildActive ? `${theme.activeBg.replace("/15", "/10")} ${theme.activeText}` : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium transition-all ${isChildActive ? `${theme.activeBg.replace("/20", "/15")} text-foreground` : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"}`}
             >
                 <Icon className={`h-[18px] w-[18px] shrink-0 ${isChildActive ? theme.activeText : ""}`} />
                 <span className="truncate flex-1 text-left">{item.label}</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-0" : "-rotate-90"}`} />
             </button>
             {expanded && item.children && (
-                <div className="ml-5 pl-3 border-l border-white/5 mt-1 space-y-0.5">
+                <div className="ml-5 pl-3 border-l border-border/30 mt-1 space-y-0.5">
                     {item.children.map((child) => {
                         const ChildIcon = child.icon;
                         const childActive = pathname.startsWith(child.href);
@@ -437,7 +401,7 @@ function NavGroup({
                             <Link
                                 key={child.href}
                                 href={child.href}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-all ${childActive ? `${theme.activeText} ${theme.activeBg.replace("/15", "/10")}` : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all ${childActive ? `${theme.activeText} ${theme.activeBg.replace("/20", "/10")}` : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"}`}
                             >
                                 <ChildIcon className="h-3.5 w-3.5 shrink-0" />
                                 <span>{child.label}</span>
@@ -470,10 +434,11 @@ function SidebarContent({
     const isActive = (href: string) => {
         if (href === "/admin") return pathname === "/admin";
         if (href === "/admin/infrastructure") return pathname === "/admin/infrastructure";
-        if (href === "/admin/modules") return pathname === "/admin/modules";
         if (href === "/admin/digitalium") return pathname === "/admin/digitalium";
         return pathname.startsWith(href);
     };
+
+    const { theme: colorMode, toggleTheme: toggleColorMode } = useThemeContext();
 
     const sections = SPACE_NAVS[activeSpace];
 
@@ -487,44 +452,35 @@ function SidebarContent({
     return (
         <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} px-3 py-4`}>
-                <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center shrink-0`}>
-                    {activeSpace === "infra" ? (
-                        <Terminal className="h-4 w-4 text-white" />
-                    ) : activeSpace === "modules" ? (
-                        <Sparkles className="h-4 w-4 text-white" />
-                    ) : (
-                        <span className="text-white font-bold text-sm">D</span>
-                    )}
-                </div>
+            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-4 py-5`}>
+                {activeSpace === "infra" ? (
+                    <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center shrink-0`}>
+                        <Terminal className="h-6 w-6 text-white" />
+                    </div>
+                ) : (
+                    <Image src="/logo_digitalium.png" alt="DIGITALIUM.IO" width={48} height={48} className="h-12 w-12 shrink-0" />
+                )}
                 {!collapsed && (
-                    <motion.span
+                    <motion.div
                         key={activeSpace}
                         initial={{ opacity: 0, width: 0 }}
                         animate={{ opacity: 1, width: "auto" }}
-                        className="font-bold text-sm overflow-hidden whitespace-nowrap"
+                        className="overflow-hidden whitespace-nowrap"
                     >
-                        <span className={`bg-gradient-to-r ${activeSpace === "business" ? "from-blue-400 to-violet-400" : activeSpace === "infra" ? "from-red-400 to-orange-400" : activeSpace === "digitalium" ? "from-emerald-400 to-teal-400" : "from-violet-400 to-indigo-400"} bg-clip-text text-transparent`}>
-                            {activeSpace === "business" ? "DIGITALIUM" : activeSpace === "infra" ? "INFRASTRUCTURE" : activeSpace === "digitalium" ? "DIGITALIUM" : "MODULES"}
-                        </span>
-                    </motion.span>
+                        <p className="font-bold text-sm">
+                            {activeSpace === "business" ? "DIGITALIUM" : activeSpace === "infra" ? "INFRASTRUCTURE" : "DIGITALIUM"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            {activeSpace === "business" ? "Business" : activeSpace === "infra" ? "SysAdmin" : "Platform"}
+                        </p>
+                    </motion.div>
                 )}
             </div>
 
-            <Separator className="bg-white/5" />
-
             {/* Nav Sections */}
-            <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
                 {sections.map((section) => (
                     <div key={section.title}>
-                        {!collapsed && (
-                            <p className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold">
-                                {section.title}
-                            </p>
-                        )}
-                        {collapsed && section.title !== sections[0]?.title && (
-                            <Separator className="my-1.5 bg-white/5" />
-                        )}
                         <div className="space-y-0.5">
                             {section.items.map(renderNavItem)}
                         </div>
@@ -532,46 +488,69 @@ function SidebarContent({
                 ))}
             </div>
 
-            <Separator className="bg-white/5" />
-
             {/* Footer */}
-            <div className="p-3 space-y-2">
-                {!collapsed && (
-                    <div className="flex items-center gap-2 px-1">
-                        <Avatar className="h-7 w-7">
-                            <AvatarFallback className={`${theme.badgeBg} ${theme.badgeText} text-[10px] font-bold`}>
-                                SA
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-xs font-medium truncate">Super Admin</p>
-                            <p className="text-[10px] text-muted-foreground truncate">system_admin</p>
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={onSignOut}
+            <div className="px-3 pb-4 pt-2 space-y-1">
+                {!collapsed ? (
+                    <>
+                        <button
+                            onClick={toggleColorMode}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
                         >
-                            <LogOut className="h-3.5 w-3.5" />
-                        </Button>
-                    </div>
+                            {colorMode === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
+                            <span>{colorMode === "dark" ? "Mode clair" : "Mode sombre"}</span>
+                        </button>
+                        <button
+                            onClick={onToggle}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                        >
+                            <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
+                            <span>Réduire</span>
+                        </button>
+                        <button
+                            onClick={onSignOut}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
+                        >
+                            <LogOut className="h-[18px] w-[18px] shrink-0" />
+                            <span>Déconnexion</span>
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={toggleColorMode}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                                >
+                                    {colorMode === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{colorMode === "dark" ? "Mode clair" : "Mode sombre"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={onToggle}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                                >
+                                    <PanelLeftOpen className="h-[18px] w-[18px]" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">Agrandir</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={onSignOut}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
+                                >
+                                    <LogOut className="h-[18px] w-[18px]" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">Déconnexion</TooltipContent>
+                        </Tooltip>
+                    </>
                 )}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-center text-muted-foreground hover:text-foreground"
-                    onClick={onToggle}
-                >
-                    {collapsed ? (
-                        <ChevronRightIcon className="h-4 w-4" />
-                    ) : (
-                        <>
-                            <ChevronLeft className="h-4 w-4 mr-1" />
-                            <span className="text-xs">Réduire</span>
-                        </>
-                    )}
-                </Button>
             </div>
         </div>
     );
@@ -611,13 +590,13 @@ export default function AdminUnifiedLayout({
 
     return (
         <TooltipProvider delayDuration={0}>
-            <div className="min-h-screen flex bg-background">
+            <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
                 {/* ── Desktop Sidebar ── */}
                 <motion.aside
                     initial={false}
                     animate={{ width: collapsed ? 64 : 260 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className={`hidden lg:flex flex-col shrink-0 border-r ${theme.border} glass-section overflow-hidden`}
+                    className="hidden lg:flex flex-col shrink-0 glass-panel rounded-2xl overflow-hidden"
                 >
                     <SidebarContent
                         collapsed={collapsed}
@@ -645,9 +624,9 @@ export default function AdminUnifiedLayout({
                 </Sheet>
 
                 {/* ── Main area ── */}
-                <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl overflow-hidden">
                     {/* ── Header ── */}
-                    <header className={`h-14 border-b ${theme.border} glass flex items-center justify-between px-4 lg:px-6 shrink-0 z-20`}>
+                    <header className="h-14 border-b border-border/40 flex items-center justify-between px-4 lg:px-6 shrink-0 z-20">
                         {/* Left: Hamburger + Breadcrumb */}
                         <div className="flex items-center gap-3">
                             <Button
@@ -685,7 +664,7 @@ export default function AdminUnifiedLayout({
                         {/* Right: Space Switcher + Search + Notifications + Avatar */}
                         <div className="flex items-center gap-2">
                             {/* ── Space Switcher ── */}
-                            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-white/[0.02] border border-white/5">
+                            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-border/40">
                                 {SPACES.map((space) => {
                                     const SpaceIcon = space.icon;
                                     const isActive = activeSpace === space.id;
@@ -712,7 +691,7 @@ export default function AdminUnifiedLayout({
                                 <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
-                                    className={`h-8 w-48 pl-8 text-xs bg-white/5 border-white/10 ${theme.ringColor}`}
+                                    className={`h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 ${theme.ringColor}`}
                                 />
                             </div>
 

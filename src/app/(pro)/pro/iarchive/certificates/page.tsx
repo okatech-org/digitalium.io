@@ -189,11 +189,6 @@ export default function CertificatesPage() {
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
             >
                 <div className="flex items-center gap-3">
-                    <Link href="/pro/iarchive">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white/5">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
                     <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center">
                         <Shield className="h-5 w-5 text-white" />
                     </div>
@@ -235,11 +230,10 @@ export default function CertificatesPage() {
                         <button
                             key={s.key}
                             onClick={() => setStatusFilter(s.key)}
-                            className={`px-2.5 py-1 rounded-md text-[10px] transition-all ${
-                                statusFilter === s.key
+                            className={`px-2.5 py-1 rounded-md text-[10px] transition-all ${statusFilter === s.key
                                     ? "bg-violet-500/10 text-violet-300 border border-violet-500/30"
                                     : "bg-white/5 text-zinc-400 border border-white/5 hover:bg-white/10"
-                            }`}
+                                }`}
                         >
                             {s.label}
                         </button>
@@ -290,11 +284,10 @@ export default function CertificatesPage() {
                                 <div className="sm:col-span-2">
                                     <Badge
                                         variant="outline"
-                                        className={`text-[9px] font-mono ${
-                                            isValid
+                                        className={`text-[9px] font-mono ${isValid
                                                 ? "border-emerald-500/20 text-emerald-400"
                                                 : "border-red-500/20 text-red-400"
-                                        }`}
+                                            }`}
                                     >
                                         {isValid ? (
                                             <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
@@ -334,11 +327,10 @@ export default function CertificatesPage() {
                                 <div className="sm:col-span-1">
                                     <Badge
                                         variant="outline"
-                                        className={`text-[9px] h-5 ${
-                                            isValid
+                                        className={`text-[9px] h-5 ${isValid
                                                 ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                                                 : "text-red-400 bg-red-500/10 border-red-500/20"
-                                        }`}
+                                            }`}
                                     >
                                         {isValid ? "Valide" : "Révoqué"}
                                     </Badge>

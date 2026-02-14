@@ -90,6 +90,25 @@ const DEV_EMAIL_ROLES: Record<string, { role: PlatformRole; level: number }> = {
     "sinistres@ascoma.ga": { role: "org_manager", level: 3 },
     "agent@ascoma.ga": { role: "org_member", level: 4 },
     "juridique@ascoma.ga": { role: "org_viewer", level: 5 },
+    "ministre-peche@digitalium.io": { role: "org_admin", level: 2 },
+    "admin-peche@digitalium.io": { role: "org_admin", level: 2 },
+    "dgpa@digitalium.io": { role: "org_manager", level: 3 },
+    "anpa@digitalium.io": { role: "org_manager", level: 3 },
+    "inspecteur-peche@digitalium.io": { role: "org_member", level: 4 },
+};
+
+/** Persona type per demo email — required for PersonaProtectedRoute guard. */
+const DEV_EMAIL_PERSONAS: Record<string, PersonaType> = {
+    "dg@ascoma.ga": "business",
+    "commercial@ascoma.ga": "business",
+    "sinistres@ascoma.ga": "business",
+    "agent@ascoma.ga": "business",
+    "juridique@ascoma.ga": "business",
+    "ministre-peche@digitalium.io": "institutional",
+    "admin-peche@digitalium.io": "institutional",
+    "dgpa@digitalium.io": "institutional",
+    "anpa@digitalium.io": "institutional",
+    "inspecteur-peche@digitalium.io": "institutional",
 };
 
 const DEFAULT_DEV_ROLE: { role: PlatformRole; level: number } = {
@@ -145,8 +164,18 @@ function isDev(): boolean {
 function buildDevFallback(
     email: string
 ): Omit<AdminRoleResponse, "organizations"> {
-    const mapping =
-        DEV_EMAIL_ROLES[email.toLowerCase()] ?? DEFAULT_DEV_ROLE;
+    const lower = email.toLowerCase();
+    const mapping = DEV_EMAIL_ROLES[lower] ?? DEFAULT_DEV_ROLE;
+
+    // Resolve persona: explicit mapping → global admins undefined → default "business"
+    let personaType: PersonaType | undefined =
+        DEV_EMAIL_PERSONAS[lower];
+    if (!personaType && mapping.level <= 1) {
+        personaType = undefined; // global admins bypass persona checks
+    } else if (!personaType) {
+        personaType = "business"; // default for unrecognized org-level emails
+    }
+
     return {
         isAdmin: mapping.level <= 2,
         role: mapping.role,
@@ -156,8 +185,43 @@ function buildDevFallback(
         isOrgAdmin: mapping.level === 2,
         isManager: mapping.level === 3,
         roles: [{ role: mapping.role, level: mapping.level }],
-        personaType: mapping.level <= 2 ? undefined : "business",
+        personaType,
     };
+}
+
+/** Build mock organizations list for dev so subscription guards pass. */
+function buildDevMockOrgs(email: string): Organization[] {
+    const lower = email.toLowerCase();
+    if (lower.endsWith("@ascoma.ga")) {
+        return [
+            {
+                id: "ascoma",
+                name: "ASCOMA GABON",
+                type: "enterprise",
+                slug: "ascoma-gabon",
+                plan: "professional",
+                maxUsers: 25,
+                createdAt: new Date("2025-01-01"),
+            },
+        ];
+    }
+    if (
+        lower.endsWith("@digitalium.io") &&
+        DEV_EMAIL_ROLES[lower]
+    ) {
+        return [
+            {
+                id: "minpeche",
+                name: "Ministère de la Pêche",
+                type: "government",
+                slug: "min-peche",
+                plan: "enterprise",
+                maxUsers: 100,
+                createdAt: new Date("2025-01-01"),
+            },
+        ];
+    }
+    return [];
 }
 
 function buildAuthUser(
@@ -224,12 +288,16 @@ export function FirebaseAuthProvider({
     // environments. When a real database is set up, re-enable the CF call.
     const resolveRoles = useCallback(
         async (firebaseUser: FirebaseUser): Promise<AuthUser> => {
-            const fallback = buildDevFallback(
-                firebaseUser.email ?? ""
-            );
+            const email = firebaseUser.email ?? "";
+            const fallback = buildDevFallback(email);
+
+            // Provide mock organization for org-level demo accounts
+            // so the PersonaProtectedRoute subscription guard passes
+            const mockOrgs = buildDevMockOrgs(email);
+
             return buildAuthUser(firebaseUser, {
                 ...fallback,
-                organizations: [],
+                organizations: mockOrgs,
             });
         },
         []

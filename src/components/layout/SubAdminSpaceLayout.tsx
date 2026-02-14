@@ -47,6 +47,10 @@ import {
     Shield,
     GraduationCap,
     Settings,
+    Sun,
+    Moon,
+    PanelLeftClose,
+    PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +70,7 @@ import {
     SheetContent,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { useThemeContext } from "@/contexts/ThemeContext";
 import { PageInfoButton } from "@/components/shared/PageInfoButton";
 import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
 import { SUBADMIN_PAGE_INFO } from "@/config/page-info/subadmin";
@@ -205,21 +210,15 @@ function NavLink({
         <Link
             href={item.href}
             className={`
-                flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
                 transition-all duration-200 group relative
                 ${active
-                    ? "bg-violet-500/15 text-violet-300"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    ? "bg-violet-500/20 text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
                 }
                 ${collapsed ? "justify-center px-2" : ""}
             `}
         >
-            {active && (
-                <motion.div
-                    layoutId="subadmin-nav-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-violet-500"
-                />
-            )}
             <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-violet-400" : ""}`} />
             {!collapsed && (
                 <>
@@ -231,6 +230,9 @@ function NavLink({
                         >
                             {item.badge}
                         </Badge>
+                    )}
+                    {active && (
+                        <span className="ml-auto h-2 w-2 rounded-full bg-violet-400 shrink-0" />
                     )}
                 </>
             )}
@@ -272,10 +274,12 @@ function SidebarContent({
     const isActive = (href: string) =>
         href === "/subadmin" ? pathname === "/subadmin" : pathname.startsWith(href);
 
+    const { theme, toggleTheme } = useThemeContext();
+
     return (
         <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} px-3 py-4`}>
+            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-4 py-5`}>
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center shrink-0">
                     <Sparkles className="h-4 w-4 text-white" />
                 </div>
@@ -286,27 +290,16 @@ function SidebarContent({
                         exit={{ opacity: 0, width: 0 }}
                         className="overflow-hidden whitespace-nowrap"
                     >
-                        <span className="font-bold text-sm bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-                            DIGITALIUM
-                        </span>
+                        <p className="font-bold text-sm">DIGITALIUM</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">SubAdmin</p>
                     </motion.div>
                 )}
             </div>
 
-            <Separator className="bg-white/5" />
-
             {/* Nav */}
-            <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
                 {NAV_SECTIONS.map((section) => (
                     <div key={section.title}>
-                        {!collapsed && (
-                            <p className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold">
-                                {section.title}
-                            </p>
-                        )}
-                        {collapsed && section.title !== "Principal" && (
-                            <Separator className="my-1.5 bg-white/5" />
-                        )}
                         <div className="space-y-0.5">
                             {section.items.map((item) => (
                                 <NavLink
@@ -321,46 +314,69 @@ function SidebarContent({
                 ))}
             </div>
 
-            <Separator className="bg-white/5" />
-
             {/* Footer */}
-            <div className="p-3 space-y-2">
-                {!collapsed && (
-                    <div className="flex items-center gap-2 px-1">
-                        <Avatar className="h-7 w-7">
-                            <AvatarFallback className="bg-violet-500/20 text-violet-300 text-[10px] font-bold">
-                                DG
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 overflow-hidden">
-                            <p className="text-xs font-medium truncate">DIGITALIUM</p>
-                            <p className="text-[10px] text-muted-foreground truncate">org_admin</p>
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={onSignOut}
+            <div className="px-3 pb-4 pt-2 space-y-1">
+                {!collapsed ? (
+                    <>
+                        <button
+                            onClick={toggleTheme}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
                         >
-                            <LogOut className="h-3.5 w-3.5" />
-                        </Button>
-                    </div>
+                            {theme === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
+                            <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
+                        </button>
+                        <button
+                            onClick={onToggle}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                        >
+                            <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
+                            <span>Réduire</span>
+                        </button>
+                        <button
+                            onClick={onSignOut}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
+                        >
+                            <LogOut className="h-[18px] w-[18px] shrink-0" />
+                            <span>Déconnexion</span>
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={toggleTheme}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                                >
+                                    {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{theme === "dark" ? "Mode clair" : "Mode sombre"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={onToggle}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
+                                >
+                                    <PanelLeftOpen className="h-[18px] w-[18px]" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">Agrandir</TooltipContent>
+                        </Tooltip>
+                        <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={onSignOut}
+                                    className="flex items-center justify-center px-2 py-2.5 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
+                                >
+                                    <LogOut className="h-[18px] w-[18px]" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">Déconnexion</TooltipContent>
+                        </Tooltip>
+                    </>
                 )}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-center text-muted-foreground hover:text-foreground"
-                    onClick={onToggle}
-                >
-                    {collapsed ? (
-                        <ChevronRightIcon className="h-4 w-4" />
-                    ) : (
-                        <>
-                            <ChevronLeft className="h-4 w-4 mr-1" />
-                            <span className="text-xs">Réduire</span>
-                        </>
-                    )}
-                </Button>
             </div>
         </div>
     );
@@ -398,13 +414,13 @@ export default function SubAdminSpaceLayout({
 
     return (
         <TooltipProvider delayDuration={0}>
-            <div className="min-h-screen flex bg-background">
+            <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
                 {/* Desktop Sidebar */}
                 <motion.aside
                     initial={false}
                     animate={{ width: collapsed ? 64 : 260 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="hidden lg:flex flex-col shrink-0 border-r border-violet-900/20 glass-section overflow-hidden"
+                    className="hidden lg:flex flex-col shrink-0 glass-panel rounded-2xl overflow-hidden"
                 >
                     <SidebarContent
                         collapsed={collapsed}
@@ -416,7 +432,7 @@ export default function SubAdminSpaceLayout({
 
                 {/* Mobile Sidebar */}
                 <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                    <SheetContent side="left" className="w-[280px] p-0 glass-section border-r border-violet-900/20">
+                    <SheetContent side="left" className="w-[280px] p-0 glass-section border-r border-border/40">
                         <SheetTitle className="sr-only">Menu SubAdmin</SheetTitle>
                         <SidebarContent
                             collapsed={false}
@@ -428,9 +444,9 @@ export default function SubAdminSpaceLayout({
                 </Sheet>
 
                 {/* Main area */}
-                <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl overflow-hidden">
                     {/* Header */}
-                    <header className="h-14 border-b border-violet-900/20 glass flex items-center justify-between px-4 lg:px-6 shrink-0 z-20">
+                    <header className="h-14 border-b border-border/40 flex items-center justify-between px-4 lg:px-6 shrink-0 z-20">
                         <div className="flex items-center gap-3">
                             <Button
                                 variant="ghost"
@@ -467,7 +483,7 @@ export default function SubAdminSpaceLayout({
                                 <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
-                                    className="h-8 w-48 pl-8 text-xs bg-white/5 border-white/10 focus-visible:ring-violet-500/30"
+                                    className="h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus-visible:ring-violet-500/30"
                                 />
                             </div>
 

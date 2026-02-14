@@ -1,16 +1,15 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function FooterSection() {
     return (
         <footer className="border-t border-white/5 py-16 px-6">
             <div className="max-w-6xl mx-auto">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
                     {/* Brand */}
                     <div className="col-span-2 md:col-span-1">
                         <div className="flex items-center gap-2 mb-3">
-                            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-digitalium-blue to-digitalium-violet flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">D</span>
-                            </div>
+                            <Image src="/logo_digitalium.png" alt="DIGITALIUM.IO" width={32} height={32} className="h-8 w-8 rounded-lg" />
                             <span className="font-bold text-lg text-gradient">
                                 DIGITALIUM.IO
                             </span>
@@ -19,6 +18,47 @@ export default function FooterSection() {
                             Plateforme souveraine d&apos;archivage intelligent et de gestion
                             documentaire pour le Gabon.
                         </p>
+                    </div>
+
+                    {/* Solutions */}
+                    <div>
+                        <h4 className="text-sm font-semibold mb-3">Solutions</h4>
+                        <ul className="space-y-2 text-xs text-muted-foreground">
+                            <li>
+                                <Link
+                                    href="/solutions/administrations"
+                                    className="hover:text-foreground transition-colors"
+                                >
+                                    Administrations
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/solutions/entreprises"
+                                    className="hover:text-foreground transition-colors"
+                                >
+                                    Entreprises
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/solutions/organismes"
+                                    className="hover:text-foreground transition-colors"
+                                >
+                                    Organismes
+                                </Link>
+                            </li>
+                            <li>
+                                <a
+                                    href="https://identite.ga/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:text-foreground transition-colors"
+                                >
+                                    Particuliers
+                                </a>
+                            </li>
+                        </ul>
                     </div>
 
                     {/* Modules */}
@@ -114,3 +154,4 @@ export default function FooterSection() {
         </footer>
     );
 }
+

@@ -73,21 +73,55 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
     organizations: {
         pageId: "admin-organizations",
         titre: "Organisations",
-        but: "Gérer les organisations clientes inscrites sur la plateforme.",
-        description: "Vue de toutes les organisations avec leur plan, nombre de membres, et utilisation des modules.",
+        but: "Gérer les organisations inscrites sur la plateforme avec leur configuration technique.",
+        description: "Grille de toutes les organisations avec leur plan, modules actifs (iDocument, iArchive, iSignature), hébergement, membres et statistiques d'utilisation.",
         elements: [
-            { nom: "Tableau organisations", type: "tableau", description: "Organisations avec plan, membres, modules actifs" },
-            { nom: "Bouton Créer", type: "bouton", description: "Crée une nouvelle organisation" },
+            { nom: "Cartes KPI", type: "carte", description: "Organisations, membres totaux, modules actifs, docs ce mois" },
+            { nom: "Grille organisations", type: "carte", description: "Cartes organisations avec badges modules, hébergement, stats" },
+            { nom: "Recherche", type: "filtre", description: "Recherche par nom, secteur ou ville" },
+            { nom: "Bouton Nouvelle Organisation", type: "bouton", description: "Wizard de création en 5 étapes" },
         ],
         tachesDisponibles: [
             "Voir les détails d'une organisation",
-            "Créer une organisation",
-            "Modifier le plan d'abonnement",
+            "Créer une organisation (wizard 5 étapes)",
             "Gérer les modules actifs",
+            "Configurer l'hébergement",
         ],
         liens: [
+            { page: "Nouvelle Organisation", relation: "Wizard de création", route: "/admin/organizations/new" },
+            { page: "Clients", relation: "Relations commerciales", route: "/admin/clients" },
             { page: "Utilisateurs", relation: "Membres de chaque organisation", route: "/admin/users" },
-            { page: "Abonnements", relation: "Plans et facturation", route: "/admin/subscriptions" },
+        ],
+    },
+    "organizations/new": {
+        pageId: "admin-organizations-new",
+        titre: "Nouvelle Organisation",
+        but: "Créer une nouvelle organisation avec configuration complète en 8 étapes modulables.",
+        description: "Wizard guidé : 1. Profil → 2. Modules → 3. Écosystème (bureaux, départements) → 4. Personnel (rôles RBAC) → 5. Dossiers par défaut (templates métier) → 6. Configuration modules (rétention OHADA, chaînes signature, classement) → 7. Automatisation (workflows triggers/actions) → 8. Déploiement (hébergement + portail). Les étapes 6-7 n'apparaissent que si au moins un module est activé.",
+        elements: [
+            { nom: "Stepper dynamique", type: "autre", description: "Navigation 8 étapes, adaptatif selon les modules activés" },
+            { nom: "Formulaire Profil", type: "champ", description: "Raison sociale, secteur, type, RCCM, NIF, contact, email, téléphone, adresse, ville" },
+            { nom: "Sélection Modules", type: "carte", description: "3 cartes toggle pour iDocument, iArchive, iSignature" },
+            { nom: "Écosystème", type: "autre", description: "Bureaux (liste) + Départements (grille avec sous-services)" },
+            { nom: "Personnel", type: "tableau", description: "Membres avec rôles RBAC et affectation départementale" },
+            { nom: "Dossiers par défaut", type: "carte", description: "Templates métier (Entreprise/Gouvernement/ONG) avec arborescence personnalisable" },
+            { nom: "Configuration modules", type: "autre", description: "Sub-tabs par module : rétention OHADA, cycle de vie archives (8 statuts), chaînes de signature, règles de classement" },
+            { nom: "Automatisation", type: "autre", description: "Règles QUAND/ALORS groupées par module, templates pré-configurés activables en 1 clic" },
+            { nom: "Déploiement", type: "carte", description: "Hébergement (Local/DC/Cloud) + Page publique (domaine, thème, annuaire)" },
+        ],
+        tachesDisponibles: [
+            "Renseigner le profil de l'organisation",
+            "Choisir les modules à activer",
+            "Configurer l'écosystème (bureaux, départements)",
+            "Définir le personnel et les rôles",
+            "Sélectionner et personnaliser les dossiers par défaut",
+            "Configurer les politiques de rétention OHADA",
+            "Définir les chaînes de signature",
+            "Créer les règles d'automatisation",
+            "Choisir le modèle de déploiement",
+        ],
+        liens: [
+            { page: "Organisations", relation: "Liste des organisations", route: "/admin/organizations" },
         ],
     },
     subscriptions: {
@@ -148,18 +182,22 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
     clients: {
         pageId: "admin-clients",
         titre: "Clients",
-        but: "Gérer la relation commerciale avec les organisations clientes.",
-        description: "Vue de toutes les organisations clientes avec leur type, contact principal, documents et revenus générés.",
+        but: "Gérer les relations commerciales avec les organisations clientes.",
+        description: "KPIs (total clients, revenue mensuel, abonnements actifs), tableau enrichi avec organisation liée, plan, revenue mensuel, statut et date de début.",
         elements: [
-            { nom: "Tableau clients", type: "tableau", description: "Organisations avec type, contact, documents, revenus" },
-            { nom: "Bouton Ajouter", type: "bouton", description: "Ajoute un nouveau client" },
+            { nom: "Cartes KPI", type: "carte", description: "Total clients, revenue mensuel, abonnements actifs, nouveaux ce mois" },
+            { nom: "Tableau clients", type: "tableau", description: "Clients avec organisation, plan, revenue, statut" },
+            { nom: "Recherche", type: "filtre", description: "Recherche par nom, organisation ou plan" },
+            { nom: "Bouton Nouveau Client", type: "bouton", description: "Wizard de création en 3 étapes" },
         ],
         tachesDisponibles: [
             "Consulter les clients",
-            "Ajouter un nouveau client",
+            "Créer un nouveau client (wizard 3 étapes)",
             "Suivre les revenus par client",
+            "Voir l'organisation associée",
         ],
         liens: [
+            { page: "Nouveau Client", relation: "Wizard de création", route: "/admin/clients/new" },
             { page: "Organisations", relation: "Détails de chaque organisation", route: "/admin/organizations" },
             { page: "Facturation", relation: "Facturation des clients", route: "/admin/billing" },
         ],
@@ -511,76 +549,11 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
         ],
     },
 
-    /* ─── Espace Modules (Client-Centric) ─── */
+    /* ─── Outils Business ─────────────────────── */
 
-    modules: {
-        pageId: "admin-modules",
-        titre: "Dashboard Modules",
-        but: "Vue d'ensemble des clients et de leurs modules configurés.",
-        description: "KPIs clients (total clients, modules actifs, configs en cours, stockage), tableau résumé clients avec modules, configurations récentes et actions rapides.",
-        elements: [
-            { nom: "Cartes KPI", type: "carte", description: "Total clients, modules actifs, configs en cours, stockage" },
-            { nom: "Tableau clients", type: "tableau", description: "Clients avec modules activés, hébergement, statut, stockage" },
-            { nom: "Configurations récentes", type: "tableau", description: "Dernières activations et modifications" },
-            { nom: "Actions rapides", type: "bouton", description: "Nouveau client, liens config modules" },
-        ],
-        tachesDisponibles: ["Consulter les clients et leurs modules", "Créer un nouveau client", "Consulter le design system"],
-        liens: [
-            { page: "Clients", relation: "Liste complète des clients", route: "/admin/modules/clients" },
-            { page: "Nouveau client", relation: "Wizard de création", route: "/admin/modules/clients/new" },
-            { page: "Design System", relation: "Thème et couleurs", route: "/admin/modules/design-theme" },
-        ],
-    },
-    "modules/clients": {
-        pageId: "admin-modules-clients",
-        titre: "Liste des Clients",
-        but: "Gérer les organisations clientes avec leurs modules et configurations.",
-        description: "Tableau complet des clients avec recherche, filtres par module/statut/hébergement, badges modules colorés, et lien vers la fiche client.",
-        elements: [
-            { nom: "Recherche", type: "filtre", description: "Recherche par nom ou contact" },
-            { nom: "Filtres modules", type: "filtre", description: "Filtrage par module activé (iDocument, iArchive, iSignature)" },
-            { nom: "Filtres statut", type: "filtre", description: "Filtrage par statut (Actif, Config, Suspendu)" },
-            { nom: "Tableau clients", type: "tableau", description: "Clients avec type, contact, modules, hébergement, statut, stockage" },
-            { nom: "Bouton Nouveau", type: "bouton", description: "Crée un nouveau client via le wizard" },
-        ],
-        tachesDisponibles: [
-            "Rechercher un client",
-            "Filtrer par module ou statut",
-            "Accéder à la fiche client",
-            "Créer un nouveau client",
-        ],
-        liens: [
-            { page: "Dashboard Modules", relation: "Vue d'ensemble", route: "/admin/modules" },
-            { page: "Nouveau client", relation: "Wizard de création", route: "/admin/modules/clients/new" },
-        ],
-    },
-    "modules/clients/new": {
-        pageId: "admin-modules-clients-new",
-        titre: "Nouveau Client",
-        but: "Créer un nouveau client avec configuration complète en 5 étapes.",
-        description: "Wizard guidé : 1. Profil (identité, coordonnées) → 2. Modules (choix iDocument/iArchive/iSignature) → 3. Workflows (templates pré-configurés) → 4. Hébergement (Local/Data Center/Cloud) → 5. Page publique (domaine, thème).",
-        elements: [
-            { nom: "Stepper", type: "autre", description: "Navigation entre les 5 étapes avec indicateurs de progression" },
-            { nom: "Formulaire Profil", type: "champ", description: "Raison sociale, secteur, type, RCCM, NIF, contact, email, téléphone" },
-            { nom: "Sélection Modules", type: "carte", description: "3 cartes toggle pour iDocument, iArchive, iSignature" },
-            { nom: "Templates Workflows", type: "carte", description: "Workflows pré-configurés par module" },
-            { nom: "Choix Hébergement", type: "carte", description: "3 options : Local, Data Center, Cloud" },
-            { nom: "Config Page publique", type: "champ", description: "Toggle, domaine, thème, annuaire" },
-        ],
-        tachesDisponibles: [
-            "Renseigner le profil du client",
-            "Choisir les modules à activer",
-            "Sélectionner les workflows",
-            "Choisir le modèle d'hébergement",
-            "Configurer la page publique",
-        ],
-        liens: [
-            { page: "Clients", relation: "Liste des clients", route: "/admin/modules/clients" },
-        ],
-    },
-    "modules/design-theme": {
-        pageId: "admin-modules-design-theme",
-        titre: "Thème & Design",
+    "design-theme": {
+        pageId: "admin-design-theme",
+        titre: "Design System",
         but: "Personnaliser l'apparence visuelle de la plateforme.",
         description: "Configuration des couleurs (primary, secondary, accent, destructive, success, background), typographies et éléments visuels.",
         elements: [
@@ -592,7 +565,7 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
             "Consulter la typographie",
         ],
         liens: [
-            { page: "Dashboard Modules", relation: "Vue d'ensemble", route: "/admin/modules" },
+            { page: "Dashboard", relation: "Vue d'ensemble", route: "/admin" },
         ],
     },
 });

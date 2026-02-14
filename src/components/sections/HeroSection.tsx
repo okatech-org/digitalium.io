@@ -1,89 +1,45 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion } from "framer-motion";
 import {
     ArrowRight,
     Play,
+    Award,
     Shield,
-    Clock,
-    Wifi,
-    Headphones,
+    Server,
+    FileCheck,
+    Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 
-/* ── Animated Counter ── */
-function Counter({
-    target,
-    suffix = "",
-    prefix = "",
-    duration = 2,
-}: {
-    target: number;
-    suffix?: string;
-    prefix?: string;
-    duration?: number;
-}) {
-    const [count, setCount] = useState(0);
-    const ref = useRef<HTMLSpanElement>(null);
-    const inView = useInView(ref, { once: true });
 
-    useEffect(() => {
-        if (!inView) return;
-        let start = 0;
-        const step = target / (duration * 60);
-        const id = setInterval(() => {
-            start += step;
-            if (start >= target) {
-                setCount(target);
-                clearInterval(id);
-            } else {
-                setCount(Math.floor(start));
-            }
-        }, 1000 / 60);
-        return () => clearInterval(id);
-    }, [inView, target, duration]);
-
-    return (
-        <span ref={ref}>
-            {prefix}
-            {count}
-            {suffix}
-        </span>
-    );
-}
-
-/* ── Stats data ── */
-const stats = [
+/* ── Security Pillars ── */
+const securityPillars = [
     {
-        value: 100,
-        suffix: "%",
-        label: "Marché Vierge",
+        title: "Chiffrement AES-256",
+        desc: "End-to-end, at rest et in transit. Vos documents sont illisibles sans vos clés.",
+        image: "/images/security/encryption.png",
         icon: Shield,
-        color: "text-emerald-400",
     },
     {
-        value: 10,
-        suffix: " ans",
-        label: "Rétention Fiscale Légale",
-        icon: Clock,
-        color: "text-blue-400",
+        title: "Hébergement Souverain",
+        desc: "Données stockées au Gabon. Aucune donnée ne quitte le territoire national.",
+        image: "/images/security/hosting.png",
+        icon: Server,
     },
     {
-        value: 99.9,
-        suffix: "%",
-        label: "Disponibilité SLA",
-        icon: Wifi,
-        color: "text-violet-400",
+        title: "Conformité Totale",
+        desc: "Rétention fiscale 10 ans, sociale 5 ans. RGPD + loi gabonaise respectées.",
+        image: "/images/security/compliance.png",
+        icon: FileCheck,
     },
     {
-        prefix: "< ",
-        value: 4,
-        suffix: "h",
-        label: "Support Prioritaire",
-        icon: Headphones,
-        color: "text-amber-400",
+        title: "Audit Immutable",
+        desc: "Chaque action est tracée et horodatée. Intégrité SHA-256 inviolable.",
+        image: "/images/security/audit.png",
+        icon: Eye,
     },
 ];
 
@@ -101,18 +57,30 @@ export default function HeroSection({
     onOpenDemo?: () => void;
 }) {
     return (
-        <section className="relative min-h-screen flex items-center justify-center gradient-bg overflow-hidden">
-            {/* Background orbs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-digitalium-blue/10 blur-3xl animate-float" />
+        <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+            {/* Background Image */}
+            <div className="absolute inset-0 z-0">
+                <Image
+                    src="/images/security/sovereignty_main.png"
+                    alt="Centre de données sécurisé au Gabon"
+                    fill
+                    className="object-cover"
+                    priority
+                />
+                {/* Gradients/Overlays for readability */}
+                <div className="absolute inset-0 bg-background/60" />
+                <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-transparent to-background" />
+            </div>
+
+            {/* Background orbs - subtle flair */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-digitalium-blue/10 blur-2xl animate-float" />
                 <div
-                    className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-digitalium-violet/10 blur-3xl animate-float"
+                    className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-digitalium-violet/10 blur-2xl animate-float"
                     style={{ animationDelay: "1.5s" }}
                 />
-                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-digitalium-blue/5 blur-3xl animate-pulse-glow" />
+                <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-digitalium-blue/5 blur-2xl animate-pulse-glow" />
             </div>
-            {/* Grid overlay */}
-            <div className="absolute inset-0 cortex-grid opacity-40 pointer-events-none" />
 
             <div className="relative z-10 max-w-6xl mx-auto px-6 text-center pt-24 pb-16">
                 {/* Badge */}
@@ -122,7 +90,7 @@ export default function HeroSection({
                     transition={{ duration: 0.6 }}
                     className="mb-8"
                 >
-                    <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass text-sm text-muted-foreground bg-background/50 backdrop-blur-md border border-white/10">
                         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                         Plateforme souveraine pour le Gabon 🇬🇦
                     </span>
@@ -130,7 +98,7 @@ export default function HeroSection({
 
                 {/* Title — word‑by‑word reveal */}
                 <motion.h1
-                    className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.1] mb-6"
+                    className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.1] mb-6 drop-shadow-lg"
                     initial="hidden"
                     animate="visible"
                     variants={{
@@ -182,7 +150,7 @@ export default function HeroSection({
 
                 {/* Subtitle */}
                 <motion.p
-                    className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
+                    className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed drop-shadow-md"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6, duration: 0.7 }}
@@ -212,7 +180,7 @@ export default function HeroSection({
                     <Button
                         size="lg"
                         variant="outline"
-                        className="text-lg px-8 h-14 border-white/10 hover:bg-white/5"
+                        className="text-lg px-8 h-14 border-white/10 hover:bg-white/5 bg-background/20 backdrop-blur-sm"
                         onClick={onOpenDemo}
                     >
                         <Play className="mr-2 h-5 w-5" />
@@ -240,28 +208,64 @@ export default function HeroSection({
                     ))}
                 </motion.div>
 
-                {/* Stats */}
+                {/* Security Pillars */}
                 <motion.div
-                    className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto"
+                    className="text-center mb-8"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.0, duration: 0.6 }}
+                >
+                    <h2 className="text-2xl md:text-3xl font-bold">
+                        Sécurité Souveraine —{" "}
+                        <span className="text-gradient">Vos Données Restent au Gabon</span>{" "}
+                        🇬🇦
+                    </h2>
+                </motion.div>
+
+                <motion.div
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full mb-10"
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.0, duration: 0.7 }}
+                    transition={{ delay: 1.1, duration: 0.7 }}
                 >
-                    {stats.map((s) => (
-                        <div key={s.label} className="glass-card p-4 text-center group">
-                            <s.icon
-                                className={`h-5 w-5 mx-auto mb-2 ${s.color} opacity-80`}
-                            />
-                            <p className="text-3xl md:text-4xl font-extrabold tracking-tight">
-                                <Counter
-                                    target={s.value}
-                                    suffix={s.suffix}
-                                    prefix={s.prefix || ""}
-                                />
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
-                        </div>
-                    ))}
+                    {securityPillars.map((p) => {
+                        const Icon = p.icon;
+                        return (
+                            <div key={p.title} className="glass-card overflow-hidden hover:glow transition-all duration-300 bg-background/40 backdrop-blur-md flex flex-row group">
+                                <div className="relative w-2/5 min-h-[200px]">
+                                    <Image
+                                        src={p.image}
+                                        alt={p.title}
+                                        fill
+                                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                </div>
+                                <div className="flex-1 p-6 flex flex-col justify-center">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-digitalium-blue/10 text-digitalium-blue shrink-0">
+                                            <Icon className="h-5 w-5" />
+                                        </div>
+                                        <h3 className="text-base font-bold leading-tight">{p.title}</h3>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">{p.desc}</p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </motion.div>
+
+                {/* Trust badge */}
+                <motion.div
+                    className="glass-card p-5 text-center max-w-3xl mx-auto bg-background/40 backdrop-blur-md"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1.3, duration: 0.5 }}
+                >
+                    <Award className="h-7 w-7 mx-auto mb-2 text-amber-400" />
+                    <p className="text-sm font-medium leading-relaxed">
+                        🏆 Conforme à la Loi gabonaise sur la Transition Numérique —{" "}
+                        <span className="text-gradient font-bold">Archivage à Valeur Probante</span>
+                    </p>
                 </motion.div>
             </div>
         </section>

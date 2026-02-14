@@ -39,7 +39,7 @@ export function ProtectedRoute({
 
         // 1. Not authenticated → login
         if (!isAuthenticated) {
-            router.replace(redirectTo ?? "/login");
+            router.replace(redirectTo ?? "/");
             return;
         }
 

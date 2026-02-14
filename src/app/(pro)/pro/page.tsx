@@ -31,6 +31,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import {
+    getUserShortName,
+    getUserDisplayName,
+    getRoleLabel,
+    canCreateContent,
+    canManageTeam,
+    isReadOnly,
+} from "@/config/role-helpers";
 
 /* ─── Animation helpers ────────────────────────── */
 
@@ -96,12 +106,12 @@ const moduleKPIs = [
     },
 ];
 
-/* ─── Quick actions ────────────────────────────── */
+/* ─── Quick actions (filtered by role) ─────────── */
 
-const quickActions = [
-    { label: "Nouveau document", icon: Plus, href: "/pro/idocument/edit", color: "text-violet-400" },
-    { label: "Uploader archive", icon: Upload, href: "/pro/iarchive", color: "text-indigo-400" },
-    { label: "Demander signature", icon: FileSignature, href: "/pro/isignature/pending", color: "text-pink-400" },
+const allQuickActions = [
+    { label: "Nouveau document", icon: Plus, href: "/pro/idocument/edit", color: "text-violet-400", minLevel: 4 },
+    { label: "Uploader archive", icon: Upload, href: "/pro/iarchive", color: "text-indigo-400", minLevel: 4 },
+    { label: "Demander signature", icon: FileSignature, href: "/pro/isignature/pending", color: "text-pink-400", minLevel: 3 },
 ];
 
 /* ─── Recent documents mock ────────────────────── */
@@ -161,11 +171,31 @@ function ActivityChart() {
    ═══════════════════════════════════════════════ */
 
 export default function ProDashboard() {
-    const firstName = "Directeur";
-    const orgName = "ASCOMA Gabon";
+    const { user } = useAuth();
+    const { orgName } = useOrganization();
+    const firstName = getUserShortName(user);
+    const userLevel = user?.level ?? 4;
+    const readOnly = isReadOnly(userLevel);
+    const showTeam = canManageTeam(userLevel);
+    const quickActions = allQuickActions.filter((a) => userLevel <= a.minLevel);
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Read-only banner for viewer */}
+            {readOnly && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-500/20 bg-amber-500/5"
+                >
+                    <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                    <div>
+                        <p className="text-sm font-medium text-amber-300">Mode consultation</p>
+                        <p className="text-xs text-muted-foreground">Votre accès est en lecture seule — aucune modification possible.</p>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Greeting */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -183,7 +213,9 @@ export default function ProDashboard() {
                     </span>
                 </h1>
                 <p className="text-muted-foreground text-sm">
-                    Voici un aperçu de l&apos;activité de votre organisation
+                    {readOnly
+                        ? "Consultez les documents et archives de votre organisation"
+                        : "Voici un aperçu de l\u0027activité de votre organisation"}
                 </p>
             </motion.div>
 
@@ -282,37 +314,39 @@ export default function ProDashboard() {
                 </motion.div>
 
                 {/* Quick Actions */}
-                <motion.div
-                    custom={5}
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeInUp}
-                >
-                    <Card className="glass border-white/5 h-full">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base">Actions Rapides</CardTitle>
-                            <CardDescription className="text-xs">
-                                Créez, archivez ou signez en un clic
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {quickActions.map((action) => {
-                                const Icon = action.icon;
-                                return (
-                                    <Link key={action.label} href={action.href}>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full justify-start gap-3 h-10 text-xs border-white/10 hover:border-violet-500/30 hover:bg-violet-500/5"
-                                        >
-                                            <Icon className={`h-4 w-4 ${action.color}`} />
-                                            {action.label}
-                                        </Button>
-                                    </Link>
-                                );
-                            })}
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                {quickActions.length > 0 && (
+                    <motion.div
+                        custom={5}
+                        initial="hidden"
+                        animate="visible"
+                        variants={fadeInUp}
+                    >
+                        <Card className="glass border-white/5 h-full">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Actions Rapides</CardTitle>
+                                <CardDescription className="text-xs">
+                                    Créez, archivez ou signez en un clic
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {quickActions.map((action) => {
+                                    const Icon = action.icon;
+                                    return (
+                                        <Link key={action.label} href={action.href}>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-start gap-3 h-10 text-xs border-white/10 hover:border-violet-500/30 hover:bg-violet-500/5"
+                                            >
+                                                <Icon className={`h-4 w-4 ${action.color}`} />
+                                                {action.label}
+                                            </Button>
+                                        </Link>
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
             </div>
 
             {/* Recent Documents + Team Row */}
@@ -376,54 +410,56 @@ export default function ProDashboard() {
                     </Card>
                 </motion.div>
 
-                {/* Team */}
-                <motion.div
-                    custom={7}
-                    initial="hidden"
-                    animate="visible"
-                    variants={fadeInUp}
-                >
-                    <Card className="glass border-white/5 h-full">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-base">Équipe</CardTitle>
-                                    <CardDescription className="text-xs">
-                                        {teamMembers.filter((t) => t.online).length} membres connectés
-                                    </CardDescription>
-                                </div>
-                                <Link href="/pro/team">
-                                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-violet-400">
-                                        <Users className="h-3.5 w-3.5 mr-1" /> Gérer
-                                    </Button>
-                                </Link>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            {teamMembers.map((member) => (
-                                <div key={member.initials} className="flex items-center gap-3 py-1.5">
-                                    <div className="relative">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarFallback className="bg-violet-500/15 text-violet-300 text-[10px] font-bold">
-                                                {member.initials}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <span
-                                            className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${member.online ? "bg-emerald-500" : "bg-muted-foreground/30"
-                                                }`}
-                                        />
+                {/* Team — only for managers and admins */}
+                {showTeam && (
+                    <motion.div
+                        custom={7}
+                        initial="hidden"
+                        animate="visible"
+                        variants={fadeInUp}
+                    >
+                        <Card className="glass border-white/5 h-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-base">Équipe</CardTitle>
+                                        <CardDescription className="text-xs">
+                                            {teamMembers.filter((t) => t.online).length} membres connectés
+                                        </CardDescription>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-medium truncate">{member.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">
-                                            {member.online ? "En ligne" : "Hors ligne"}
-                                        </p>
-                                    </div>
+                                    <Link href="/pro/team">
+                                        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-violet-400">
+                                            <Users className="h-3.5 w-3.5 mr-1" /> Gérer
+                                        </Button>
+                                    </Link>
                                 </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {teamMembers.map((member) => (
+                                    <div key={member.initials} className="flex items-center gap-3 py-1.5">
+                                        <div className="relative">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarFallback className="bg-violet-500/15 text-violet-300 text-[10px] font-bold">
+                                                    {member.initials}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span
+                                                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${member.online ? "bg-emerald-500" : "bg-muted-foreground/30"
+                                                    }`}
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium truncate">{member.name}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {member.online ? "En ligne" : "Hors ligne"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
             </div>
         </div>
     );

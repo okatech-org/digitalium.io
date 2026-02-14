@@ -62,7 +62,7 @@ export function InstitutionalProtectedRoute({
 
         // 1. Not authenticated → login
         if (!isAuthenticated) {
-            router.replace("/login");
+            router.replace("/");
             return;
         }
 

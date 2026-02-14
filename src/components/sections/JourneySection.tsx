@@ -3,6 +3,7 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import { FileText, Users, Archive, Brain } from "lucide-react";
+import Image from "next/image";
 
 const steps = [
     {
@@ -12,6 +13,7 @@ const steps = [
         desc: "Rédigez à plusieurs en temps réel. Éditeur collaboratif avec historique complet.",
         icon: FileText,
         color: "#3B82F6",
+        colorRGB: "59, 130, 246",
     },
     {
         num: "02",
@@ -20,6 +22,7 @@ const steps = [
         desc: "Éditez à plusieurs simultanément. Validez et signez en un clic.",
         icon: Users,
         color: "#8B5CF6",
+        colorRGB: "139, 92, 246",
     },
     {
         num: "03",
@@ -28,6 +31,7 @@ const steps = [
         desc: "Archivez avec intégrité SHA‑256. Certificat légal automatique.",
         icon: Archive,
         color: "#10B981",
+        colorRGB: "16, 185, 129",
     },
     {
         num: "04",
@@ -36,6 +40,7 @@ const steps = [
         desc: "L'IA analyse vos archives et génère des insights business.",
         icon: Brain,
         color: "#F59E0B",
+        colorRGB: "245, 158, 11",
     },
 ];
 
@@ -44,8 +49,20 @@ export default function JourneySection() {
     const inView = useInView(ref, { once: true, amount: 0.3 });
 
     return (
-        <section className="py-24 px-6 relative border-t border-white/5">
-            <div className="max-w-6xl mx-auto" ref={ref}>
+        <section className="py-24 px-6 relative border-t border-white/5 overflow-hidden">
+            {/* Background Image - Clearer */}
+            <div className="absolute inset-0 z-0 opacity-15">
+                <Image
+                    src="/images/sections/team_collaboration_meeting.png"
+                    alt="Team Collaboration"
+                    fill
+                    className="object-cover"
+                />
+            </div>
+            <div className="absolute inset-0 bg-background/90 z-0" />
+
+
+            <div className="max-w-6xl mx-auto relative z-10" ref={ref}>
                 <motion.div
                     className="text-center mb-16"
                     initial={{ opacity: 0, y: 20 }}
@@ -81,13 +98,13 @@ export default function JourneySection() {
                                 initial={{ opacity: 0, y: 30 }}
                                 animate={inView ? { opacity: 1, y: 0 } : {}}
                                 transition={{ delay: i * 0.2 + 0.3, duration: 0.6 }}
-                                className="text-center relative"
+                                className="text-center relative bg-background/50 backdrop-blur-sm rounded-xl p-4 border border-white/5"
                             >
                                 {/* Circle node */}
                                 <div className="flex justify-center mb-6">
                                     <motion.div
                                         className="h-[104px] w-[104px] rounded-full flex items-center justify-center relative"
-                                        style={{ backgroundColor: `${step.color}10` }}
+                                        style={{ backgroundColor: `rgba(${step.colorRGB}, 0.1)` }}
                                         initial={{ scale: 0 }}
                                         animate={inView ? { scale: 1 } : {}}
                                         transition={{ delay: i * 0.2 + 0.4, type: "spring" }}
@@ -95,7 +112,7 @@ export default function JourneySection() {
                                         <div
                                             className="absolute inset-0 rounded-full animate-pulse-glow opacity-30"
                                             style={{
-                                                boxShadow: `0 0 20px ${step.color}40`,
+                                                boxShadow: `0 0 20px rgba(${step.colorRGB}, 0.4)`,
                                             }}
                                         />
                                         <step.icon

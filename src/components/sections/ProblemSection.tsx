@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { TrendingDown, AlertTriangle, ShieldOff, ArrowDown } from "lucide-react";
+import Image from "next/image";
 
 const problems = [
     {
@@ -38,14 +39,26 @@ const fadeInUp = {
     visible: (i: number) => ({
         opacity: 1,
         y: 0,
-        transition: { delay: i * 0.15, duration: 0.6, ease: "easeOut" },
+        transition: { delay: i * 0.15, duration: 0.6 },
     }),
 };
 
 export default function ProblemSection() {
     return (
-        <section className="py-24 px-6 relative border-t border-white/5">
-            <div className="max-w-6xl mx-auto">
+        <section className="py-24 px-6 relative border-t border-white/5 overflow-hidden">
+            {/* Background Image with Overlay */}
+            <div className="absolute inset-0 z-0">
+                <Image
+                    src="/images/sections/office_paper_chaos.png"
+                    alt="Bureau encombré de papiers"
+                    fill
+                    className="object-cover opacity-20"
+                />
+                <div className="absolute inset-0 bg-background/80" />
+                <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
+            </div>
+
+            <div className="max-w-6xl mx-auto relative z-10">
                 <motion.div
                     className="text-center mb-16"
                     initial={{ opacity: 0, y: 20 }}
@@ -72,7 +85,7 @@ export default function ProblemSection() {
                             initial="hidden"
                             whileInView="visible"
                             viewport={{ once: true }}
-                            className={`glass-card ${p.borderColor} border p-8 text-center group hover:scale-[1.02] transition-transform`}
+                            className={`glass-card ${p.borderColor} border p-8 text-center group hover:scale-[1.02] transition-transform backdrop-blur-md bg-opacity-80`}
                         >
                             <div
                                 className={`h-14 w-14 mx-auto rounded-xl ${p.bgColor} flex items-center justify-center mb-4`}

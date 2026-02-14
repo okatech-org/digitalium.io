@@ -67,6 +67,38 @@ export default defineSchema({
             locale: v.string(),      // default: "fr-GA"
             currency: v.string(),    // default: "XAF"
         }),
+        // ── Universal org config — workflows, processes, automations ──
+        config: v.optional(v.object({
+            workflows: v.optional(v.array(v.any())),
+            processes: v.optional(v.array(v.any())),
+            automations: v.optional(v.array(v.any())),
+            environment: v.optional(v.object({
+                locale: v.optional(v.string()),
+                timezone: v.optional(v.string()),
+                currency: v.optional(v.string()),
+                dateFormat: v.optional(v.string()),
+                features: v.optional(v.array(v.string())),
+            })),
+            branding: v.optional(v.object({
+                primaryColor: v.optional(v.string()),
+                gradient: v.optional(v.string()),
+                logoUrl: v.optional(v.string()),
+            })),
+            dashboard: v.optional(v.object({
+                showActivityChart: v.optional(v.boolean()),
+                showTeamWidget: v.optional(v.boolean()),
+                showQuickActions: v.optional(v.boolean()),
+                showRecentDocs: v.optional(v.boolean()),
+                kpiModules: v.optional(v.array(v.string())),
+                greeting: v.optional(v.string()),
+            })),
+            navigation: v.optional(v.object({
+                showBilling: v.optional(v.boolean()),
+                showApiIntegrations: v.optional(v.boolean()),
+                showAnalytics: v.optional(v.boolean()),
+                showFormation: v.optional(v.boolean()),
+            })),
+        })),
         status: v.union(
             v.literal("active"),
             v.literal("trial"),

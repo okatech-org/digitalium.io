@@ -287,11 +287,6 @@ export default function ArchiveUploadPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-3"
             >
-                <Link href="/pro/iarchive">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white/5">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                </Link>
                 <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center">
                     <Upload className="h-5 w-5 text-white" />
                 </div>

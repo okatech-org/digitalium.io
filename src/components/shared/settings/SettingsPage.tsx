@@ -1,17 +1,18 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Settings: Universal Settings Page
-// 7 tabs: Profil, Apparence, Langue, Notifications,
+// 7 tabs: Profil, Design System, Langue, Notifications,
 // Sécurité, Accessibilité, Zone Danger
 // ═══════════════════════════════════════════════
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     Settings, User, Palette, Globe, Bell, Shield, Accessibility, AlertTriangle,
     Sun, Moon, Monitor, Save, CheckCircle2, Type, Eye, Zap, Download,
-    Trash2, LogOut, Lock, Smartphone, ChevronRight,
+    Trash2, LogOut, Lock, Smartphone, ChevronRight, Image, SquareIcon,
+    RectangleHorizontal, Circle, Pipette, RotateCcw,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +25,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
-import type { UserPreferences, Densite, TailleTexte } from "@/types/settings";
-import { DEFAULT_PREFERENCES } from "@/types/settings";
+import type {
+    UserPreferences, Densite, TailleTexte,
+    FontFamilyPreset, BorderRadiusPreset, BrandColor,
+} from "@/types/settings";
+import { DEFAULT_PREFERENCES, DEFAULT_BRAND_COLORS } from "@/types/settings";
 
 /* ─── localStorage helpers ────────────────────── */
 
@@ -54,6 +58,62 @@ const ACCENT: Record<string, { gradient: string; text: string; bg: string; borde
     emerald: { gradient: "from-emerald-600 to-teal-500", text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
 };
 
+/* ─── Design System data ──────────────────────── */
+
+const FONT_OPTIONS: { id: FontFamilyPreset; name: string; stack: string }[] = [
+    { id: "inter", name: "Inter", stack: "'Inter', sans-serif" },
+    { id: "roboto", name: "Roboto", stack: "'Roboto', sans-serif" },
+    { id: "outfit", name: "Outfit", stack: "'Outfit', sans-serif" },
+    { id: "dm-sans", name: "DM Sans", stack: "'DM Sans', sans-serif" },
+    { id: "space-grotesk", name: "Space Grotesk", stack: "'Space Grotesk', sans-serif" },
+];
+
+const RADIUS_OPTIONS: { id: BorderRadiusPreset; label: string; icon: React.ElementType; preview: string }[] = [
+    { id: "sharp", label: "Sharp", icon: SquareIcon, preview: "rounded-none" },
+    { id: "rounded", label: "Arrondi", icon: RectangleHorizontal, preview: "rounded-lg" },
+    { id: "pill", label: "Pill", icon: Circle, preview: "rounded-full" },
+];
+
+const COLOR_PRESETS: { name: string; colors: BrandColor[] }[] = [
+    {
+        name: "Violet (Défaut)",
+        colors: DEFAULT_BRAND_COLORS,
+    },
+    {
+        name: "Ocean",
+        colors: [
+            { name: "Primary", value: "#0EA5E9", label: "Sky 500" },
+            { name: "Secondary", value: "#06B6D4", label: "Cyan 500" },
+            { name: "Accent", value: "#14B8A6", label: "Teal 500" },
+            { name: "Destructive", value: "#F43F5E", label: "Rose 500" },
+            { name: "Success", value: "#10B981", label: "Emerald 500" },
+            { name: "Background", value: "#0C1222", label: "Slate 950" },
+        ],
+    },
+    {
+        name: "Sunset",
+        colors: [
+            { name: "Primary", value: "#F97316", label: "Orange 500" },
+            { name: "Secondary", value: "#EF4444", label: "Red 500" },
+            { name: "Accent", value: "#F59E0B", label: "Amber 500" },
+            { name: "Destructive", value: "#DC2626", label: "Red 600" },
+            { name: "Success", value: "#84CC16", label: "Lime 500" },
+            { name: "Background", value: "#1C1007", label: "Warm 950" },
+        ],
+    },
+    {
+        name: "Émeraude",
+        colors: [
+            { name: "Primary", value: "#10B981", label: "Emerald 500" },
+            { name: "Secondary", value: "#059669", label: "Emerald 600" },
+            { name: "Accent", value: "#14B8A6", label: "Teal 500" },
+            { name: "Destructive", value: "#EF4444", label: "Red 500" },
+            { name: "Success", value: "#22C55E", label: "Green 500" },
+            { name: "Background", value: "#022C22", label: "Emerald 950" },
+        ],
+    },
+];
+
 /* ═══════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                */
 /* ═══════════════════════════════════════════════ */
@@ -67,6 +127,7 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
     const [dirty, setDirty] = useState(false);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("profile");
+    const [editingColorIdx, setEditingColorIdx] = useState<number | null>(null);
     const { theme, setTheme } = useThemeContext();
 
     const accent = ACCENT[accentColor] || ACCENT.violet;
@@ -89,6 +150,25 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
             toast.success("Préférences enregistrées");
         }, 400);
     }, [prefs]);
+
+    const updateBrandColor = useCallback((index: number, newValue: string) => {
+        setPrefs((p) => {
+            const updated = [...p.brandColors];
+            updated[index] = { ...updated[index], value: newValue, label: newValue };
+            return { ...p, brandColors: updated };
+        });
+        setDirty(true);
+    }, []);
+
+    const applyColorPreset = useCallback((colors: BrandColor[]) => {
+        updatePref("brandColors", [...colors]);
+        toast.success("Palette appliquée");
+    }, [updatePref]);
+
+    const resetColors = useCallback(() => {
+        updatePref("brandColors", [...DEFAULT_BRAND_COLORS]);
+        toast.info("Palette réinitialisée");
+    }, [updatePref]);
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
@@ -126,8 +206,8 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                     <TabsTrigger value="profile" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
                         <User className="h-3.5 w-3.5" /><span className="hidden lg:inline">Profil</span>
                     </TabsTrigger>
-                    <TabsTrigger value="appearance" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
-                        <Palette className="h-3.5 w-3.5" /><span className="hidden lg:inline">Apparence</span>
+                    <TabsTrigger value="design" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
+                        <Palette className="h-3.5 w-3.5" /><span className="hidden lg:inline">Design System</span>
                     </TabsTrigger>
                     <TabsTrigger value="language" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
                         <Globe className="h-3.5 w-3.5" /><span className="hidden lg:inline">Langue</span>
@@ -197,11 +277,14 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                         </Card>
                     </TabsContent>
 
-                    {/* ─── APPARENCE ──────────────────── */}
-                    <TabsContent value="appearance" className="mt-0 space-y-4">
+                    {/* ─── DESIGN SYSTEM ──────────────── */}
+                    <TabsContent value="design" className="mt-0 space-y-4">
+                        {/* Thème */}
                         <Card className="glass border-white/5">
-                            <CardHeader>
-                                <CardTitle className="text-base">Thème</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Sun className="h-4 w-4" /> Thème
+                                </CardTitle>
                                 <CardDescription className="text-xs">Choisissez l&apos;apparence de l&apos;interface</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -231,9 +314,12 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                             </CardContent>
                         </Card>
 
+                        {/* Densité */}
                         <Card className="glass border-white/5">
-                            <CardHeader>
-                                <CardTitle className="text-base">Densité</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <RectangleHorizontal className="h-4 w-4" /> Densité
+                                </CardTitle>
                                 <CardDescription className="text-xs">Espacement des éléments de l&apos;interface</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -255,6 +341,258 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Palette de couleurs */}
+                        <Card className="glass border-white/5">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Palette className="h-4 w-4" /> Palette de couleurs
+                                        </CardTitle>
+                                        <CardDescription className="text-xs mt-1">
+                                            Couleurs de votre marque — cliquez pour modifier
+                                        </CardDescription>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs text-muted-foreground hover:text-foreground"
+                                        onClick={resetColors}
+                                    >
+                                        <RotateCcw className="h-3 w-3 mr-1" /> Réinitialiser
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Color swatches */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {prefs.brandColors.map((c, i) => (
+                                        <motion.div
+                                            key={c.name}
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            className="group glass-card rounded-xl p-4 space-y-2 cursor-pointer border border-white/5 hover:border-white/15 transition-colors relative"
+                                            onClick={() => setEditingColorIdx(editingColorIdx === i ? null : i)}
+                                        >
+                                            <div
+                                                className="h-12 rounded-lg transition-all relative overflow-hidden"
+                                                style={{ backgroundColor: c.value }}
+                                            >
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                                                    <Pipette className="h-4 w-4 text-white" />
+                                                </div>
+                                            </div>
+                                            <p className="text-xs font-medium">{c.name}</p>
+                                            <p className="text-[10px] text-muted-foreground font-mono">{c.value}</p>
+                                            <AnimatePresence>
+                                                {editingColorIdx === i && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: "auto" }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="overflow-hidden"
+                                                    >
+                                                        <input
+                                                            type="color"
+                                                            value={c.value}
+                                                            onChange={(e) => updateBrandColor(i, e.target.value)}
+                                                            className="w-full h-8 rounded cursor-pointer border-0 bg-transparent"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </motion.div>
+                                    ))}
+                                </div>
+
+                                <Separator className="bg-white/5" />
+
+                                {/* Palette presets */}
+                                <div>
+                                    <p className="text-xs font-medium mb-2 text-muted-foreground">Palettes prédéfinies</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {COLOR_PRESETS.map((preset) => (
+                                            <button
+                                                key={preset.name}
+                                                onClick={() => applyColorPreset(preset.colors)}
+                                                className="p-2 rounded-lg border border-white/5 hover:border-white/15 transition-all group"
+                                            >
+                                                <div className="flex gap-0.5 mb-1.5">
+                                                    {preset.colors.slice(0, 4).map((c) => (
+                                                        <div
+                                                            key={c.name}
+                                                            className="h-4 flex-1 rounded-sm first:rounded-l-md last:rounded-r-md"
+                                                            style={{ backgroundColor: c.value }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{preset.name}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Typographie */}
+                        <Card className="glass border-white/5">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Type className="h-4 w-4" /> Typographie
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    Police de caractères de la plateforme
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                    {FONT_OPTIONS.map((font) => (
+                                        <button
+                                            key={font.id}
+                                            onClick={() => updatePref("fontFamily", font.id)}
+                                            className={`p-3 rounded-lg border text-center transition-all ${prefs.fontFamily === font.id
+                                                ? `${accent.border} ${accent.bg}`
+                                                : "border-white/5 hover:border-white/10"
+                                                }`}
+                                        >
+                                            <p
+                                                className={`text-lg font-bold mb-1 ${prefs.fontFamily === font.id ? accent.text : ""}`}
+                                                style={{ fontFamily: font.stack }}
+                                            >
+                                                Aa
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">{font.name}</p>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Typography preview */}
+                                <div className="glass-card rounded-xl p-5 space-y-3 border border-white/5">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Aperçu</p>
+                                    <p className="text-2xl font-bold" style={{ fontFamily: FONT_OPTIONS.find(f => f.id === prefs.fontFamily)?.stack }}>
+                                        {prefs.fontFamily === "inter" ? "Inter" : FONT_OPTIONS.find(f => f.id === prefs.fontFamily)?.name} — Heading Bold
+                                    </p>
+                                    <p className="text-base" style={{ fontFamily: FONT_OPTIONS.find(f => f.id === prefs.fontFamily)?.stack }}>
+                                        Corps de texte normal — La digitalisation au service de l&apos;excellence.
+                                    </p>
+                                    <p className="text-xs text-muted-foreground" style={{ fontFamily: FONT_OPTIONS.find(f => f.id === prefs.fontFamily)?.stack }}>
+                                        Texte secondaire — font-size: 12px • line-height: 1.5
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Bordures & Radius */}
+                        <Card className="glass border-white/5">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <SquareIcon className="h-4 w-4" /> Bordures & Coins
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    Style des coins de l&apos;interface
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {RADIUS_OPTIONS.map((opt) => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => updatePref("borderRadius", opt.id)}
+                                            className={`p-4 rounded-lg border text-center transition-all ${prefs.borderRadius === opt.id
+                                                ? `${accent.border} ${accent.bg}`
+                                                : "border-white/5 hover:border-white/10"
+                                                }`}
+                                        >
+                                            <div className="flex justify-center mb-2">
+                                                <div
+                                                    className={`h-10 w-16 border-2 ${prefs.borderRadius === opt.id ? "border-violet-400" : "border-white/20"} ${opt.preview}`}
+                                                />
+                                            </div>
+                                            <span className={`text-xs font-medium ${prefs.borderRadius === opt.id ? accent.text : ""}`}>
+                                                {opt.label}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Logo & Marque */}
+                        <Card className="glass border-white/5">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Image className="h-4 w-4" /> Logo & Marque
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    Identité visuelle de votre organisation
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Nom de la marque</Label>
+                                    <Input
+                                        value={prefs.brandName}
+                                        onChange={(e) => updatePref("brandName", e.target.value)}
+                                        placeholder="DIGITALIUM"
+                                        className="h-9 text-xs bg-white/5 border-white/10 max-w-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">Logo</Label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-violet-600/20 to-indigo-600/20 border border-white/10 flex items-center justify-center">
+                                            <span className="text-xl font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                                                {prefs.brandName?.charAt(0) || "D"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs border-white/10 hover:bg-white/5"
+                                                onClick={() => toast.info("Upload de logo — fonctionnalité à venir")}
+                                            >
+                                                <Image className="h-3 w-3 mr-1.5" /> Changer le logo
+                                            </Button>
+                                            <p className="text-[10px] text-muted-foreground">PNG, SVG ou WebP • Max 2 Mo</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Live preview */}
+                                <Separator className="bg-white/5" />
+                                <div>
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Aperçu de l&apos;identité</p>
+                                    <div className="glass-card rounded-xl p-4 flex items-center gap-3 border border-white/5">
+                                        <div
+                                            className="h-10 w-10 rounded-lg flex items-center justify-center"
+                                            style={{ background: `linear-gradient(135deg, ${prefs.brandColors[0]?.value || "#8B5CF6"}, ${prefs.brandColors[1]?.value || "#6366F1"})` }}
+                                        >
+                                            <span className="text-sm font-bold text-white">
+                                                {prefs.brandName?.charAt(0) || "D"}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold" style={{ fontFamily: FONT_OPTIONS.find(f => f.id === prefs.fontFamily)?.stack }}>
+                                                {prefs.brandName || "DIGITALIUM"}
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground">Plateforme de gestion digitale</p>
+                                        </div>
+                                        <Badge
+                                            className="ml-auto text-[9px] border-0"
+                                            style={{
+                                                backgroundColor: `${prefs.brandColors[4]?.value || "#22C55E"}20`,
+                                                color: prefs.brandColors[4]?.value || "#22C55E",
+                                            }}
+                                        >
+                                            Active
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
 
                     {/* ─── LANGUE ─────────────────────── */}
@@ -265,10 +603,16 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                                 <CardDescription className="text-xs">Sélectionnez la langue de l&apos;interface</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     {[
                                         { code: "fr", label: "Français", flag: "🇫🇷" },
                                         { code: "en", label: "English", flag: "🇬🇧" },
+                                        { code: "es", label: "Español", flag: "🇪🇸" },
+                                        { code: "zh", label: "中文", flag: "🇨🇳" },
+                                        { code: "ar", label: "العربية", flag: "🇸🇦" },
+                                        { code: "pt", label: "Português", flag: "🇧🇷" },
+                                        { code: "de", label: "Deutsch", flag: "🇩🇪" },
+                                        { code: "ru", label: "Русский", flag: "🇷🇺" },
                                     ].map((lang) => (
                                         <button
                                             key={lang.code}
