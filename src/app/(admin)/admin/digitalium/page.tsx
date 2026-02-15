@@ -1,173 +1,463 @@
-// ═══════════════════════════════════════════════
-// DIGITALIUM.IO — Espace DIGITALIUM: Dashboard
-// Vue d'ensemble de l'entreprise DIGITALIUM
-// ═══════════════════════════════════════════════
-
 "use client";
 
+// ═══════════════════════════════════════════════
+// DIGITALIUM.IO — Espace DIGITALIUM: Dashboard
+// Harmonisé avec le modèle entreprise Pro standard
+// KPI cards · Activity chart · Quick actions · Recent docs
+// ═══════════════════════════════════════════════
+
 import React from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
+import { motion, type Variants } from "framer-motion";
 import {
-    Building,
-    Users,
-    Building2,
-    Sparkles,
-    UserCircle,
-    ArrowUpRight,
-    FolderOpen,
     FileText,
+    Archive,
     PenTool,
-    Activity,
+    Bot,
+    Plus,
+    Upload,
+    FileSignature,
+    ArrowUpRight,
+    TrendingUp,
+    TrendingDown,
+    Clock,
+    CheckCircle2,
+    AlertTriangle,
+    ChevronRight,
+    Users,
+    BarChart3,
 } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import {
+    getUserShortName,
+    canManageTeam,
+    isReadOnly,
+} from "@/config/role-helpers";
 
-/* ─── Animations ─────────────────────────── */
+/* ─── Animation helpers ────────────────────────── */
 
-const fadeUp = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
-};
-const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
-
-/* ─── KPI Data ───────────────────────────── */
-
-const KPI_CARDS = [
-    { label: "Employés", value: "35", icon: Users, color: "emerald", change: "+3 ce mois" },
-    { label: "Bureaux", value: "3", icon: Building2, color: "teal", change: "Libreville, Owendo, PG" },
-    { label: "Modules actifs", value: "3", icon: Sparkles, color: "violet", change: "iDoc, iArch, iSign" },
-    { label: "Clients servis", value: "156", icon: UserCircle, color: "blue", change: "+12 ce trimestre" },
-];
-
-const COLOR_MAP: Record<string, { bg: string; text: string; iconBg: string }> = {
-    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-400", iconBg: "bg-emerald-500/15" },
-    teal: { bg: "bg-teal-500/10", text: "text-teal-400", iconBg: "bg-teal-500/15" },
-    violet: { bg: "bg-violet-500/10", text: "text-violet-400", iconBg: "bg-violet-500/15" },
-    blue: { bg: "bg-blue-500/10", text: "text-blue-400", iconBg: "bg-blue-500/15" },
+const fadeInUp: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i: number) => ({
+        opacity: 1,
+        y: 0,
+        transition: { delay: i * 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] },
+    }),
 };
 
-/* ─── Quick Links ────────────────────────── */
+/* ─── Module KPI Config ────────────────────────── */
 
-const QUICK_LINKS = [
-    { label: "Profil Entreprise", href: "/admin/digitalium/profile", icon: Building, desc: "Informations légales et coordonnées" },
-    { label: "Équipe", href: "/admin/digitalium/team", icon: Users, desc: "Gestion des membres DIGITALIUM" },
-    { label: "Bureaux", href: "/admin/digitalium/offices", icon: Building2, desc: "Locaux et implantations" },
-    { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText, desc: "Gestion documentaire interne" },
-    { label: "iArchive", href: "/admin/digitalium/iarchive", icon: FolderOpen, desc: "Archives légales" },
-    { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool, desc: "Signature électronique" },
+const moduleKPIs = [
+    {
+        label: "iDocument",
+        icon: FileText,
+        href: "/admin/digitalium/idocument",
+        gradient: "from-violet-600 to-indigo-500",
+        stats: [
+            { label: "Documents", value: "247" },
+            { label: "En édition", value: "12" },
+        ],
+        trend: "+18%",
+        trendUp: true,
+    },
+    {
+        label: "iArchive",
+        icon: Archive,
+        href: "/admin/digitalium/iarchive",
+        gradient: "from-indigo-600 to-cyan-500",
+        stats: [
+            { label: "Archives", value: "1,842" },
+            { label: "À renouveler", value: "6" },
+        ],
+        trend: "+5%",
+        trendUp: true,
+    },
+    {
+        label: "iSignature",
+        icon: PenTool,
+        href: "/admin/digitalium/isignature",
+        gradient: "from-violet-600 to-pink-500",
+        stats: [
+            { label: "En attente", value: "4" },
+            { label: "Signées", value: "89" },
+        ],
+        trend: "+24%",
+        trendUp: true,
+    },
+    {
+        label: "iAsted",
+        icon: Bot,
+        href: "/admin/digitalium/iasted",
+        gradient: "from-emerald-600 to-teal-500",
+        stats: [
+            { label: "Analyses", value: "32" },
+            { label: "Ce mois", value: "12" },
+        ],
+        trend: "-3%",
+        trendUp: false,
+    },
 ];
 
-/* ─── Recent Activity ────────────────────── */
+/* ─── Quick actions (filtered by role) ─────────── */
 
-const RECENT = [
-    { action: "Nouveau client ajouté", detail: "CNAMGS — Plan Enterprise", time: "Il y a 2h", icon: UserCircle },
-    { action: "Module iSignature activé", detail: "Pour BGFI Bank", time: "Il y a 5h", icon: PenTool },
-    { action: "Document archivé", detail: "Contrat SEEG #2024-089", time: "Hier", icon: FileText },
-    { action: "Nouveau dossier créé", detail: "Dossier Fiscal Q1 2026", time: "Hier", icon: FolderOpen },
+const allQuickActions = [
+    { label: "Nouveau document", icon: Plus, href: "/admin/digitalium/idocument", color: "text-violet-400", minLevel: 4 },
+    { label: "Uploader archive", icon: Upload, href: "/admin/digitalium/iarchive", color: "text-indigo-400", minLevel: 4 },
+    { label: "Demander signature", icon: FileSignature, href: "/admin/digitalium/isignature", color: "text-pink-400", minLevel: 3 },
 ];
 
-/* ═══════════════════════════════════════════ */
+/* ─── Recent documents mock ────────────────────── */
+
+const recentDocs = [
+    { title: "Contrat de prestation SOGARA", type: "Contrat", updatedAt: "Il y a 10 min", status: "editing" },
+    { title: "Facture FV-2026-0847", type: "Facture", updatedAt: "Il y a 35 min", status: "pending" },
+    { title: "Rapport financier T4-2025", type: "Rapport", updatedAt: "Il y a 1h", status: "signed" },
+    { title: "Avenant contrat SEEG", type: "Avenant", updatedAt: "Il y a 2h", status: "editing" },
+    { title: "PV Conseil Administration", type: "PV", updatedAt: "Il y a 3h", status: "signed" },
+];
+
+const statusConfig: Record<string, { label: string; className: string; icon: React.ElementType }> = {
+    editing: { label: "En édition", className: "bg-blue-500/15 text-blue-400", icon: Clock },
+    pending: { label: "En attente", className: "bg-amber-500/15 text-amber-400", icon: AlertTriangle },
+    signed: { label: "Signé", className: "bg-emerald-500/15 text-emerald-400", icon: CheckCircle2 },
+};
+
+/* ─── Team members mock ────────────────────────── */
+
+const teamMembers = [
+    { initials: "DG", name: "Directeur Général", online: true },
+    { initials: "CM", name: "Commercial", online: true },
+    { initials: "SN", name: "Sinistres", online: false },
+    { initials: "AG", name: "Agent", online: true },
+    { initials: "JR", name: "Juridique", online: false },
+];
+
+/* ─── Activity Graph (30 days) ─────────────────── */
+
+function ActivityChart() {
+    const data = [
+        3, 7, 5, 12, 8, 14, 6, 9, 11, 15,
+        4, 10, 8, 13, 7, 16, 5, 11, 9, 12,
+        6, 14, 10, 8, 17, 9, 13, 7, 11, 15,
+    ];
+    const max = Math.max(...data);
+
+    return (
+        <div className="flex items-end gap-[3px] h-24 w-full">
+            {data.map((val, i) => (
+                <motion.div
+                    key={i}
+                    className="flex-1 rounded-t-sm bg-gradient-to-t from-violet-600/60 to-indigo-400/80 min-w-[4px]"
+                    initial={{ height: 0 }}
+                    animate={{ height: `${(val / max) * 100}%` }}
+                    transition={{ delay: i * 0.02, duration: 0.5, ease: "easeOut" }}
+                />
+            ))}
+        </div>
+    );
+}
+
+/* ═══════════════════════════════════════════════
+   DASHBOARD PAGE
+   ═══════════════════════════════════════════════ */
 
 export default function DigitaliumDashboardPage() {
+    const { user } = useAuth();
+    const { orgName } = useOrganization();
+    const firstName = getUserShortName(user);
+    const userLevel = user?.level ?? 4;
+    const readOnly = isReadOnly(userLevel);
+    const showTeam = canManageTeam(userLevel);
+    const quickActions = allQuickActions.filter((a) => userLevel <= a.minLevel);
+
     return (
-        <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6 max-w-[1200px] mx-auto">
-            {/* Header */}
-            <motion.div variants={fadeUp}>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Building className="h-6 w-6 text-emerald-400" />
-                    DIGITALIUM
+        <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Read-only banner for viewer */}
+            {readOnly && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-500/20 bg-amber-500/5"
+                >
+                    <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                    <div>
+                        <p className="text-sm font-medium text-amber-300">Mode consultation</p>
+                        <p className="text-xs text-muted-foreground">Votre accès est en lecture seule — aucune modification possible.</p>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* Greeting */}
+            <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-1"
+            >
+                <h1 className="text-2xl font-bold">
+                    Bonjour{" "}
+                    <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                        {firstName}
+                    </span>
+                    , bienvenue chez{" "}
+                    <span className="bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                        {orgName}
+                    </span>
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Vue d&apos;ensemble de l&apos;entreprise · Technologies &amp; Services numériques
+                <p className="text-muted-foreground text-sm">
+                    {readOnly
+                        ? "Consultez les documents et archives de votre organisation"
+                        : "Voici un aperçu de l\u0027activité de votre organisation"}
                 </p>
             </motion.div>
 
-            {/* KPI Cards */}
-            <motion.div variants={fadeUp} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {KPI_CARDS.map((kpi) => {
-                    const colors = COLOR_MAP[kpi.color];
-                    const Icon = kpi.icon;
+            {/* 4 Module KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {moduleKPIs.map((mod, i) => {
+                    const Icon = mod.icon;
                     return (
-                        <div key={kpi.label} className="glass-card rounded-xl p-4 border border-white/5">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className={`h-9 w-9 rounded-lg ${colors.iconBg} flex items-center justify-center`}>
-                                    <Icon className={`h-4 w-4 ${colors.text}`} />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground">{kpi.change}</span>
-                            </div>
-                            <p className="text-2xl font-bold">{kpi.value}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{kpi.label}</p>
-                        </div>
+                        <motion.div
+                            key={mod.label}
+                            custom={i}
+                            initial="hidden"
+                            animate="visible"
+                            variants={fadeInUp}
+                        >
+                            <Link href={mod.href}>
+                                <Card className="glass border-white/5 hover:border-violet-500/30 transition-all duration-300 cursor-pointer group">
+                                    <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${mod.gradient} flex items-center justify-center`}>
+                                                <Icon className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div className={`flex items-center gap-1 text-xs font-medium ${mod.trendUp ? "text-emerald-400" : "text-red-400"}`}>
+                                                {mod.trendUp ? (
+                                                    <TrendingUp className="h-3 w-3" />
+                                                ) : (
+                                                    <TrendingDown className="h-3 w-3" />
+                                                )}
+                                                {mod.trend}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold group-hover:text-violet-300 transition-colors">
+                                                {mod.label}
+                                            </p>
+                                            <div className="flex gap-4 mt-1">
+                                                {mod.stats.map((s) => (
+                                                    <div key={s.label} className="text-xs text-muted-foreground">
+                                                        <span className="font-semibold text-foreground">{s.value}</span>{" "}
+                                                        {s.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center text-xs text-muted-foreground group-hover:text-violet-400 transition-colors">
+                                            Voir détails
+                                            <ArrowUpRight className="h-3 w-3 ml-1" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        </motion.div>
                     );
                 })}
-            </motion.div>
-
-            {/* Quick Links + Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Quick Links */}
-                <motion.div variants={fadeUp} className="lg:col-span-1 space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-widest px-1">Accès rapide</p>
-                    {QUICK_LINKS.map((link) => {
-                        const Icon = link.icon;
-                        return (
-                            <Link key={link.href} href={link.href}>
-                                <div className="glass-card rounded-xl p-4 border border-white/5 hover:border-emerald-500/20 transition-all group cursor-pointer">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                                                <Icon className="h-4 w-4 text-emerald-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">{link.label}</p>
-                                                <p className="text-[10px] text-muted-foreground">{link.desc}</p>
-                                            </div>
-                                        </div>
-                                        <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-emerald-400 transition-colors" />
-                                    </div>
-                                </div>
-                            </Link>
-                        );
-                    })}
-                </motion.div>
-
-                {/* Recent Activity */}
-                <motion.div variants={fadeUp} className="lg:col-span-2">
-                    <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-widest mb-3 px-1">Activité récente</p>
-                    <div className="glass-card rounded-2xl p-5 border border-white/5">
-                        <div className="space-y-1">
-                            {RECENT.map((item, i) => {
-                                const Icon = item.icon;
-                                return (
-                                    <div key={i} className="flex items-center justify-between px-3 py-3 rounded-lg hover:bg-white/[0.02] group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                                <Icon className="h-4 w-4 text-emerald-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-medium">{item.action}</p>
-                                                <p className="text-[10px] text-muted-foreground">{item.detail}</p>
-                                            </div>
-                                        </div>
-                                        <span className="text-[10px] text-muted-foreground shrink-0">{item.time}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </motion.div>
             </div>
 
-            {/* Platform Status */}
-            <motion.div variants={fadeUp} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-                <Activity className="h-4 w-4 text-emerald-400 shrink-0" />
-                <div className="flex-1">
-                    <p className="text-xs font-medium text-emerald-400">Plateforme opérationnelle</p>
-                    <p className="text-[10px] text-muted-foreground">Tous les services sont actifs · Uptime 99.98% · Dernière mise à jour il y a 3j</p>
-                </div>
-                <Badge variant="secondary" className="text-[9px] border-0 bg-emerald-500/15 text-emerald-400">
-                    v2.4.1
-                </Badge>
-            </motion.div>
-        </motion.div>
+            {/* Activity Chart + Quick Actions Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Activity Chart */}
+                <motion.div
+                    custom={4}
+                    initial="hidden"
+                    animate="visible"
+                    variants={fadeInUp}
+                    className="lg:col-span-2"
+                >
+                    <Card className="glass border-white/5">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base">Activité Organisation</CardTitle>
+                                    <CardDescription className="text-xs">
+                                        30 derniers jours · Documents, archives et signatures
+                                    </CardDescription>
+                                </div>
+                                <div className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
+                                    <TrendingUp className="h-3 w-3" />
+                                    +12% ce mois
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pb-4">
+                            <ActivityChart />
+                            <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                    <BarChart3 className="h-3 w-3 text-violet-400" />
+                                    <span className="font-semibold text-foreground">312</span> actions totales
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <FileText className="h-3 w-3 text-indigo-400" />
+                                    <span className="font-semibold text-foreground">156</span> documents
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+
+                {/* Quick Actions */}
+                {quickActions.length > 0 && (
+                    <motion.div
+                        custom={5}
+                        initial="hidden"
+                        animate="visible"
+                        variants={fadeInUp}
+                    >
+                        <Card className="glass border-white/5 h-full">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Actions Rapides</CardTitle>
+                                <CardDescription className="text-xs">
+                                    Créez, archivez ou signez en un clic
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {quickActions.map((action) => {
+                                    const Icon = action.icon;
+                                    return (
+                                        <Link key={action.label} href={action.href}>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-start gap-3 h-10 text-xs border-white/10 hover:border-violet-500/30 hover:bg-violet-500/5"
+                                            >
+                                                <Icon className={`h-4 w-4 ${action.color}`} />
+                                                {action.label}
+                                            </Button>
+                                        </Link>
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
+            </div>
+
+            {/* Recent Documents + Team Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Recent Documents */}
+                <motion.div
+                    custom={6}
+                    initial="hidden"
+                    animate="visible"
+                    variants={fadeInUp}
+                    className="lg:col-span-2"
+                >
+                    <Card className="glass border-white/5">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base">Documents Récents</CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Dernières modifications dans votre organisation
+                                    </CardDescription>
+                                </div>
+                                <Link href="/admin/digitalium/idocument">
+                                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-violet-400">
+                                        Tout voir <ChevronRight className="h-3 w-3 ml-1" />
+                                    </Button>
+                                </Link>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-1">
+                                {recentDocs.map((doc, i) => {
+                                    const st = statusConfig[doc.status];
+                                    const StatusIcon = st.icon;
+                                    return (
+                                        <React.Fragment key={doc.title}>
+                                            <div className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-white/3 transition-colors cursor-pointer group">
+                                                <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                                                    <FileText className="h-4 w-4 text-violet-400" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium truncate group-hover:text-violet-300 transition-colors">
+                                                        {doc.title}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {doc.type} · {doc.updatedAt}
+                                                    </p>
+                                                </div>
+                                                <Badge className={`${st.className} text-[10px] h-5 gap-1 border-0`}>
+                                                    <StatusIcon className="h-3 w-3" />
+                                                    {st.label}
+                                                </Badge>
+                                            </div>
+                                            {i < recentDocs.length - 1 && (
+                                                <Separator className="bg-white/3" />
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+
+                {/* Team — only for managers and admins */}
+                {showTeam && (
+                    <motion.div
+                        custom={7}
+                        initial="hidden"
+                        animate="visible"
+                        variants={fadeInUp}
+                    >
+                        <Card className="glass border-white/5 h-full">
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-base">Équipe</CardTitle>
+                                        <CardDescription className="text-xs">
+                                            {teamMembers.filter((t) => t.online).length} membres connectés
+                                        </CardDescription>
+                                    </div>
+                                    <Link href="/admin/digitalium/team">
+                                        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-violet-400">
+                                            <Users className="h-3.5 w-3.5 mr-1" /> Gérer
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {teamMembers.map((member) => (
+                                    <div key={member.initials} className="flex items-center gap-3 py-1.5">
+                                        <div className="relative">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarFallback className="bg-violet-500/15 text-violet-300 text-[10px] font-bold">
+                                                    {member.initials}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span
+                                                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${member.online ? "bg-emerald-500" : "bg-muted-foreground/30"
+                                                    }`}
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium truncate">{member.name}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {member.online ? "En ligne" : "Hors ligne"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
+            </div>
+        </div>
     );
 }

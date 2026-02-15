@@ -85,6 +85,12 @@ const DEV_EMAIL_ORG_MAP: Record<string, DevOrgMapping> = {
     "demo-sysadmin@digitalium.ga": { id: "digitalium", name: "DIGITALIUM", type: "platform", sector: "Technologie" },
     "demo-admin@digitalium.ga": { id: "digitalium", name: "DIGITALIUM", type: "platform", sector: "Technologie" },
     "ornella.doumba@digitalium.ga": { id: "digitalium", name: "DIGITALIUM", type: "platform", sector: "Technologie" },
+    "rodrigues.ntoutoum@digitalium.ga": { id: "digitalium", name: "DIGITALIUM", type: "platform", sector: "Technologie" },
+
+    // Organisme demo accounts → Organism
+    "admin@cnamgs.ga": { id: "cnamgs", name: "CNAMGS", type: "organism", sector: "Protection Sociale" },
+    "responsable@cnamgs.ga": { id: "cnamgs", name: "CNAMGS", type: "organism", sector: "Protection Sociale" },
+    "collaborateur@cnamgs.ga": { id: "cnamgs", name: "CNAMGS", type: "organism", sector: "Protection Sociale" },
 };
 
 /* ───────────────────────────────────────────────
@@ -95,6 +101,29 @@ function resolveOrgFromUser(
     email: string | null | undefined,
     organizations?: { id: string; name: string; type: string }[]
 ): DevOrgMapping {
+    // 0. Check localStorage demo_org_override (set by DemoAccountSwitcher)
+    if (typeof window !== "undefined") {
+        try {
+            const raw = localStorage.getItem("demo_org_override");
+            if (raw) {
+                const override = JSON.parse(raw) as {
+                    orgId: string;
+                    orgName: string;
+                    orgType: string;
+                };
+                if (override.orgId && override.orgName) {
+                    return {
+                        id: override.orgId,
+                        name: override.orgName,
+                        type: (override.orgType as OrgType) || "enterprise",
+                    };
+                }
+            }
+        } catch {
+            // ignore parse errors
+        }
+    }
+
     // 1. Check dev email → org map
     if (email) {
         const devOrg = DEV_EMAIL_ORG_MAP[email.toLowerCase()];

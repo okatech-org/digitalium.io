@@ -27,6 +27,7 @@ const DEV_EMAIL_PERSONAS: Record<string, PersonaType> = {
     "demo-sysadmin@digitalium.ga": "business",
     "demo-admin@digitalium.ga": "business",
     "ornella.doumba@digitalium.ga": "institutional",
+    "rodrigues.ntoutoum@digitalium.ga": "business",
     // Business users
     "dg@ascoma.ga": "business",
     "commercial@ascoma.ga": "business",

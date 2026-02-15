@@ -231,6 +231,7 @@ export const ORG_WORKFLOW_PRESETS: Record<OrgType, OrgWorkflowBundle> = {
     institution: ORGANISME_WORKFLOWS,
     government: ADMINISTRATION_WORKFLOWS,
     platform: PLATFORM_WORKFLOWS,
+    organism: ORGANISME_WORKFLOWS,
 };
 
 /* ───────────────────────────────────────────────
@@ -335,6 +336,31 @@ export const ORG_CONFIG_PRESETS: Record<OrgType, Omit<OrganizationConfig, "id" |
             showApiIntegrations: true,
             showAnalytics: true,
             showFormation: false,
+        },
+    }),
+
+    organism: buildOrgConfig({
+        id: "__preset__",
+        name: "__preset__",
+        type: "organism",
+        branding: {
+            primaryColor: "#06B6D4",
+            gradient: "from-cyan-500 to-teal-500",
+        },
+        modules: ["idocument", "iarchive", "isignature", "iasted"],
+        dashboard: {
+            showActivityChart: true,
+            showTeamWidget: true,
+            showQuickActions: true,
+            showRecentDocs: true,
+            kpiModules: ["idocument", "iarchive", "isignature"],
+            greeting: "Bienvenue — {orgName}",
+        },
+        navigation: {
+            showBilling: false,
+            showApiIntegrations: false,
+            showAnalytics: true,
+            showFormation: true,
         },
     }),
 };

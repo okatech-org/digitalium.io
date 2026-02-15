@@ -29,12 +29,7 @@ import {
     Monitor,
     HardDrive,
     DatabaseBackup,
-    FileText,
-    FolderOpen,
-    PenTool,
     Building,
-    Plus,
-    Palette,
     UserCircle,
     Terminal,
     ChevronLeft,
@@ -52,6 +47,9 @@ import {
     Moon,
     PanelLeftClose,
     PanelLeftOpen,
+    FileText,
+    Archive,
+    PenTool,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +79,8 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useThemeContext } from "@/contexts/ThemeContext";
+import { useAuth } from "@/hooks/useAuth";
+import { ROLE_LABELS } from "@/config/rbac";
 
 /* ─── Space Types ──────────────────────────────── */
 
@@ -179,6 +179,43 @@ const BUSINESS_NAV: NavSection[] = [
     },
 ];
 
+const DIGITALIUM_NAV: NavSection[] = [
+    {
+        title: "Principal",
+        items: [
+            { label: "Dashboard", href: "/admin/digitalium", icon: LayoutDashboard },
+        ],
+    },
+    {
+        title: "Documents",
+        items: [
+            { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText },
+        ],
+    },
+    {
+        title: "Archives",
+        items: [
+            { label: "iArchive", href: "/admin/digitalium/iarchive", icon: Archive },
+        ],
+    },
+    {
+        title: "Signatures",
+        items: [
+            { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool },
+        ],
+    },
+    {
+        title: "Organisation Entreprise",
+        items: [
+            { label: "Profil Entreprise", href: "/admin/digitalium/profile", icon: Building },
+            { label: "Équipe", href: "/admin/digitalium/team", icon: Users },
+            { label: "Bureaux", href: "/admin/digitalium/offices", icon: Building2 },
+            { label: "Formation", href: "/admin/digitalium/formation", icon: GraduationCap },
+            { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings },
+        ],
+    },
+];
+
 const INFRA_NAV: NavSection[] = [
     {
         title: "Infrastructure",
@@ -202,27 +239,6 @@ const INFRA_NAV: NavSection[] = [
     },
 ];
 
-const DIGITALIUM_NAV: NavSection[] = [
-    {
-        title: "DIGITALIUM",
-        items: [
-            { label: "Dashboard", href: "/admin/digitalium", icon: LayoutDashboard },
-            { label: "Profil Entreprise", href: "/admin/digitalium/profile", icon: Building },
-            { label: "Équipe", href: "/admin/digitalium/team", icon: Users },
-            { label: "Bureaux", href: "/admin/digitalium/offices", icon: Building2 },
-            { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings },
-        ],
-    },
-    {
-        title: "Nos Modules",
-        items: [
-            { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText },
-            { label: "iArchive", href: "/admin/digitalium/iarchive", icon: FolderOpen },
-            { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool },
-        ],
-    },
-];
-
 const SPACE_NAVS: Record<AdminSpace, NavSection[]> = {
     business: BUSINESS_NAV,
     infra: INFRA_NAV,
@@ -235,8 +251,8 @@ const INFRA_PREFIXES = ["/admin/infrastructure", "/admin/monitoring", "/admin/da
 const DIGITALIUM_PREFIXES = ["/admin/digitalium"];
 
 function detectSpace(pathname: string): AdminSpace {
-    if (DIGITALIUM_PREFIXES.some((p) => pathname.startsWith(p))) return "digitalium";
     if (INFRA_PREFIXES.some((p) => pathname.startsWith(p))) return "infra";
+    if (DIGITALIUM_PREFIXES.some((p) => pathname.startsWith(p))) return "digitalium";
     return "business";
 }
 
@@ -457,6 +473,10 @@ function SidebarContent({
                     <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center shrink-0`}>
                         <Terminal className="h-6 w-6 text-white" />
                     </div>
+                ) : activeSpace === "digitalium" ? (
+                    <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center shrink-0`}>
+                        <Building className="h-6 w-6 text-white" />
+                    </div>
                 ) : (
                     <Image src="/logo_digitalium.png" alt="DIGITALIUM.IO" width={48} height={48} className="h-12 w-12 shrink-0" />
                 )}
@@ -471,16 +491,21 @@ function SidebarContent({
                             {activeSpace === "business" ? "DIGITALIUM" : activeSpace === "infra" ? "INFRASTRUCTURE" : "DIGITALIUM"}
                         </p>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                            {activeSpace === "business" ? "Business" : activeSpace === "infra" ? "SysAdmin" : "Platform"}
+                            {activeSpace === "business" ? "Business" : activeSpace === "infra" ? "SysAdmin" : "Entreprise"}
                         </p>
                     </motion.div>
                 )}
             </div>
 
             {/* Nav Sections */}
-            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-                {sections.map((section) => (
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-3">
+                {sections.map((section, idx) => (
                     <div key={section.title}>
+                        {!collapsed && sections.length > 1 && (
+                            <p className={`px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 ${idx > 0 ? "mt-2" : ""} mb-1`}>
+                                {section.title}
+                            </p>
+                        )}
                         <div className="space-y-0.5">
                             {section.items.map(renderNavItem)}
                         </div>
@@ -574,6 +599,20 @@ export default function AdminUnifiedLayout({
     const activeSpace = useMemo(() => detectSpace(pathname), [pathname]);
     const theme = SPACE_THEMES[activeSpace];
     const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
+    const { user } = useAuth();
+
+    // Compute user display info
+    const userDisplayName = user?.displayName || user?.email?.split("@")[0] || "Utilisateur";
+    const userInitials = useMemo(() => {
+        if (user?.displayName) {
+            const parts = user.displayName.split(" ").filter(Boolean);
+            if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            return parts[0]?.substring(0, 2).toUpperCase() || "U";
+        }
+        if (user?.email) return user.email.substring(0, 2).toUpperCase();
+        return "U";
+    }, [user?.displayName, user?.email]);
+    const userRoleLabel = user?.role ? ROLE_LABELS[user.role] : "Utilisateur";
 
     const handleSignOut = useCallback(async () => {
         try {
@@ -626,7 +665,7 @@ export default function AdminUnifiedLayout({
                 {/* ── Main area ── */}
                 <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl overflow-hidden">
                     {/* ── Header ── */}
-                    <header className="h-14 border-b border-border/40 flex items-center justify-between px-4 lg:px-6 shrink-0 z-20">
+                    <header className="h-16 border-b border-border/40 flex items-center justify-between px-4 lg:px-6 shrink-0 z-20">
                         {/* Left: Hamburger + Breadcrumb */}
                         <div className="flex items-center gap-3">
                             <Button
@@ -661,37 +700,52 @@ export default function AdminUnifiedLayout({
                             </nav>
                         </div>
 
-                        {/* Right: Space Switcher + Search + Notifications + Avatar */}
-                        <div className="flex items-center gap-2">
-                            {/* ── Space Switcher ── */}
-                            <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-border/40">
-                                {SPACES.map((space) => {
-                                    const SpaceIcon = space.icon;
-                                    const isActive = activeSpace === space.id;
-                                    return (
-                                        <Tooltip key={space.id} delayDuration={0}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    onClick={() => router.push(space.href)}
-                                                    className={`h-7 w-7 rounded-md flex items-center justify-center transition-all ${isActive ? space.activeColor : space.color}`}
-                                                >
-                                                    <SpaceIcon className="h-3.5 w-3.5" />
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <span className="text-xs">{space.label}</span>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    );
-                                })}
-                            </div>
+                        {/* Right: Space Switcher Dropdown + Search + Notifications + Avatar */}
+                        <div className="flex items-center gap-3">
+                            {/* ── Space Switcher Dropdown ── */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    {(() => {
+                                        const currentSpace = SPACES.find(s => s.id === activeSpace)!;
+                                        const CurrentIcon = currentSpace.icon;
+                                        return (
+                                            <Button variant="outline" className={`h-9 gap-2 px-3 text-sm font-medium border-border/40 ${currentSpace.activeColor}`}>
+                                                <CurrentIcon className="h-4 w-4" />
+                                                <span className="hidden sm:inline">{currentSpace.label}</span>
+                                                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                                            </Button>
+                                        );
+                                    })()}
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-52">
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Changer d&apos;espace</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {SPACES.map((space) => {
+                                        const SpaceIcon = space.icon;
+                                        const isActive = activeSpace === space.id;
+                                        return (
+                                            <DropdownMenuItem
+                                                key={space.id}
+                                                className={`gap-2.5 cursor-pointer text-sm ${isActive ? space.activeColor : ""}`}
+                                                onClick={() => router.push(space.href)}
+                                            >
+                                                <SpaceIcon className="h-4 w-4" />
+                                                {space.label}
+                                                {isActive && (
+                                                    <span className="ml-auto text-[10px] font-medium opacity-60">actif</span>
+                                                )}
+                                            </DropdownMenuItem>
+                                        );
+                                    })}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
                             {/* Search */}
                             <div className="hidden md:flex items-center relative">
-                                <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
-                                    className={`h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 ${theme.ringColor}`}
+                                    className={`h-9 w-56 pl-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 rounded-lg ${theme.ringColor}`}
                                 />
                             </div>
 
@@ -703,8 +757,8 @@ export default function AdminUnifiedLayout({
                             })()}
 
                             {/* Notifications */}
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">
-                                <Bell className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground relative">
+                                <Bell className="h-[18px] w-[18px]" />
                                 {notifications > 0 && (
                                     <span className={`absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full ${theme.notifBg} text-white text-[9px] font-bold flex items-center justify-center`}>
                                         {notifications}
@@ -715,19 +769,25 @@ export default function AdminUnifiedLayout({
                             {/* Avatar + Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 gap-2 px-2">
-                                        <Avatar className="h-6 w-6">
-                                            <AvatarFallback className={`bg-gradient-to-br ${theme.gradient} text-white text-[10px] font-bold`}>
-                                                SA
+                                    <Button variant="ghost" className="h-9 gap-2 px-2.5">
+                                        <Avatar className="h-7 w-7">
+                                            <AvatarFallback className={`bg-gradient-to-br ${theme.gradient} text-white text-[11px] font-bold`}>
+                                                {userInitials}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <span className="hidden md:block text-xs font-medium">
-                                            Super Admin
+                                        <span className="hidden md:block text-sm font-medium">
+                                            {userDisplayName}
                                         </span>
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuLabel className="text-xs">Mon compte</DropdownMenuLabel>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuLabel className="font-normal">
+                                        <div className="flex flex-col gap-1">
+                                            <p className="text-sm font-medium">{userDisplayName}</p>
+                                            <p className="text-xs text-muted-foreground">{userRoleLabel}</p>
+                                            {user?.email && <p className="text-xs text-muted-foreground/60">{user.email}</p>}
+                                        </div>
+                                    </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem className="text-xs gap-2 cursor-pointer">
                                         <UserIcon className="h-3.5 w-3.5" /> Profil
@@ -750,12 +810,14 @@ export default function AdminUnifiedLayout({
                         </div>
                     </header>
 
+
+
                     {/* ── Page content ── */}
                     <main className="flex-1 overflow-y-auto p-4 lg:p-6">
                         {children}
                     </main>
                 </div>
-            </div>
-        </TooltipProvider>
+            </div >
+        </TooltipProvider >
     );
 }

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 /* ─── Mock Data ──────────────────────────────────── */
 
@@ -181,6 +182,14 @@ export default function AdminSubscriptionsPage() {
                                             {plan.subscribers}
                                         </Badge>
                                     </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full text-xs mt-3 border-white/10 hover:bg-white/5"
+                                        onClick={() => toast.info(`Plan ${plan.name}`, { description: `${plan.subscribers} abonnés · ${plan.price} XAF${plan.period}` })}
+                                    >
+                                        Gérer le plan
+                                    </Button>
                                 </div>
                             </div>
                         );

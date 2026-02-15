@@ -48,7 +48,7 @@ export interface UserRoleInfo {
    Organization
    ─────────────────────────────────────────────── */
 
-export type OrganizationType = "enterprise" | "institution" | "government";
+export type OrganizationType = "enterprise" | "institution" | "government" | "organism";
 
 export interface Organization {
     id: string;
@@ -129,6 +129,10 @@ export interface AdminPermissions {
     canViewAnalytics: boolean;
     canManageBilling: boolean;
     canEditContent: boolean;
+    // ── Organisation v2 permissions
+    canManageOrgStructure: boolean;
+    canManageFilingStructure: boolean;
+    canManageModuleConfig: boolean;
 }
 
 /* ───────────────────────────────────────────────

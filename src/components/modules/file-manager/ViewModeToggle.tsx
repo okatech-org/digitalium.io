@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { LayoutGrid, List, Columns3 } from "lucide-react";
 import {
     Tooltip,
@@ -16,6 +16,16 @@ import {
 import type { ViewMode } from "./types";
 
 const STORAGE_KEY = "digitalium-view-mode";
+
+/** Read the saved view mode synchronously — call in useState initializer to avoid flash */
+export function getInitialViewMode(storageKey?: string): ViewMode {
+    if (typeof window === "undefined") return "grid";
+    try {
+        const stored = localStorage.getItem(storageKey || STORAGE_KEY);
+        if (stored === "grid" || stored === "list" || stored === "column") return stored;
+    } catch { /* SSR or localStorage unavailable */ }
+    return "grid";
+}
 
 const VIEW_MODES: { value: ViewMode; icon: React.ElementType; label: string }[] = [
     { value: "grid", icon: LayoutGrid, label: "Grille" },
@@ -31,19 +41,6 @@ interface ViewModeToggleProps {
 
 export default function ViewModeToggle({ value, onChange, storageKey }: ViewModeToggleProps) {
     const key = storageKey || STORAGE_KEY;
-
-    // Load from localStorage on mount
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem(key);
-            if (stored && (stored === "grid" || stored === "list" || stored === "column")) {
-                onChange(stored as ViewMode);
-            }
-        } catch {
-            // localStorage not available
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const handleChange = (mode: ViewMode) => {
         onChange(mode);
@@ -64,11 +61,10 @@ export default function ViewModeToggle({ value, onChange, storageKey }: ViewMode
                             <TooltipTrigger asChild>
                                 <button
                                     onClick={() => handleChange(mode)}
-                                    className={`p-1.5 rounded-md transition-all ${
-                                        isActive
+                                    className={`p-1.5 rounded-md transition-all ${isActive
                                             ? "bg-violet-500/10 text-violet-300 border border-violet-500/20"
                                             : "text-muted-foreground hover:bg-white/5 border border-transparent"
-                                    }`}
+                                        }`}
                                 >
                                     <Icon className="h-3.5 w-3.5" />
                                 </button>

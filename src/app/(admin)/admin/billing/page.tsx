@@ -42,6 +42,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 /* ─── Types ──────────────────────────────────────── */
 
@@ -290,14 +291,14 @@ export default function AdminBillingPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="w-44">
-                                                    <DropdownMenuItem className="text-xs gap-2">
+                                                    <DropdownMenuItem onClick={() => toast.info(`Facture ${inv.numero}`, { description: `${inv.organisation} · ${inv.plan} · ${(inv.montant / 1000).toFixed(0)}k XAF` })} className="text-xs gap-2">
                                                         <Eye className="h-3.5 w-3.5" /> Voir
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-xs gap-2">
+                                                    <DropdownMenuItem onClick={() => toast.success(`PDF téléchargé`, { description: `${inv.numero} — ${inv.organisation}` })} className="text-xs gap-2">
                                                         <Download className="h-3.5 w-3.5" /> Télécharger PDF
                                                     </DropdownMenuItem>
                                                     {inv.status === "en_retard" && (
-                                                        <DropdownMenuItem className="text-xs gap-2 text-amber-400">
+                                                        <DropdownMenuItem onClick={() => toast.warning(`Relance envoyée`, { description: `${inv.organisation} — Échéance : ${inv.dateEcheance}` })} className="text-xs gap-2 text-amber-400">
                                                             <Send className="h-3.5 w-3.5" /> Envoyer relance
                                                         </DropdownMenuItem>
                                                     )}

@@ -2,11 +2,15 @@
 
 // ═══════════════════════════════════════════════════════════════
 // DIGITALIUM.IO — iDocument: Finder-Style Document Explorer
-// 3 modes (grille/liste/colonnes) · DnD · Dossiers · Brouillon par défaut
+// 3 modes (grille/liste/colonnes) · DnD · Dossiers · Mes Documents par défaut
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useFilingStructures, useFilingCells, useUserFilingAccess, useAccessRules } from "@/hooks/useFilingAccess";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     FileText, Search, Plus, Filter, MoreHorizontal,
@@ -42,6 +46,7 @@ import { Label } from "@/components/ui/label";
 // File-manager Finder components
 import {
     ViewModeToggle,
+    getInitialViewMode,
     BreadcrumbPath,
     FinderGridView,
     FinderListView,
@@ -104,14 +109,13 @@ const STATUS_FILTERS: { value: DocStatus | "all"; label: string }[] = [
     { value: "archived", label: "Archivés" },
 ];
 
-// ─── Mock Folders ───────────────────────────────────────────────
+// ─── Default System Folders (toujours présents) ────────────────
+// Note: "Brouillon" est un statut de document (filtre), pas un dossier.
+// Le Coffre-fort est géré dans iArchive (schema: isVault, isPerpetual).
 
-const INITIAL_FOLDERS: FileManagerFolder[] = [
-    { id: "brouillon", name: "Brouillon", parentFolderId: null, tags: [], fileCount: 3, updatedAt: "Il y a 5 min", createdBy: "Système", isSystem: true },
-    { id: "contrats", name: "Contrats", parentFolderId: null, tags: ["contrat"], fileCount: 4, updatedAt: "Il y a 2h", createdBy: "Daniel Nguema" },
-    { id: "rh", name: "Ressources Humaines", parentFolderId: null, tags: ["rh", "social"], fileCount: 2, updatedAt: "Hier", createdBy: "Aimée Gondjout" },
-    { id: "fiscal", name: "Documents Fiscaux", parentFolderId: null, tags: ["fiscal"], fileCount: 3, updatedAt: "Il y a 3j", createdBy: "Claude Mboumba" },
-    { id: "pv", name: "PV & Délibérations", parentFolderId: "contrats", tags: ["pv"], fileCount: 1, updatedAt: "Il y a 1h", createdBy: "Daniel Nguema" },
+const DEFAULT_SYSTEM_FOLDERS: FileManagerFolder[] = [
+    { id: "__mes-documents", name: "Mes Documents", parentFolderId: null, tags: [], fileCount: 0, updatedAt: "", createdBy: "Système", isSystem: true },
+    { id: "__poubelle", name: "Poubelle", parentFolderId: null, tags: [], fileCount: 0, updatedAt: "", createdBy: "Système", isSystem: true },
 ];
 
 // ─── Mock Documents (as FileManagerFile with DocItem metadata) ──
@@ -135,8 +139,8 @@ const INITIAL_DOCUMENTS: DocItem[] = [
         id: "doc-3", title: "Note de service — Politique de télétravail 2026",
         excerpt: "Mise à jour de la politique de télétravail pour l'ensemble des collaborateurs…",
         author: "Claude Mboumba", authorInitials: "CM",
-        updatedAt: "Il y a 1h", updatedAtTs: Date.now() - 3_600_000,
-        status: "draft", tags: ["RH", "Note"], version: 1, folderId: "brouillon",
+        updatedAt: "Il y a 2h", updatedAtTs: Date.now() - 7_200_000,
+        status: "draft", tags: ["RH", "Note"], version: 1, folderId: "__mes-documents",
     },
     {
         id: "doc-4", title: "PV du Conseil d'Administration — Janvier 2026",
@@ -156,8 +160,8 @@ const INITIAL_DOCUMENTS: DocItem[] = [
         id: "doc-6", title: "Devis prestation audit IT — Ministère de la Pêche",
         excerpt: "Proposition commerciale pour l'audit complet de l'infrastructure IT…",
         author: "Marie Nzé", authorInitials: "MN",
-        updatedAt: "Il y a 5h", updatedAtTs: Date.now() - 18_000_000,
-        status: "draft", tags: ["Devis", "Ministère"], version: 1, folderId: "brouillon",
+        updatedAt: "Il y a 3j", updatedAtTs: Date.now() - 259_200_000,
+        status: "draft", tags: ["Devis", "Ministère"], version: 1, folderId: "__mes-documents",
     },
     {
         id: "doc-7", title: "Facture FV-2026-0847 — Gabon Télécom",
@@ -170,8 +174,8 @@ const INITIAL_DOCUMENTS: DocItem[] = [
         id: "doc-8", title: "Plan stratégique numérique 2026-2028",
         excerpt: "Feuille de route pour la transformation digitale de l'organisation…",
         author: "Claude Mboumba", authorInitials: "CM",
-        updatedAt: "Il y a 2j", updatedAtTs: Date.now() - 172_800_000,
-        status: "draft", tags: ["Stratégie", "Direction"], version: 2, folderId: "brouillon",
+        updatedAt: "Il y a 5j", updatedAtTs: Date.now() - 432_000_000,
+        status: "draft", tags: ["Stratégie", "Direction"], version: 2, folderId: "__mes-documents",
     },
     {
         id: "doc-9", title: "Contrat CDI — Recrutement IT Senior",
@@ -208,13 +212,13 @@ const INITIAL_DOCUMENTS: DocItem[] = [
 const AI_RULES: { keywords: string[]; tags: string[]; folderId: string; folderName: string }[] = [
     { keywords: ["contrat", "contract"], tags: ["Contrat", "Juridique"], folderId: "contrats", folderName: "Contrats" },
     { keywords: ["facture", "invoice"], tags: ["Facture", "Comptabilité"], folderId: "fiscal", folderName: "Documents Fiscaux" },
-    { keywords: ["rapport", "report"], tags: ["Rapport", "Analyse"], folderId: "brouillon", folderName: "Brouillon" },
+    { keywords: ["rapport", "report"], tags: ["Rapport", "Analyse"], folderId: "__mes-documents", folderName: "Mes Documents" },
     { keywords: ["pv", "procès", "procès-verbal", "délibér"], tags: ["PV", "Direction"], folderId: "pv", folderName: "PV & Délibérations" },
-    { keywords: ["note", "service", "circulaire"], tags: ["Note", "RH"], folderId: "brouillon", folderName: "Brouillon" },
+    { keywords: ["note", "service", "circulaire"], tags: ["Note", "RH"], folderId: "__mes-documents", folderName: "Mes Documents" },
     { keywords: ["devis", "proposition", "offre"], tags: ["Devis", "Commercial"], folderId: "contrats", folderName: "Contrats" },
     { keywords: ["convention", "stage", "formation"], tags: ["Convention", "RH"], folderId: "rh", folderName: "Ressources Humaines" },
     { keywords: ["fiscal", "impôt", "taxe", "déclaration"], tags: ["Fiscal", "Déclaration"], folderId: "fiscal", folderName: "Documents Fiscaux" },
-    { keywords: ["plan", "stratégi", "feuille de route"], tags: ["Stratégie", "Direction"], folderId: "brouillon", folderName: "Brouillon" },
+    { keywords: ["plan", "stratégi", "feuille de route"], tags: ["Stratégie", "Direction"], folderId: "__mes-documents", folderName: "Mes Documents" },
 ];
 
 function classifyFileName(name: string): { tags: string[]; folderId: string; folderName: string; confidence: number } {
@@ -224,7 +228,7 @@ function classifyFileName(name: string): { tags: string[]; folderId: string; fol
             return { tags: rule.tags, folderId: rule.folderId, folderName: rule.folderName, confidence: 85 + Math.floor(Math.random() * 12) };
         }
     }
-    return { tags: ["Document", "Import"], folderId: "brouillon", folderName: "Brouillon", confidence: 55 + Math.floor(Math.random() * 15) };
+    return { tags: ["Document", "Import"], folderId: "__mes-documents", folderName: "Mes Documents", confidence: 55 + Math.floor(Math.random() * 15) };
 }
 
 const ACCEPTED_DOC_TYPES = [
@@ -366,16 +370,71 @@ const DOC_COLUMNS: ListColumn[] = [
 
 export default function DocumentListPage({ basePath = "/pro/idocument" }: { basePath?: string }) {
     const router = useRouter();
+    const { orgId } = useOrganization();
+    const { user } = useAuth();
+    const isAdmin = (user?.level ?? 99) <= 2; // Admin = level 1 or 2
+
+    // ─── Convex: fetch filing structure ─────────────────────────
+    const isConvexId = orgId.length > 10;
+    const convexOrgId = isConvexId ? (orgId as Id<"organizations">) : undefined;
+    const { activeStructure } = useFilingStructures(convexOrgId);
+    const { cells, isLoading: cellsLoading, createCell } = useFilingCells(activeStructure?._id);
+    const { setRule } = useAccessRules(convexOrgId);
+
+    // ─── Résolution d'accès utilisateur ─────────────────────────
+    const { visibleCellIds, isLoading: accessLoading } = useUserFilingAccess(
+        user?.uid, convexOrgId, user?.email ?? undefined, user?.displayName ?? undefined
+    );
+
+    // ─── Map filing_cells → FileManagerFolder (filtré par accès) ─
+    const dynamicFolders = useMemo<FileManagerFolder[]>(() => {
+        if (!cells || cells.length === 0) return [];
+        return cells
+            .filter((c) => c.estActif)
+            .filter((c) => visibleCellIds.includes(c._id))
+            .map((cell) => ({
+                id: cell._id,
+                name: cell.intitule,
+                description: cell.description,
+                parentFolderId: cell.parentId ?? null,
+                tags: cell.tags ?? [],
+                fileCount: 0,
+                updatedAt: cell.updatedAt
+                    ? new Date(cell.updatedAt).toLocaleDateString("fr-FR")
+                    : "",
+                createdBy: "",
+                metadata: {
+                    code: cell.code,
+                    icon: cell.icone,
+                    color: cell.couleur,
+                    accessDefaut: cell.accessDefaut,
+                    moduleId: cell.moduleId,
+                },
+            }));
+    }, [cells, visibleCellIds]);
+
+    // ─── Merge: system folders + dynamic filing cells ───────────
+    // No useEffect-based sync — compute directly to avoid loops
+    const baseFolders = useMemo<FileManagerFolder[]>(
+        () => [...DEFAULT_SYSTEM_FOLDERS, ...dynamicFolders],
+        [dynamicFolders]
+    );
 
     // ─── State ──────────────────────────────────────────────────
-    const [viewMode, setViewMode] = useState<ViewMode>("grid");
+    const [viewMode, setViewMode] = useState<ViewMode>(() => getInitialViewMode());
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<DocStatus | "all">("all");
     const [sortBy, setSortBy] = useState("date");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
     const [documents, setDocuments] = useState<DocItem[]>(INITIAL_DOCUMENTS);
-    const [folders, setFolders] = useState<FileManagerFolder[]>(INITIAL_FOLDERS);
+    const [localFolders, setLocalFolders] = useState<FileManagerFolder[]>([]);
+
+    // Computed folders: base from Convex + locally created ones
+    const folders = useMemo<FileManagerFolder[]>(
+        () => [...baseFolders, ...localFolders],
+        [baseFolders, localFolders]
+    );
     const [showNewDocDialog, setShowNewDocDialog] = useState(false);
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
     const [showImportDialog, setShowImportDialog] = useState(false);
@@ -408,7 +467,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     }, [folders, currentFolderId]);
 
     const currentFiles = useMemo(() => {
-        let docs = documents.filter((d) => d.folderId === (currentFolderId ?? "brouillon"));
+        let docs = documents.filter((d) => d.folderId === (currentFolderId ?? "__mes-documents"));
 
         // If at root, show docs without folder match OR in any root-level context
         if (currentFolderId === null) {
@@ -478,7 +537,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             );
         } else {
             // Move folder — prevent moving into self or descendants
-            setFolders((prev) => {
+            setLocalFolders((prev) => {
                 const isDescendant = (parentId: string, childId: string): boolean => {
                     if (parentId === childId) return true;
                     const children = prev.filter((f) => f.parentFolderId === parentId);
@@ -514,28 +573,64 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             status: "draft",
             tags: [],
             version: 1,
-            folderId: currentFolderId || "brouillon",
+            folderId: currentFolderId || "__mes-documents",
         };
         setDocuments((prev) => [newDoc, ...prev]);
         setNewDocTitle("");
         setShowNewDocDialog(false);
     }, [newDocTitle, currentFolderId]);
 
-    const handleCreateFolder = useCallback(() => {
+    const handleCreateFolder = useCallback(async () => {
         if (!newFolderName.trim()) return;
-        const newFolder: FileManagerFolder = {
-            id: `folder-${Date.now()}`,
-            name: newFolderName.trim(),
-            parentFolderId: currentFolderId,
-            tags: [],
-            fileCount: 0,
-            updatedAt: "À l'instant",
-            createdBy: "Vous",
-        };
-        setFolders((prev) => [...prev, newFolder]);
+
+        const name = newFolderName.trim();
+        const code = name.toUpperCase().replace(/[^A-Z0-9]/g, "_").slice(0, 20);
+
+        // ─── Persist to Convex if connected ─────────────────────
+        if (convexOrgId && activeStructure?._id) {
+            try {
+                // 1. Create the filing cell
+                const cellId = await createCell({
+                    filingStructureId: activeStructure._id,
+                    organizationId: convexOrgId,
+                    code,
+                    intitule: name,
+                    parentId: currentFolderId && !currentFolderId.startsWith("__")
+                        ? currentFolderId as Id<"filing_cells">
+                        : undefined,
+                    accessDefaut: "restreint",
+                });
+
+                // 2. Auto-create admin access rule for this cell
+                await setRule({
+                    organizationId: convexOrgId,
+                    filingCellId: cellId,
+                    acces: "admin",
+                });
+
+                toast.success(`Dossier "${name}" créé et synchronisé`);
+            } catch (err) {
+                console.error("Erreur création dossier Convex:", err);
+                toast.error("Erreur lors de la synchronisation du dossier");
+            }
+        } else {
+            // Fallback: local-only folder
+            const newFolder: FileManagerFolder = {
+                id: `folder-${Date.now()}`,
+                name,
+                parentFolderId: currentFolderId,
+                tags: [],
+                fileCount: 0,
+                updatedAt: "À l'instant",
+                createdBy: "Vous",
+            };
+            setLocalFolders((prev) => [...prev, newFolder]);
+            toast.success(`Dossier "${name}" créé (local)`);
+        }
+
         setNewFolderName("");
         setShowNewFolderDialog(false);
-    }, [newFolderName, currentFolderId]);
+    }, [newFolderName, currentFolderId, convexOrgId, activeStructure, createCell, setRule]);
 
     // ─── Import handlers ────────────────────────────────────────
 
@@ -555,8 +650,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 size: file.size,
                 type: file.type,
                 suggestedTags: [],
-                suggestedFolderId: "brouillon",
-                suggestedFolderName: "Brouillon",
+                suggestedFolderId: "__mes-documents",
+                suggestedFolderName: "Mes Documents",
                 confidence: 0,
                 analyzed: false,
             });
@@ -603,7 +698,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const handleUpdateImportFolder = useCallback((fileId: string, folderId: string) => {
         const folder = folders.find((f) => f.id === folderId);
         setImportFiles((prev) =>
-            prev.map((f) => f.id === fileId ? { ...f, suggestedFolderId: folderId, suggestedFolderName: folder?.name || "Brouillon" } : f)
+            prev.map((f) => f.id === fileId ? { ...f, suggestedFolderId: folderId, suggestedFolderName: folder?.name || "Mes Documents" } : f)
         );
     }, [folders]);
 
@@ -842,15 +937,17 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowNewFolderDialog(true)}
-                        className="border-white/10 text-xs gap-1.5"
-                    >
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        Nouveau dossier
-                    </Button>
+                    {isAdmin && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowNewFolderDialog(true)}
+                            className="border-white/10 text-xs gap-1.5"
+                        >
+                            <FolderPlus className="h-3.5 w-3.5" />
+                            Nouveau dossier
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         size="sm"
@@ -895,8 +992,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                         key={f.value}
                                         onClick={() => setStatusFilter(f.value)}
                                         className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${statusFilter === f.value
-                                                ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
-                                                : "text-muted-foreground hover:bg-white/5"
+                                            ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
+                                            : "text-muted-foreground hover:bg-white/5"
                                             }`}
                                     >
                                         {f.label}
@@ -941,7 +1038,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             />
 
             {/* ── Content — Finder Views ─────────────────────── */}
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="popLayout">
                 {viewMode === "grid" && (
                     <motion.div
                         key="grid"
@@ -1055,7 +1152,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                             Nouveau Document
                         </DialogTitle>
                         <DialogDescription>
-                            Créez un nouveau document{currentFolderId ? ` dans "${folders.find((f) => f.id === currentFolderId)?.name || "ce dossier"}"` : " dans Brouillon"}.
+                            Créez un nouveau document{currentFolderId ? ` dans "${folders.find((f) => f.id === currentFolderId)?.name || "ce dossier"}"` : " dans Mes Documents"}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
@@ -1089,48 +1186,50 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 </DialogContent>
             </Dialog>
 
-            {/* ── New Folder Dialog ──────────────────────────── */}
-            <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <FolderPlus className="h-5 w-5 text-violet-400" />
-                            Nouveau Dossier
-                        </DialogTitle>
-                        <DialogDescription>
-                            Créez un nouveau dossier{currentFolderId ? ` dans "${folders.find((f) => f.id === currentFolderId)?.name || "ce dossier"}"` : " à la racine"}.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="folder-name" className="text-xs">Nom du dossier *</Label>
-                            <Input
-                                id="folder-name"
-                                placeholder="Ex: Rapports financiers"
-                                value={newFolderName}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFolderName(e.target.value)}
-                                className="bg-white/5 border-white/10"
-                                onKeyDown={(e: React.KeyboardEvent) => {
-                                    if (e.key === "Enter") handleCreateFolder();
-                                }}
-                            />
+            {/* ── New Folder Dialog (Admin only) ─────────────── */}
+            {isAdmin && (
+                <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <FolderPlus className="h-5 w-5 text-violet-400" />
+                                Nouveau Dossier
+                            </DialogTitle>
+                            <DialogDescription>
+                                Créez un nouveau dossier{currentFolderId ? ` dans "${folders.find((f) => f.id === currentFolderId)?.name || "ce dossier"}"` : " à la racine"}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="folder-name" className="text-xs">Nom du dossier *</Label>
+                                <Input
+                                    id="folder-name"
+                                    placeholder="Ex: Rapports financiers"
+                                    value={newFolderName}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFolderName(e.target.value)}
+                                    className="bg-white/5 border-white/10"
+                                    onKeyDown={(e: React.KeyboardEvent) => {
+                                        if (e.key === "Enter") handleCreateFolder();
+                                    }}
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowNewFolderDialog(false)} className="border-white/10">
-                            Annuler
-                        </Button>
-                        <Button
-                            onClick={handleCreateFolder}
-                            disabled={!newFolderName.trim()}
-                            className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white border-0"
-                        >
-                            <FolderPlus className="h-4 w-4 mr-1.5" />
-                            Créer
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setShowNewFolderDialog(false)} className="border-white/10">
+                                Annuler
+                            </Button>
+                            <Button
+                                onClick={handleCreateFolder}
+                                disabled={!newFolderName.trim()}
+                                className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white border-0"
+                            >
+                                <FolderPlus className="h-4 w-4 mr-1.5" />
+                                Créer
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
 
             {/* ── Import Dialog ────────────────────────────────── */}
             <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) handleCloseImport(); }}>
@@ -1160,8 +1259,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                     handleImportFilesSelected(e.dataTransfer.files);
                                 }}
                                 className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${isDragOver
-                                        ? "border-cyan-400 bg-cyan-500/10 scale-[1.01]"
-                                        : "border-white/10 hover:border-white/20 hover:bg-white/5"
+                                    ? "border-cyan-400 bg-cyan-500/10 scale-[1.01]"
+                                    : "border-white/10 hover:border-white/20 hover:bg-white/5"
                                     }`}
                                 onClick={() => {
                                     const input = document.createElement("input");
@@ -1313,8 +1412,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                             key={fl.id}
                                                             onClick={() => handleUpdateImportFolder(f.id, fl.id)}
                                                             className={`text-[10px] px-2 py-1 rounded-md transition-all ${f.suggestedFolderId === fl.id
-                                                                    ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"
-                                                                    : "bg-white/5 text-muted-foreground hover:bg-white/10"
+                                                                ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"
+                                                                : "bg-white/5 text-muted-foreground hover:bg-white/10"
                                                                 }`}
                                                         >
                                                             {fl.name}

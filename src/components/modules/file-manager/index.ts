@@ -2,7 +2,7 @@
 // DIGITALIUM.IO — File Manager: Barrel export
 // ═══════════════════════════════════════════════
 
-export { default as ViewModeToggle } from "./ViewModeToggle";
+export { default as ViewModeToggle, getInitialViewMode } from "./ViewModeToggle";
 export { default as BreadcrumbPath } from "./BreadcrumbPath";
 export { default as DragOverlayCard } from "./DragOverlayCard";
 export { default as FinderGridView } from "./FinderGridView";

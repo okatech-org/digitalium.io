@@ -105,6 +105,9 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canViewAnalytics: true,
         canManageBilling: true,
         canEditContent: true,
+        canManageOrgStructure: true,
+        canManageFilingStructure: true,
+        canManageModuleConfig: true,
     },
     platform_admin: {
         canManageUsers: true,
@@ -113,6 +116,9 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canViewAnalytics: true,
         canManageBilling: true,
         canEditContent: true,
+        canManageOrgStructure: true,
+        canManageFilingStructure: true,
+        canManageModuleConfig: true,
     },
     org_admin: {
         canManageUsers: true,
@@ -121,6 +127,9 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canViewAnalytics: true,
         canManageBilling: true,
         canEditContent: true,
+        canManageOrgStructure: true,
+        canManageFilingStructure: true,
+        canManageModuleConfig: true,
     },
     org_manager: {
         canManageUsers: false,
@@ -129,6 +138,9 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canViewAnalytics: true,
         canManageBilling: false,
         canEditContent: true,
+        canManageOrgStructure: false,
+        canManageFilingStructure: false,
+        canManageModuleConfig: false,
     },
     org_member: {
         canManageUsers: false,
@@ -137,6 +149,9 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canViewAnalytics: false,
         canManageBilling: false,
         canEditContent: true,
+        canManageOrgStructure: false,
+        canManageFilingStructure: false,
+        canManageModuleConfig: false,
     },
     org_viewer: {
         canManageUsers: false,
@@ -145,6 +160,9 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canViewAnalytics: false,
         canManageBilling: false,
         canEditContent: false,
+        canManageOrgStructure: false,
+        canManageFilingStructure: false,
+        canManageModuleConfig: false,
     },
 } as const;
 

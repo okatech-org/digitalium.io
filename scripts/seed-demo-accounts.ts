@@ -41,17 +41,22 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     {
         email: "demo-sysadmin@digitalium.ga",
         password: "demo123456",
-        displayName: "System Admin (Démo)",
+        displayName: "Asted PELLEN_LAKOUMBA",
     },
     {
         email: "demo-admin@digitalium.ga",
         password: "demo123456",
-        displayName: "Platform Admin (Démo)",
+        displayName: "Ornella DOUMBA",
     },
     {
         email: "ornella.doumba@digitalium.ga",
         password: "demo123456",
         displayName: "Ornella Doumba",
+    },
+    {
+        email: "rodrigues.ntoutoum@digitalium.ga",
+        password: "demo123456",
+        displayName: "Rodrigues NTOUTOUM",
     },
 
     // ── ASCOMA GABON ──

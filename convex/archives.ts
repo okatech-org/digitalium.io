@@ -37,7 +37,7 @@ export const list = query({
                 .withIndex("by_org_category", (q) =>
                     q
                         .eq("organizationId", args.organizationId!)
-                        .eq("category", args.category!)
+                        .eq("categorySlug", args.category!)
                 )
                 .order("desc")
                 .collect();
@@ -54,8 +54,8 @@ export const list = query({
         if (args.category) {
             return ctx.db
                 .query("archives")
-                .withIndex("by_category", (q) =>
-                    q.eq("category", args.category!)
+                .withIndex("by_categorySlug", (q) =>
+                    q.eq("categorySlug", args.category!)
                 )
                 .order("desc")
                 .collect();
@@ -107,6 +107,7 @@ export const createArchiveEntry = mutation({
             title: args.title,
             description: args.description,
             category: args.category,
+            categorySlug: categoryStr,
             organizationId: args.organizationId,
             uploadedBy: args.uploadedBy,
             fileUrl: args.fileUrl,
@@ -117,9 +118,14 @@ export const createArchiveEntry = mutation({
             retentionYears,
             retentionExpiresAt: now + retentionMs,
             status: "active",
+            lifecycleState: "active",
+            countingStartDate: now,
+            activeUntil: now + retentionMs,
+            stateChangedAt: now,
             metadata: {
                 confidentiality: "internal",
             },
+            isVault: categoryStr === "vault",
             createdAt: now,
             updatedAt: now,
         });
@@ -365,6 +371,8 @@ export const search = query({
         status: v.optional(
             v.union(
                 v.literal("active"),
+                v.literal("semi_active"),
+                v.literal("archived"),
                 v.literal("expired"),
                 v.literal("on_hold"),
                 v.literal("destroyed")
@@ -380,7 +388,7 @@ export const search = query({
                 .withIndex("by_org_category", (q) =>
                     q
                         .eq("organizationId", args.organizationId!)
-                        .eq("category", args.category!)
+                        .eq("categorySlug", args.category!)
                 )
                 .collect();
         } else if (args.organizationId) {

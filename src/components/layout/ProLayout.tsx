@@ -1,22 +1,20 @@
 // ═══════════════════════════════════════════════════════════
 // DIGITALIUM.IO — Layout: ProLayout
-// Professional workspace for Business persona
-// Violet/indigo theme · Module-oriented sidebar · RBAC gates
+// Universal professional workspace — dynamic org theming
+// Sidebar RBAC + module gates · NavigationConfig filtering
 // ═══════════════════════════════════════════════════════════
 
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
     LayoutDashboard,
     FileText,
     Archive,
-    Landmark,
-    Briefcase,
-    Scale,
     PenTool,
     Bot,
     BarChart3,
@@ -25,7 +23,6 @@ import {
     CreditCard,
     Plug,
     ChartArea,
-    ChevronLeft,
     ChevronRight as ChevronRightIcon,
     Search,
     Bell,
@@ -44,7 +41,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
@@ -73,6 +69,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { getUserInitials, getUserDisplayName, getRoleLabel } from "@/config/role-helpers";
+import { getProLayoutTheme, type ProLayoutTheme, type NavigationConfig } from "@/config/org-config";
+import type { ModuleId } from "@/config/modules";
 
 /* ─── Navigation Config ─────────────────────────── */
 
@@ -83,6 +81,10 @@ interface NavItem {
     badge?: number;
     /** Minimum RBAC level required (lower = more privilege) */
     maxLevel?: number;
+    /** Module that must be active for this item to appear */
+    moduleId?: ModuleId;
+    /** NavigationConfig key that controls this item's visibility */
+    navConfigKey?: keyof NavigationConfig;
 }
 
 interface NavSection {
@@ -90,6 +92,8 @@ interface NavSection {
     items: NavItem[];
     /** Restrict entire section to this max level */
     maxLevel?: number;
+    /** Module that must be active for this section to appear */
+    moduleId?: ModuleId;
 }
 
 const NAV_SECTIONS: NavSection[] = [
@@ -101,27 +105,31 @@ const NAV_SECTIONS: NavSection[] = [
     },
     {
         title: "Documents",
+        moduleId: "idocument",
         items: [
-            { label: "iDocument", href: "/pro/idocument", icon: FileText },
+            { label: "iDocument", href: "/pro/idocument", icon: FileText, moduleId: "idocument" },
         ],
     },
     {
         title: "Archives",
+        moduleId: "iarchive",
         items: [
-            { label: "iArchive", href: "/pro/iarchive", icon: Archive },
+            { label: "iArchive", href: "/pro/iarchive", icon: Archive, moduleId: "iarchive" },
         ],
     },
     {
         title: "Signatures",
+        moduleId: "isignature",
         items: [
-            { label: "iSignature", href: "/pro/isignature", icon: PenTool },
+            { label: "iSignature", href: "/pro/isignature", icon: PenTool, moduleId: "isignature" },
         ],
     },
     {
         title: "IA",
+        moduleId: "iasted",
         items: [
-            { label: "iAsted", href: "/pro/iasted", icon: Bot },
-            { label: "Analytics IA", href: "/pro/iasted/analytics", icon: BarChart3 },
+            { label: "iAsted", href: "/pro/iasted", icon: Bot, moduleId: "iasted" },
+            { label: "Analytics IA", href: "/pro/iasted/analytics", icon: BarChart3, moduleId: "iasted" },
         ],
     },
     {
@@ -129,11 +137,11 @@ const NAV_SECTIONS: NavSection[] = [
         maxLevel: 3, // org_admin (2) + org_manager (3)
         items: [
             { label: "Équipe", href: "/pro/team", icon: Users },
-            { label: "Formation", href: "/pro/formation", icon: GraduationCap },
+            { label: "Formation", href: "/pro/formation", icon: GraduationCap, navConfigKey: "showFormation" },
             { label: "Paramètres", href: "/pro/settings", icon: Settings, maxLevel: 2 },
-            { label: "Facturation", href: "/pro/billing", icon: CreditCard },
-            { label: "Intégrations API", href: "/pro/api", icon: Plug },
-            { label: "Analytics", href: "/pro/analytics", icon: ChartArea },
+            { label: "Facturation", href: "/pro/billing", icon: CreditCard, navConfigKey: "showBilling" },
+            { label: "Intégrations API", href: "/pro/api", icon: Plug, navConfigKey: "showApiIntegrations" },
+            { label: "Analytics", href: "/pro/analytics", icon: ChartArea, navConfigKey: "showAnalytics" },
         ],
     },
 ];
@@ -180,10 +188,12 @@ function NavLink({
     item,
     collapsed,
     active,
+    theme,
 }: {
     item: NavItem;
     collapsed: boolean;
     active: boolean;
+    theme: ProLayoutTheme;
 }) {
     const Icon = item.icon;
 
@@ -194,26 +204,26 @@ function NavLink({
                 flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
                 transition-all duration-200 group relative
                 ${active
-                    ? "bg-violet-500/20 text-foreground"
+                    ? `${theme.activeBg} text-foreground`
                     : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
                 }
                 ${collapsed ? "justify-center px-2" : ""}
             `}
         >
-            <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-violet-400" : ""}`} />
+            <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
             {!collapsed && (
                 <>
                     <span className="truncate">{item.label}</span>
                     {item.badge !== undefined && (
                         <Badge
                             variant="secondary"
-                            className="ml-auto h-5 min-w-[20px] px-1.5 text-[10px] bg-violet-500/20 text-violet-300 border-0"
+                            className={`ml-auto h-5 min-w-[20px] px-1.5 text-[10px] ${theme.badgeBg} ${theme.badgeText} border-0`}
                         >
                             {item.badge}
                         </Badge>
                     )}
                     {active && (
-                        <span className="ml-auto h-2 w-2 rounded-full bg-violet-400 shrink-0" />
+                        <span className={`ml-auto h-2 w-2 rounded-full ${theme.indicator} shrink-0`} />
                     )}
                 </>
             )}
@@ -246,6 +256,10 @@ function SidebarContent({
     pathname,
     userLevel,
     orgName,
+    logoUrl,
+    layoutTheme,
+    orgModules,
+    navConfig,
     onToggle,
     onSignOut,
 }: {
@@ -253,6 +267,10 @@ function SidebarContent({
     pathname: string;
     userLevel: number;
     orgName: string;
+    logoUrl?: string;
+    layoutTheme: ProLayoutTheme;
+    orgModules: string[];
+    navConfig: NavigationConfig;
     onToggle: () => void;
     onSignOut: () => void;
 }) {
@@ -261,17 +279,40 @@ function SidebarContent({
 
     const { theme, toggleTheme } = useThemeContext();
 
-    const visibleSections = NAV_SECTIONS.filter(
-        (s) => s.maxLevel === undefined || userLevel <= s.maxLevel
-    );
+    // Triple-layer filtering: RBAC → Module → NavigationConfig
+    const visibleSections = useMemo(() => {
+        return NAV_SECTIONS
+            .filter((s) => s.maxLevel === undefined || userLevel <= s.maxLevel)
+            .filter((s) => !s.moduleId || orgModules.includes(s.moduleId))
+            .map((section) => ({
+                ...section,
+                items: section.items.filter((item) => {
+                    if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
+                    if (item.moduleId && !orgModules.includes(item.moduleId)) return false;
+                    if (item.navConfigKey && !navConfig[item.navConfigKey]) return false;
+                    return true;
+                }),
+            }))
+            .filter((s) => s.items.length > 0);
+    }, [userLevel, orgModules, navConfig]);
 
     return (
         <div className="flex flex-col h-full">
             {/* Logo */}
             <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-4 py-5`}>
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center shrink-0">
-                    <Building2 className="h-4 w-4 text-white" />
-                </div>
+                {logoUrl ? (
+                    <Image
+                        src={logoUrl}
+                        alt={orgName}
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-lg shrink-0 object-cover"
+                    />
+                ) : (
+                    <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${layoutTheme.gradient} flex items-center justify-center shrink-0`}>
+                        <Building2 className="h-4 w-4 text-white" />
+                    </div>
+                )}
                 {!collapsed && (
                     <motion.div
                         initial={{ opacity: 0, width: 0 }}
@@ -290,20 +331,15 @@ function SidebarContent({
                 {visibleSections.map((section) => (
                     <div key={section.title}>
                         <div className="space-y-0.5">
-                            {section.items
-                                .filter(
-                                    (item) =>
-                                        item.maxLevel === undefined ||
-                                        userLevel <= item.maxLevel
-                                )
-                                .map((item) => (
-                                    <NavLink
-                                        key={item.href}
-                                        item={item}
-                                        collapsed={collapsed}
-                                        active={isActive(item.href)}
-                                    />
-                                ))}
+                            {section.items.map((item) => (
+                                <NavLink
+                                    key={item.href}
+                                    item={item}
+                                    collapsed={collapsed}
+                                    active={isActive(item.href)}
+                                    theme={layoutTheme}
+                                />
+                            ))}
                         </div>
                     </div>
                 ))}
@@ -392,13 +428,17 @@ export default function ProLayout({
     const pathname = usePathname();
     const router = useRouter();
 
-    // Pull role from auth context for RBAC-based sidebar filtering
+    // Auth + RBAC
     const { user } = useAuth();
-    const { orgName } = useOrganization();
+    const { orgName, orgType, orgConfig, orgModules } = useOrganization();
     const userLevel = user?.level ?? 4;
     const userInitials = getUserInitials(user);
     const userDisplayName = getUserDisplayName(user);
     const userRoleLabel = getRoleLabel(user);
+
+    // Dynamic theme from org type
+    const layoutTheme = useMemo(() => getProLayoutTheme(orgType), [orgType]);
+    const logoUrl = orgConfig.branding.logoUrl;
 
     const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
 
@@ -430,6 +470,10 @@ export default function ProLayout({
                         pathname={pathname}
                         userLevel={userLevel}
                         orgName={orgName}
+                        logoUrl={logoUrl}
+                        layoutTheme={layoutTheme}
+                        orgModules={orgModules}
+                        navConfig={orgConfig.navigation}
                         onToggle={toggleCollapse}
                         onSignOut={handleSignOut}
                     />
@@ -444,6 +488,10 @@ export default function ProLayout({
                             pathname={pathname}
                             userLevel={userLevel}
                             orgName={orgName}
+                            logoUrl={logoUrl}
+                            layoutTheme={layoutTheme}
+                            orgModules={orgModules}
+                            navConfig={orgConfig.navigation}
                             onToggle={() => setMobileOpen(false)}
                             onSignOut={handleSignOut}
                         />
@@ -490,20 +538,20 @@ export default function ProLayout({
                                 <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
-                                    className="h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus-visible:ring-violet-500/30"
+                                    className={`h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 ${layoutTheme.ringColor}`}
                                 />
                             </div>
 
                             {(() => {
                                 const segment = pathname === "/pro" ? "dashboard" : pathname.replace("/pro/", "");
                                 const info = PRO_PAGE_INFO[segment];
-                                return info ? <><PageArchitectButton info={info} accentColor="violet" /><PageInfoButton info={info} accentColor="violet" /></> : null;
+                                return info ? <><PageArchitectButton info={info} accentColor={layoutTheme.pageInfoAccent} /><PageInfoButton info={info} accentColor={layoutTheme.pageInfoAccent} /></> : null;
                             })()}
 
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">
                                 <Bell className="h-4 w-4" />
                                 {notifications > 0 && (
-                                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full bg-violet-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                    <span className={`absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full ${layoutTheme.notifBg} text-white text-[9px] font-bold flex items-center justify-center`}>
                                         {notifications}
                                     </span>
                                 )}
@@ -513,7 +561,7 @@ export default function ProLayout({
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" className="h-8 gap-2 px-2">
                                         <Avatar className="h-6 w-6">
-                                            <AvatarFallback className="bg-gradient-to-br from-violet-600 to-indigo-500 text-white text-[10px] font-bold">
+                                            <AvatarFallback className={`bg-gradient-to-br ${layoutTheme.gradient} text-white text-[10px] font-bold`}>
                                                 {userInitials}
                                             </AvatarFallback>
                                         </Avatar>

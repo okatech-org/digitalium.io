@@ -67,7 +67,7 @@ export const seedData = mutation({
             if (!existing) {
                 await ctx.db.insert("archives", {
                     title: entry.title,
-                    category: "fiscal",
+                    categorySlug: "fiscal",
                     organizationId: demoOrg?._id,
                     uploadedBy: demoUserId,
                     sha256Hash: entry.hash,
@@ -78,6 +78,7 @@ export const seedData = mutation({
                     retentionYears: 10,
                     retentionExpiresAt: now + (10 * 365 * 24 * 60 * 60 * 1000),
                     status: "active",
+                    isVault: false,
                     metadata: { confidentiality: "internal" },
                     createdAt: now,
                     updatedAt: now,

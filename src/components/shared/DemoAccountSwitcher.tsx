@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/../convex/_generated/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Users,
@@ -43,6 +45,10 @@ interface DemoAccount {
     spaces: string[];
     capabilities: string[];
     personaType: "platform" | "business" | "institutional";
+    /** Convex org ID or preset slug */
+    orgId: string;
+    orgName: string;
+    orgType: "platform" | "enterprise" | "institution";
 }
 
 interface DemoOrganization {
@@ -85,259 +91,140 @@ const TYPE_LABELS: Record<string, string> = {
     institution: "Institution",
 };
 
-const DEMO_ORGANIZATIONS: DemoOrganization[] = [
-    {
-        id: "digitalium",
-        name: "DIGITALIUM — Équipe Plateforme",
-        type: "platform",
-        description: "Gestion interne de la plateforme DIGITALIUM",
-        icon: "🛡️",
-        gradient: "from-red-500 to-orange-500",
-        accounts: [
-            {
-                email: "demo-sysadmin@digitalium.ga",
-                password: "demo123456",
-                role: "System Admin",
-                roleLevel: 0,
-                description:
-                    "Accès total à l'infrastructure et à la plateforme",
-                spaces: ["/admin", "/sysadmin", "/subadmin"],
-                capabilities: [
-                    "Infrastructure",
-                    "Monitoring",
-                    "Sécurité",
-                    "IAM",
-                    "Toutes les organisations",
-                ],
-                personaType: "platform",
-            },
-            {
-                email: "demo-admin@digitalium.ga",
-                password: "demo123456",
-                role: "Platform Admin",
-                roleLevel: 1,
-                description:
-                    "Administration de la plateforme, organisations et utilisateurs",
-                spaces: ["/admin", "/sysadmin", "/subadmin"],
-                capabilities: [
-                    "Dashboard KPI",
-                    "Leads",
-                    "Utilisateurs",
-                    "Abonnements",
-                    "Organisations",
-                ],
-                personaType: "platform",
-            },
-            {
-                email: "ornella.doumba@digitalium.ga",
-                password: "demo123456",
-                role: "Platform Admin (Sous-admin)",
-                roleLevel: 1,
-                description:
-                    "Sous-administratrice — utilise DIGITALIUM en interne",
-                spaces: ["/admin", "/sysadmin", "/subadmin"],
-                capabilities: [
-                    "iDocument interne",
-                    "iArchive interne",
-                    "iSignature",
-                    "Gestion clients",
-                ],
-                personaType: "platform",
-            },
-        ],
-    },
-    {
-        id: "ascoma",
-        name: "ASCOMA GABON — Assurance & Courtage",
-        type: "enterprise",
-        description: "PME d'assurance et courtage — exemple client entreprise",
-        icon: "🏢",
-        gradient: "from-violet-500 to-purple-500",
-        accounts: [
-            {
-                email: "dg@ascoma.ga",
-                password: "demo123456",
-                role: "Directeur Général (Org Admin)",
-                roleLevel: 2,
-                description: "Administrateur de l'organisation ASCOMA",
-                spaces: ["/subadmin", "/pro"],
-                capabilities: [
-                    "Config organisation",
-                    "Gestion équipe",
-                    "Tous les modules",
-                    "Facturation",
-                    "Analytics",
-                ],
-                personaType: "business",
-            },
-            {
-                email: "commercial@ascoma.ga",
-                password: "demo123456",
-                role: "Responsable Commercial (Manager)",
-                roleLevel: 3,
-                description:
-                    "Gère l'équipe commerciale et valide les documents",
-                spaces: ["/pro"],
-                capabilities: [
-                    "Gestion équipe",
-                    "Validation documents",
-                    "iDocument",
-                    "iArchive",
-                    "iSignature",
-                ],
-                personaType: "business",
-            },
-            {
-                email: "sinistres@ascoma.ga",
-                password: "demo123456",
-                role: "Responsable Sinistres (Manager)",
-                roleLevel: 3,
-                description:
-                    "Gère le service sinistres et les dossiers clients",
-                spaces: ["/pro"],
-                capabilities: [
-                    "Gestion sinistres",
-                    "Validation",
-                    "Archives clients",
-                    "Workflows",
-                ],
-                personaType: "business",
-            },
-            {
-                email: "agent@ascoma.ga",
-                password: "demo123456",
-                role: "Agent (Collaborateur)",
-                roleLevel: 4,
-                description:
-                    "Collaborateur terrain — crée et édite des documents",
-                spaces: ["/pro"],
-                capabilities: [
-                    "Créer documents",
-                    "Uploader archives",
-                    "Co-édition",
-                    "Signer",
-                ],
-                personaType: "business",
-            },
-            {
-                email: "juridique@ascoma.ga",
-                password: "demo123456",
-                role: "Juridique (Lecture seule)",
-                roleLevel: 5,
-                description:
-                    "Consultation et audit — aucune modification possible",
-                spaces: ["/pro"],
-                capabilities: [
-                    "Consultation documents",
-                    "Lecture archives",
-                    "Vérification signatures",
-                    "Rapports",
-                ],
-                personaType: "business",
-            },
-        ],
-    },
-    {
-        id: "ministere-peche",
-        name: "MINISTÈRE DE LA PÊCHE — Institution",
-        type: "institution",
-        description:
-            "Exemple d'institution gouvernementale avec hiérarchie",
-        icon: "🏗️",
-        gradient: "from-amber-500 to-orange-500",
-        accounts: [
-            {
-                email: "ministre-peche@digitalium.io",
-                password: "demo123456",
-                role: "Ministre / Admin",
-                roleLevel: 2,
-                description: "Administrateur principal du ministère",
-                spaces: ["/subadmin", "/institutional"],
-                capabilities: [
-                    "Config ministère",
-                    "Tous les modules",
-                    "Conformité",
-                    "Audit",
-                    "SSO",
-                ],
-                personaType: "institutional",
-            },
-            {
-                email: "admin-peche@digitalium.io",
-                password: "demo123456",
-                role: "Admin Pêche (Co-admin)",
-                roleLevel: 2,
-                description: "Co-administrateur technique du ministère",
-                spaces: ["/subadmin", "/institutional"],
-                capabilities: [
-                    "Config technique",
-                    "Migration archives",
-                    "Sécurité",
-                    "Formation",
-                ],
-                personaType: "institutional",
-            },
-            {
-                email: "dgpa@digitalium.io",
-                password: "demo123456",
-                role: "DGPA (Direction Générale)",
-                roleLevel: 3,
-                description:
-                    "Direction Générale de la Pêche et de l'Aquaculture",
-                spaces: ["/institutional"],
-                capabilities: [
-                    "Gestion direction",
-                    "Validation",
-                    "Documents officiels",
-                    "Archives",
-                ],
-                personaType: "institutional",
-            },
-            {
-                email: "anpa@digitalium.io",
-                password: "demo123456",
-                role: "ANPA (Agence Nationale)",
-                roleLevel: 3,
-                description:
-                    "Agence Nationale de la Pêche — sous-organisation",
-                spaces: ["/institutional"],
-                capabilities: [
-                    "Gestion agence",
-                    "Rapports terrain",
-                    "Archives terrain",
-                ],
-                personaType: "institutional",
-            },
-            {
-                email: "inspecteur-peche@digitalium.io",
-                password: "demo123456",
-                role: "Inspecteur de terrain",
-                roleLevel: 4,
-                description:
-                    "Agent de contrôle et inspection sur le terrain",
-                spaces: ["/institutional"],
-                capabilities: [
-                    "Rapports inspection",
-                    "Upload terrain",
-                    "Documents de contrôle",
-                ],
-                personaType: "institutional",
-            },
-        ],
-    },
-];
+// ── Hardcoded platform accounts (DIGITALIUM internal only) ──
+const PLATFORM_ORG: DemoOrganization = {
+    id: "digitalium",
+    name: "DIGITALIUM — Équipe Plateforme",
+    type: "platform",
+    description: "Gestion interne de la plateforme DIGITALIUM",
+    icon: "🛡️",
+    gradient: "from-red-500 to-orange-500",
+    accounts: [
+        {
+            email: "demo-sysadmin@digitalium.ga",
+            password: "demo123456",
+            role: "Asted PELLEN_LAKOUMBA (System Admin)",
+            roleLevel: 0,
+            description:
+                "Administrateur Système — Accès total infrastructure et plateforme",
+            spaces: ["/admin", "/sysadmin", "/subadmin"],
+            capabilities: [
+                "Infrastructure",
+                "Monitoring",
+                "Sécurité",
+                "IAM",
+                "Toutes les organisations",
+            ],
+            personaType: "platform",
+            orgId: "digitalium",
+            orgName: "DIGITALIUM",
+            orgType: "platform",
+        },
+        {
+            email: "demo-admin@digitalium.ga",
+            password: "demo123456",
+            role: "Ornella DOUMBA (Admin Plateforme)",
+            roleLevel: 1,
+            description:
+                "Administratrice — gestion de la plateforme, organisations et utilisateurs",
+            spaces: ["/admin", "/sysadmin", "/subadmin"],
+            capabilities: [
+                "Dashboard KPI",
+                "Leads",
+                "Utilisateurs",
+                "Abonnements",
+                "Organisations",
+            ],
+            personaType: "platform",
+            orgId: "digitalium",
+            orgName: "DIGITALIUM",
+            orgType: "platform",
+        },
+        {
+            email: "ornella.doumba@digitalium.ga",
+            password: "demo123456",
+            role: "Ornella DOUMBA (Admin interne)",
+            roleLevel: 1,
+            description:
+                "Administratrice interne — utilise DIGITALIUM en interne",
+            spaces: ["/admin", "/sysadmin", "/subadmin"],
+            capabilities: [
+                "iDocument interne",
+                "iArchive interne",
+                "iSignature",
+                "Gestion clients",
+            ],
+            personaType: "platform",
+            orgId: "digitalium",
+            orgName: "DIGITALIUM",
+            orgType: "platform",
+        },
+        {
+            email: "rodrigues.ntoutoum@digitalium.ga",
+            password: "demo123456",
+            role: "Rodrigues NTOUTOUM (Sous-Admin)",
+            roleLevel: 2,
+            description:
+                "Sous-Administrateur — gestion déléguée de la plateforme DIGITALIUM",
+            spaces: ["/subadmin", "/admin"],
+            capabilities: [
+                "Gestion équipe",
+                "Modules DIGITALIUM",
+                "Clients",
+                "iDocument",
+                "iArchive",
+            ],
+            personaType: "platform",
+            orgId: "digitalium",
+            orgName: "DIGITALIUM",
+            orgType: "platform",
+        },
+    ],
+};
+
+// ── Dynamic org type mappings ──
+const ORG_TYPE_CONFIG: Record<string, {
+    type: "platform" | "enterprise" | "institution";
+    icon: string;
+    gradient: string;
+    personaType: "platform" | "business" | "institutional";
+}> = {
+    enterprise: { type: "enterprise", icon: "🏢", gradient: "from-violet-500 to-purple-500", personaType: "business" },
+    pme: { type: "enterprise", icon: "🏪", gradient: "from-blue-500 to-cyan-500", personaType: "business" },
+    startup: { type: "enterprise", icon: "🚀", gradient: "from-emerald-500 to-teal-500", personaType: "business" },
+    ngo: { type: "institution", icon: "🌍", gradient: "from-green-500 to-lime-500", personaType: "institutional" },
+    government: { type: "institution", icon: "🏛️", gradient: "from-amber-500 to-orange-500", personaType: "institutional" },
+    institution: { type: "institution", icon: "🏗️", gradient: "from-amber-500 to-orange-500", personaType: "institutional" },
+    association: { type: "institution", icon: "🤝", gradient: "from-pink-500 to-rose-500", personaType: "institutional" },
+};
+
+const DEFAULT_ORG_CONFIG = { type: "enterprise" as const, icon: "🏢", gradient: "from-violet-500 to-purple-500", personaType: "business" as const };
+
+/** Map member role to roleLevel */
+function mapRoleLevel(role?: string): number {
+    switch (role) {
+        case "org_admin": return 2;
+        case "org_manager": return 3;
+        case "org_member": return 4;
+        default: return 4;
+    }
+}
 
 /* ═══════════════════════════════════════════════
    COMPONENT
    ═══════════════════════════════════════════════ */
 
 function getRedirectPath(account: DemoAccount): string {
+    // Platform admins → /admin or /sysadmin
     if (account.roleLevel <= 1) return "/admin";
+
+    // Org Admin (level 2) → /subadmin (gestion org)
     if (account.roleLevel === 2) {
-        return account.personaType === "institutional"
-            ? "/institutional"
-            : "/pro";
+        if (account.personaType === "platform") return "/admin";
+        return "/subadmin";
     }
+
+    // Org Manager (level 3) and below → workspace based on persona
     if (account.personaType === "institutional") return "/institutional";
     return "/pro";
 }
@@ -350,6 +237,65 @@ export default function DemoAccountSwitcher() {
     const [currentEmail, setCurrentEmail] = useState<string | null>(null);
     const [firebaseReady, setFirebaseReady] = useState(false);
     const router = useRouter();
+
+    // ── Dynamic organizations from Convex ──
+    const dynamicOrgs = useQuery(api.demoAccounts.listDemoOrganizations);
+
+    const DEMO_ORGANIZATIONS: DemoOrganization[] = useMemo(() => {
+        const orgs: DemoOrganization[] = [PLATFORM_ORG];
+
+        if (dynamicOrgs) {
+            for (const org of dynamicOrgs) {
+                const config = ORG_TYPE_CONFIG[org.type] ?? DEFAULT_ORG_CONFIG;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const accounts: DemoAccount[] = org.members.map((m: any) => {
+                    const level = mapRoleLevel(m.role);
+                    const posteName = m.businessRoleName ?? m.poste ?? "Membre";
+                    const sysRoleLabel: Record<string, string> = {
+                        org_admin: "Admin",
+                        org_manager: "Responsable",
+                        org_member: "Collaborateur",
+                        org_viewer: "Observateur",
+                    };
+                    const sysLabel = sysRoleLabel[m.role] ?? "Collaborateur";
+                    return {
+                        email: m.demoEmail,
+                        password: "demo123456",
+                        role: `${m.nom} · ${sysLabel}`,
+                        roleLevel: level,
+                        description: m.orgUnitName
+                            ? `${posteName} — ${m.orgUnitName}`
+                            : posteName,
+                        spaces: level <= 2 ? ["/subadmin", "/pro"] : ["/pro"],
+                        capabilities: [
+                            "iDocument",
+                            "iArchive",
+                            ...(level <= 3 ? ["Gestion équipe"] : []),
+                            ...(level <= 2 ? ["Config organisation"] : []),
+                        ],
+                        personaType: config.personaType,
+                        orgId: org._id,
+                        orgName: org.name,
+                        orgType: config.type,
+                    };
+                });
+
+                if (accounts.length > 0) {
+                    orgs.push({
+                        id: org._id,
+                        name: org.name,
+                        type: config.type,
+                        description: org.description ?? org.sector ?? "Organisation",
+                        icon: config.icon,
+                        gradient: config.gradient,
+                        accounts,
+                    });
+                }
+            }
+        }
+
+        return orgs;
+    }, [dynamicOrgs]);
 
     // Lazy-load Firebase auth — only when Sheet opens for the first time
     useEffect(() => {
@@ -372,6 +318,33 @@ export default function DemoAccountSwitcher() {
         );
     };
 
+    /**
+     * Try to sign in; if the account doesn't exist in Firebase yet,
+     * auto-create it then retry sign-in.
+     */
+    const signInOrCreate = useCallback(
+        async (email: string, password: string, displayName: string) => {
+            const { auth: firebaseAuth } = await import("@/lib/firebase");
+            const { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } = await import("firebase/auth");
+
+            try {
+                return await signInWithEmailAndPassword(firebaseAuth, email, password);
+            } catch (err: unknown) {
+                const code = (err as { code?: string })?.code;
+                if (code === "auth/user-not-found" || code === "auth/invalid-credential") {
+                    // Auto-create the demo account in Firebase
+                    const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+                    if (cred.user) {
+                        await updateProfile(cred.user, { displayName });
+                    }
+                    return cred;
+                }
+                throw err;
+            }
+        },
+        []
+    );
+
     const handleConnect = useCallback(
         async (account: DemoAccount) => {
             // If already logged in as this account, do nothing
@@ -383,12 +356,25 @@ export default function DemoAccountSwitcher() {
                 return;
             }
 
+            // Store role override for auth context
+            localStorage.setItem("demo_role_override", JSON.stringify({
+                email: account.email,
+                role: account.roleLevel <= 1 ? "platform_admin" : account.roleLevel === 2 ? "org_admin" : account.roleLevel === 3 ? "org_manager" : "org_member",
+                level: account.roleLevel,
+                personaType: account.personaType,
+            }));
+
+            // Store org override for OrganizationContext
+            localStorage.setItem("demo_org_override", JSON.stringify({
+                orgId: account.orgId,
+                orgName: account.orgName,
+                orgType: account.orgType,
+            }));
+
             // Direct login
             setLoading(account.email);
             try {
-                const { auth: firebaseAuth } = await import("@/lib/firebase");
-                const { signInWithEmailAndPassword } = await import("firebase/auth");
-                await signInWithEmailAndPassword(firebaseAuth, account.email, account.password);
+                await signInOrCreate(account.email, account.password, account.role);
                 toast.success(
                     `Connecté en tant que ${account.role}`,
                     { description: account.email }
@@ -404,7 +390,7 @@ export default function DemoAccountSwitcher() {
                 setLoading(null);
             }
         },
-        [currentEmail, router]
+        [currentEmail, router, signInOrCreate]
     );
 
     const handleConfirmSwitch = useCallback(
@@ -413,9 +399,25 @@ export default function DemoAccountSwitcher() {
             setLoading(account.email);
             try {
                 const { auth: firebaseAuth } = await import("@/lib/firebase");
-                const { signInWithEmailAndPassword, signOut: firebaseSignOut } = await import("firebase/auth");
+                const { signOut: firebaseSignOut } = await import("firebase/auth");
                 await firebaseSignOut(firebaseAuth);
-                await signInWithEmailAndPassword(firebaseAuth, account.email, account.password);
+
+                // Store role override for auth context
+                localStorage.setItem("demo_role_override", JSON.stringify({
+                    email: account.email,
+                    role: account.roleLevel <= 1 ? "platform_admin" : account.roleLevel === 2 ? "org_admin" : account.roleLevel === 3 ? "org_manager" : "org_member",
+                    level: account.roleLevel,
+                    personaType: account.personaType,
+                }));
+
+                // Store org override for OrganizationContext
+                localStorage.setItem("demo_org_override", JSON.stringify({
+                    orgId: account.orgId,
+                    orgName: account.orgName,
+                    orgType: account.orgType,
+                }));
+
+                await signInOrCreate(account.email, account.password, account.role);
                 toast.success(
                     `Connecté en tant que ${account.role}`,
                     { description: account.email }
@@ -429,7 +431,7 @@ export default function DemoAccountSwitcher() {
                 setLoading(null);
             }
         },
-        [router]
+        [router, signInOrCreate]
     );
 
     return (

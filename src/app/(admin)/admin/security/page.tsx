@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = {
@@ -31,17 +32,30 @@ const fadeUp = {
     visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
 };
 
+/* ─── Types ──────────────────────────────────────── */
+
+type AlertSeverity = "critical" | "high" | "medium" | "low";
+type AlertStatus = "active" | "investigated" | "resolved";
+
+interface SecurityAlert {
+    severity: AlertSeverity;
+    title: string;
+    desc: string;
+    time: string;
+    status: AlertStatus;
+}
+
 /* ─── Mock data ──────────────────────────────────── */
 
 const SECURITY_SCORE = 87;
 
-const SECURITY_ALERTS = [
-    { severity: "critical" as const, title: "Tentative de brute-force détectée", desc: "IP 41.158.22.115 — 47 tentatives en 5 min sur /api/auth/login", time: "Il y a 3 min", status: "active" as const },
-    { severity: "high" as const, title: "Token JWT expiré réutilisé", desc: "User ID cmous-7891 — tentative de replay d'un token expiré", time: "Il y a 15 min", status: "investigated" as const },
-    { severity: "medium" as const, title: "Accès API depuis IP non-whitelist", desc: "IP 92.45.12.78 — appel vers /api/admin/users", time: "Il y a 45 min", status: "resolved" as const },
-    { severity: "low" as const, title: "Certificat SSL en approche d'expiration", desc: "*.digitalium.io expire dans 30 jours", time: "Il y a 2h", status: "active" as const },
-    { severity: "high" as const, title: "Escalade de privilèges bloquée", desc: "org_member → org_admin sans autorisation — User obian-2341", time: "Il y a 3h", status: "resolved" as const },
-    { severity: "medium" as const, title: "Rate limiting déclenché", desc: "Client API key dk-12345 — 500 req/10sec", time: "Il y a 4h", status: "resolved" as const },
+const SECURITY_ALERTS: SecurityAlert[] = [
+    { severity: "critical", title: "Tentative de brute-force détectée", desc: "IP 41.158.22.115 — 47 tentatives en 5 min sur /api/auth/login", time: "Il y a 3 min", status: "active" },
+    { severity: "high", title: "Token JWT expiré réutilisé", desc: "User ID cmous-7891 — tentative de replay d'un token expiré", time: "Il y a 15 min", status: "investigated" },
+    { severity: "medium", title: "Accès API depuis IP non-whitelist", desc: "IP 92.45.12.78 — appel vers /api/admin/users", time: "Il y a 45 min", status: "resolved" },
+    { severity: "low", title: "Certificat SSL en approche d'expiration", desc: "*.digitalium.io expire dans 30 jours", time: "Il y a 2h", status: "active" },
+    { severity: "high", title: "Escalade de privilèges bloquée", desc: "org_member → org_admin sans autorisation — User obian-2341", time: "Il y a 3h", status: "resolved" },
+    { severity: "medium", title: "Rate limiting déclenché", desc: "Client API key dk-12345 — 500 req/10sec", time: "Il y a 4h", status: "resolved" },
 ];
 
 const FAILED_LOGINS = [
@@ -83,8 +97,10 @@ const typeCfg = {
 
 export default function SecurityPage() {
     const [filter, setFilter] = useState<"all" | "critical" | "high" | "medium" | "low">("all");
+    const [alerts, setAlerts] = useState(SECURITY_ALERTS);
+    const [logins, setLogins] = useState(FAILED_LOGINS);
 
-    const filtered = filter === "all" ? SECURITY_ALERTS : SECURITY_ALERTS.filter((a) => a.severity === filter);
+    const filtered = filter === "all" ? alerts : alerts.filter((a) => a.severity === filter);
 
     return (
         <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6 max-w-[1400px] mx-auto">
@@ -144,6 +160,21 @@ export default function SecurityPage() {
                                         {st.label}
                                     </Badge>
                                     <span className="text-[10px] text-muted-foreground/60">{alert.time}</span>
+                                    {alert.status !== "resolved" && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-5 text-[10px] px-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 mt-0.5"
+                                            onClick={() => {
+                                                setAlerts((prev) =>
+                                                    prev.map((a, j) => j === i ? { ...a, status: "resolved" as const } : a)
+                                                );
+                                                toast.success("Alerte résolue", { description: alert.title });
+                                            }}
+                                        >
+                                            Résoudre
+                                        </Button>
+                                    )}
                                 </div>
                             </motion.div>
                         );
@@ -185,7 +216,19 @@ export default function SecurityPage() {
                                         {fl.blocked ? (
                                             <Badge className="text-[9px] bg-red-500/20 text-red-300 border-0">Bloqué</Badge>
                                         ) : (
-                                            <Badge variant="secondary" className="text-[9px] bg-white/5 border-0 text-muted-foreground">Surveillé</Badge>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-5 text-[10px] px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                onClick={() => {
+                                                    setLogins((prev) =>
+                                                        prev.map((l, j) => j === i ? { ...l, blocked: true } : l)
+                                                    );
+                                                    toast.warning(`IP ${fl.ip} bloquée`, { description: fl.email });
+                                                }}
+                                            >
+                                                Bloquer
+                                            </Button>
                                         )}
                                     </td>
                                 </tr>

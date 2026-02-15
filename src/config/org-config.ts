@@ -9,7 +9,7 @@ import type { ModuleId } from "./modules";
    Organization types
    ─────────────────────────────────────────────── */
 
-export type OrgType = "enterprise" | "institution" | "government" | "platform";
+export type OrgType = "enterprise" | "institution" | "government" | "platform" | "organism";
 
 /* ───────────────────────────────────────────────
    Branding
@@ -145,3 +145,85 @@ export {
     DEFAULT_NAVIGATION,
     DEFAULT_BRANDING,
 };
+
+/* ───────────────────────────────────────────────
+   Pro Layout Theme — Tailwind class tokens
+   (mirrors SPACE_THEMES pattern from AdminUnifiedLayout)
+   All classes are written as full static strings so
+   Tailwind can detect them at build time.
+   ─────────────────────────────────────────────── */
+
+export interface ProLayoutTheme {
+    gradient: string;
+    activeBg: string;
+    activeText: string;
+    indicator: string;
+    badgeBg: string;
+    badgeText: string;
+    notifBg: string;
+    ringColor: string;
+    pageInfoAccent: string;
+}
+
+export const ORG_TYPE_THEMES: Record<OrgType, ProLayoutTheme> = {
+    enterprise: {
+        gradient: "from-violet-600 to-indigo-500",
+        activeBg: "bg-violet-500/20",
+        activeText: "text-violet-400",
+        indicator: "bg-violet-400",
+        badgeBg: "bg-violet-500/20",
+        badgeText: "text-violet-300",
+        notifBg: "bg-violet-500",
+        ringColor: "focus-visible:ring-violet-500/30",
+        pageInfoAccent: "violet",
+    },
+    institution: {
+        gradient: "from-amber-500 to-orange-500",
+        activeBg: "bg-amber-500/20",
+        activeText: "text-amber-400",
+        indicator: "bg-amber-400",
+        badgeBg: "bg-amber-500/20",
+        badgeText: "text-amber-300",
+        notifBg: "bg-amber-500",
+        ringColor: "focus-visible:ring-amber-500/30",
+        pageInfoAccent: "orange",
+    },
+    government: {
+        gradient: "from-emerald-500 to-teal-500",
+        activeBg: "bg-emerald-500/20",
+        activeText: "text-emerald-400",
+        indicator: "bg-emerald-400",
+        badgeBg: "bg-emerald-500/20",
+        badgeText: "text-emerald-300",
+        notifBg: "bg-emerald-500",
+        ringColor: "focus-visible:ring-emerald-500/30",
+        pageInfoAccent: "emerald",
+    },
+    platform: {
+        gradient: "from-red-500 to-orange-500",
+        activeBg: "bg-red-500/20",
+        activeText: "text-red-400",
+        indicator: "bg-red-400",
+        badgeBg: "bg-red-500/20",
+        badgeText: "text-red-300",
+        notifBg: "bg-red-500",
+        ringColor: "focus-visible:ring-red-500/30",
+        pageInfoAccent: "orange",
+    },
+    organism: {
+        gradient: "from-cyan-500 to-teal-500",
+        activeBg: "bg-cyan-500/20",
+        activeText: "text-cyan-400",
+        indicator: "bg-cyan-400",
+        badgeBg: "bg-cyan-500/20",
+        badgeText: "text-cyan-300",
+        notifBg: "bg-cyan-500",
+        ringColor: "focus-visible:ring-cyan-500/30",
+        pageInfoAccent: "cyan",
+    },
+};
+
+/** Resolve the ProLayout theme for a given org type. Falls back to enterprise (violet). */
+export function getProLayoutTheme(type: OrgType): ProLayoutTheme {
+    return ORG_TYPE_THEMES[type] ?? ORG_TYPE_THEMES.enterprise;
+}

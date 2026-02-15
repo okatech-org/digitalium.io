@@ -85,6 +85,7 @@ const DEV_EMAIL_ROLES: Record<string, { role: PlatformRole; level: number }> = {
     "demo-sysadmin@digitalium.ga": { role: "system_admin", level: 0 },
     "demo-admin@digitalium.ga": { role: "platform_admin", level: 1 },
     "ornella.doumba@digitalium.ga": { role: "platform_admin", level: 1 },
+    "rodrigues.ntoutoum@digitalium.ga": { role: "org_admin", level: 2 },
     "dg@ascoma.ga": { role: "org_admin", level: 2 },
     "commercial@ascoma.ga": { role: "org_manager", level: 3 },
     "sinistres@ascoma.ga": { role: "org_manager", level: 3 },
@@ -165,11 +166,37 @@ function buildDevFallback(
     email: string
 ): Omit<AdminRoleResponse, "organizations"> {
     const lower = email.toLowerCase();
-    const mapping = DEV_EMAIL_ROLES[lower] ?? DEFAULT_DEV_ROLE;
 
-    // Resolve persona: explicit mapping → global admins undefined → default "business"
-    let personaType: PersonaType | undefined =
-        DEV_EMAIL_PERSONAS[lower];
+    // Check for dynamic demo role override (set by DemoAccountSwitcher)
+    let mapping = DEV_EMAIL_ROLES[lower] ?? DEFAULT_DEV_ROLE;
+    try {
+        const override = localStorage.getItem("demo_role_override");
+        if (override) {
+            const parsed = JSON.parse(override);
+            if (parsed.email?.toLowerCase() === lower && parsed.level !== undefined) {
+                mapping = { role: parsed.role as PlatformRole, level: parsed.level };
+            }
+        }
+    } catch {
+        // Ignore parse errors
+    }
+
+    // Resolve persona: explicit mapping → localStorage override → global admins undefined → default "business"
+    let personaType: PersonaType | undefined = DEV_EMAIL_PERSONAS[lower];
+    if (!personaType) {
+        // Check localStorage override for persona
+        try {
+            const override = localStorage.getItem("demo_role_override");
+            if (override) {
+                const parsed = JSON.parse(override);
+                if (parsed.email?.toLowerCase() === lower && parsed.personaType) {
+                    personaType = parsed.personaType as PersonaType;
+                }
+            }
+        } catch {
+            // Ignore
+        }
+    }
     if (!personaType && mapping.level <= 1) {
         personaType = undefined; // global admins bypass persona checks
     } else if (!personaType) {
