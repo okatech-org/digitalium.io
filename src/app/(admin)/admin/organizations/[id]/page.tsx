@@ -270,6 +270,7 @@ function OrganizationDetailInner() {
                         <DeployTab
                             orgId={orgId}
                             hosting={org.hosting as { type: string; domain?: string; pagePublique?: boolean } | undefined}
+                            publicPageConfig={(org as any).publicPageConfig}
                             onSaveHosting={handleSaveHosting}
                         />
                     </TabsContent>

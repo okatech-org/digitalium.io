@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import type { PlatformRole, PersonaType } from "@/types/auth";
 import { AuthLoader } from "./AuthLoader";
@@ -42,6 +42,7 @@ export function PersonaProtectedRoute({
     requireSubscription = false,
 }: PersonaProtectedRouteProps) {
     const router = useRouter();
+    const pathname = usePathname();
     const {
         user,
         loading,
@@ -99,11 +100,12 @@ export function PersonaProtectedRoute({
             return;
         }
 
-        // 4. Subscription check for business
+        // 4. Subscription check for business (skip if already on billing to avoid redirect loop)
         if (
             requireSubscription &&
             userPersona === "business" &&
-            user?.organizations?.length === 0
+            user?.organizations?.length === 0 &&
+            pathname !== "/pro/billing"
         ) {
             router.replace("/pro/billing");
             return;
@@ -125,6 +127,7 @@ export function PersonaProtectedRoute({
         hasRole,
         router,
         user,
+        pathname,
     ]);
 
     if (loading) {

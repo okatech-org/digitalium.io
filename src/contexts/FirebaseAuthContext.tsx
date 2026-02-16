@@ -248,6 +248,24 @@ function buildDevMockOrgs(email: string): Organization[] {
             },
         ];
     }
+    // Fallback: provide a default org for any authenticated user
+    // so the PersonaProtectedRoute subscription guard passes.
+    // Without this, unrecognized emails get stuck on /pro/billing.
+    if (lower) {
+        const namePart = lower.split("@")[0].replace(/[^a-zA-Z]/g, " ").trim();
+        const domain = lower.split("@")[1]?.split(".")[0] ?? "org";
+        return [
+            {
+                id: `default-${domain}`,
+                name: domain.charAt(0).toUpperCase() + domain.slice(1),
+                type: "enterprise",
+                slug: domain,
+                plan: "professional",
+                maxUsers: 25,
+                createdAt: new Date("2025-01-01"),
+            },
+        ];
+    }
     return [];
 }
 

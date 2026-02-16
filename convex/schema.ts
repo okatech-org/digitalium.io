@@ -98,6 +98,7 @@ export default defineSchema({
     // ═══════════════════════════════════════════
     organizations: defineTable({
         name: v.string(),
+        subdomain: v.optional(v.string()), // top-level indexable field synced with hosting.domain
         type: orgType,
         sector: v.optional(v.string()),
         description: v.optional(v.string()),
@@ -137,6 +138,24 @@ export default defineSchema({
             domain: v.optional(v.string()),
             pagePublique: v.optional(v.boolean()),
         })),
+        // ── Configuration page publique (v2) ──
+        publicPageConfig: v.optional(v.object({
+            template: v.optional(v.union(
+                v.literal("corporate"),
+                v.literal("startup"),
+                v.literal("institution")
+            )),
+            heroTitle: v.optional(v.string()),
+            heroSubtitle: v.optional(v.string()),
+            description: v.optional(v.string()),
+            primaryColor: v.optional(v.string()),
+            accentColor: v.optional(v.string()),
+            ctaText: v.optional(v.string()),
+            ctaLink: v.optional(v.string()),
+            showModules: v.optional(v.boolean()),
+            showContact: v.optional(v.boolean()),
+            customCss: v.optional(v.string()),
+        })),
         // ── Universal org config — workflows, processes, automations ──
         config: v.optional(v.any()),
         // ── Progression configuration (v2) ──
@@ -154,7 +173,8 @@ export default defineSchema({
     })
         .index("by_ownerId", ["ownerId"])
         .index("by_type", ["type"])
-        .index("by_status", ["status"]),
+        .index("by_status", ["status"])
+        .index("by_subdomain", ["subdomain"]),
 
     // ═══════════════════════════════════════════
     // 3. ORGANIZATION MEMBERS

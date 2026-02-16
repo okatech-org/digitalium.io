@@ -30,6 +30,12 @@ const hostingType = v.union(
     v.literal("local")
 );
 
+const publicPageTemplate = v.union(
+    v.literal("corporate"),
+    v.literal("startup"),
+    v.literal("institution")
+);
+
 /* ─── Queries ────────────────────────────────── */
 
 /**
@@ -150,6 +156,7 @@ export const create = mutation({
 
         return await ctx.db.insert("organizations", {
             name: args.name,
+            subdomain: args.hosting?.domain || undefined,
             type: args.type,
             sector: args.sector,
             description: args.description,
@@ -333,6 +340,7 @@ export const createDraft = mutation({
 
         const orgId = await ctx.db.insert("organizations", {
             ...rest,
+            subdomain: hosting?.domain || undefined,
             quota: {
                 maxUsers: 25,
                 maxStorage: 10 * 1024 * 1024 * 1024,
@@ -582,6 +590,118 @@ export const updateHosting = mutation({
 
         await ctx.db.patch(args.id, {
             hosting: args.hosting,
+            subdomain: args.hosting.domain || undefined,
+            updatedAt: Date.now(),
+        });
+
+        return args.id;
+    },
+});
+
+/* ─── Public page queries ──────────────────── */
+
+/**
+ * Resolve a subdomain to an organization (public page).
+ */
+export const getByDomain = query({
+    args: { domain: v.string() },
+    handler: async (ctx, args) => {
+        const org = await ctx.db
+            .query("organizations")
+            .withIndex("by_subdomain", (q) => q.eq("subdomain", args.domain))
+            .unique();
+
+        if (!org) return null;
+
+        // Only return public-safe info
+        return {
+            _id: org._id,
+            name: org.name,
+            subdomain: org.subdomain,
+            type: org.type,
+            description: org.description,
+            logoUrl: org.logoUrl,
+            email: org.email,
+            telephone: org.telephone,
+            adresse: org.adresse,
+            ville: org.ville,
+            pays: org.pays,
+            sector: org.sector,
+            hosting: org.hosting,
+            publicPageConfig: org.publicPageConfig,
+            modules: org.quota?.modules,
+            status: org.status,
+        };
+    },
+});
+
+/**
+ * Check if a subdomain is available (real-time, debounced on client).
+ */
+export const checkDomainAvailability = query({
+    args: { domain: v.string(), excludeOrgId: v.optional(v.id("organizations")) },
+    handler: async (ctx, args) => {
+        if (!args.domain || args.domain.length < 2) {
+            return { available: false, reason: "Le sous-domaine doit contenir au moins 2 caractères" };
+        }
+
+        // Validate format
+        if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(args.domain)) {
+            return { available: false, reason: "Format invalide (lettres minuscules, chiffres et tirets uniquement)" };
+        }
+
+        // Reserved subdomains
+        const reserved = ["www", "admin", "api", "app", "mail", "ftp", "staging", "dev", "test", "demo", "support", "help", "docs", "blog"];
+        if (reserved.includes(args.domain)) {
+            return { available: false, reason: "Ce sous-domaine est réservé" };
+        }
+
+        const existing = await ctx.db
+            .query("organizations")
+            .withIndex("by_subdomain", (q) => q.eq("subdomain", args.domain))
+            .unique();
+
+        if (existing && (!args.excludeOrgId || existing._id !== args.excludeOrgId)) {
+            return { available: false, reason: "Ce sous-domaine est déjà pris" };
+        }
+
+        return { available: true, reason: null };
+    },
+});
+
+/**
+ * Update the public page configuration for an organization.
+ */
+export const updatePublicPageConfig = mutation({
+    args: {
+        id: v.id("organizations"),
+        config: v.object({
+            template: v.optional(publicPageTemplate),
+            heroTitle: v.optional(v.string()),
+            heroSubtitle: v.optional(v.string()),
+            description: v.optional(v.string()),
+            primaryColor: v.optional(v.string()),
+            accentColor: v.optional(v.string()),
+            ctaText: v.optional(v.string()),
+            ctaLink: v.optional(v.string()),
+            showModules: v.optional(v.boolean()),
+            showContact: v.optional(v.boolean()),
+            customCss: v.optional(v.string()),
+        }),
+    },
+    handler: async (ctx, args) => {
+        const org = await ctx.db.get(args.id);
+        if (!org) throw new Error("Organisation introuvable");
+
+        const mergedConfig = {
+            ...(org.publicPageConfig ?? {}),
+            ...Object.fromEntries(
+                Object.entries(args.config).filter(([, val]) => val !== undefined)
+            ),
+        };
+
+        await ctx.db.patch(args.id, {
+            publicPageConfig: mergedConfig,
             updatedAt: Date.now(),
         });
 
