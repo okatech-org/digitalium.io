@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/Providers";
@@ -80,6 +81,26 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
+        <Script
+          id="chunk-error-recovery"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                window.addEventListener('error', function(e) {
+                  var target = e && e.target;
+                  if (target && target.tagName === 'SCRIPT' && target.src && target.src.indexOf('/_next/static/chunks/') !== -1) {
+                    var key = 'chunk-reload-' + target.src.split('/').pop();
+                    if (!sessionStorage.getItem(key)) {
+                      sessionStorage.setItem(key, '1');
+                      window.location.reload();
+                    }
+                  }
+                }, true);
+              })();
+            `,
+          }}
+        />
         <Providers>
           {children}
         </Providers>
