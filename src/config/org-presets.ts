@@ -5,6 +5,7 @@
 
 import type { OrgWorkflowBundle } from "./workflow-config";
 import { buildOrgConfig, type OrganizationConfig, type OrgType } from "./org-config";
+import { getDefaultModulesForOrgType } from "./modules";
 
 /* ───────────────────────────────────────────────
    Workflow Presets
@@ -257,10 +258,7 @@ export const ORG_CONFIG_PRESETS: Record<OrgType, Omit<OrganizationConfig, "id" |
             greeting: "Bienvenue chez {orgName}",
         },
         navigation: {
-            showBilling: true,
-            showApiIntegrations: true,
-            showAnalytics: true,
-            showFormation: false,
+            enabledModules: getDefaultModulesForOrgType("enterprise"),
         },
     }),
 
@@ -282,10 +280,7 @@ export const ORG_CONFIG_PRESETS: Record<OrgType, Omit<OrganizationConfig, "id" |
             greeting: "Bienvenue — {orgName}",
         },
         navigation: {
-            showBilling: false,
-            showApiIntegrations: false,
-            showAnalytics: true,
-            showFormation: true,
+            enabledModules: getDefaultModulesForOrgType("institution"),
         },
     }),
 
@@ -307,10 +302,7 @@ export const ORG_CONFIG_PRESETS: Record<OrgType, Omit<OrganizationConfig, "id" |
             greeting: "Bienvenue — {orgName}",
         },
         navigation: {
-            showBilling: false,
-            showApiIntegrations: false,
-            showAnalytics: true,
-            showFormation: true,
+            enabledModules: getDefaultModulesForOrgType("government"),
         },
     }),
 
@@ -332,10 +324,7 @@ export const ORG_CONFIG_PRESETS: Record<OrgType, Omit<OrganizationConfig, "id" |
             greeting: "Bienvenue sur la plateforme {orgName}",
         },
         navigation: {
-            showBilling: true,
-            showApiIntegrations: true,
-            showAnalytics: true,
-            showFormation: false,
+            enabledModules: getDefaultModulesForOrgType("platform"),
         },
     }),
 
@@ -357,10 +346,7 @@ export const ORG_CONFIG_PRESETS: Record<OrgType, Omit<OrganizationConfig, "id" |
             greeting: "Bienvenue — {orgName}",
         },
         navigation: {
-            showBilling: false,
-            showApiIntegrations: false,
-            showAnalytics: true,
-            showFormation: true,
+            enabledModules: getDefaultModulesForOrgType("organism"),
         },
     }),
 };

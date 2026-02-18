@@ -180,37 +180,38 @@ const BUSINESS_NAV: NavSection[] = [
 ];
 
 const DIGITALIUM_NAV: NavSection[] = [
+    /* ─── Modules Métier ──────────────────────── */
     {
-        title: "Principal",
+        title: "Modules Métier",
         items: [
             { label: "Dashboard", href: "/admin/digitalium", icon: LayoutDashboard },
-        ],
-    },
-    {
-        title: "Documents",
-        items: [
             { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText },
-        ],
-    },
-    {
-        title: "Archives",
-        items: [
             { label: "iArchive", href: "/admin/digitalium/iarchive", icon: Archive },
-        ],
-    },
-    {
-        title: "Signatures",
-        items: [
             { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool },
         ],
     },
+    /* ─── Commercial ──────────────────────────── */
     {
-        title: "Organisation Entreprise",
+        title: "Commercial",
         items: [
-            { label: "Profil Entreprise", href: "/admin/digitalium/profile", icon: Building },
+            { label: "Clients", href: "/admin/digitalium/clients", icon: UserCircle },
+            { label: "Leads", href: "/admin/digitalium/leads", icon: Target, badge: 3 },
+        ],
+    },
+    /* ─── Organisation ────────────────────────── */
+    {
+        title: "Organisation",
+        items: [
+            { label: "Organisation", href: "/admin/digitalium/organization", icon: Building2 },
             { label: "Équipe", href: "/admin/digitalium/team", icon: Users },
-            { label: "Bureaux", href: "/admin/digitalium/offices", icon: Building2 },
+        ],
+    },
+    /* ─── Administration ──────────────────────── */
+    {
+        title: "Administration",
+        items: [
             { label: "Formation", href: "/admin/digitalium/formation", icon: GraduationCap },
+            { label: "Abonnements", href: "/admin/digitalium/subscriptions", icon: CreditCard },
             { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings },
         ],
     },
@@ -517,20 +518,22 @@ function SidebarContent({
             <div className="px-3 pb-4 pt-2 space-y-1">
                 {!collapsed ? (
                     <>
-                        <button
-                            onClick={toggleColorMode}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
-                        >
-                            {colorMode === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
-                            <span>{colorMode === "dark" ? "Mode clair" : "Mode sombre"}</span>
-                        </button>
-                        <button
-                            onClick={onToggle}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
-                        >
-                            <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
-                            <span>Réduire</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={toggleColorMode}
+                                className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all flex-1"
+                            >
+                                {colorMode === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
+                                <span>{colorMode === "dark" ? "Mode clair" : "Mode sombre"}</span>
+                            </button>
+                            <button
+                                onClick={onToggle}
+                                className="flex items-center justify-center p-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all shrink-0"
+                                title="Réduire"
+                            >
+                                <PanelLeftClose className="h-[18px] w-[18px]" />
+                            </button>
+                        </div>
                         <button
                             onClick={onSignOut}
                             className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"

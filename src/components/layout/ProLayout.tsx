@@ -17,12 +17,13 @@ import {
     Archive,
     PenTool,
     Bot,
-    BarChart3,
     Users,
     Settings,
     CreditCard,
     Plug,
-    ChartArea,
+    UserCircle,
+    Target,
+    Palette,
     ChevronRight as ChevronRightIcon,
     Search,
     Bell,
@@ -70,7 +71,8 @@ import { useThemeContext } from "@/contexts/ThemeContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { getUserInitials, getUserDisplayName, getRoleLabel } from "@/config/role-helpers";
 import { getProLayoutTheme, type ProLayoutTheme, type NavigationConfig } from "@/config/org-config";
-import type { ModuleId } from "@/config/modules";
+import type { AppModuleId } from "@/config/modules";
+import { APP_MODULES } from "@/config/modules";
 
 /* ─── Navigation Config ─────────────────────────── */
 
@@ -81,10 +83,8 @@ interface NavItem {
     badge?: number;
     /** Minimum RBAC level required (lower = more privilege) */
     maxLevel?: number;
-    /** Module that must be active for this item to appear */
-    moduleId?: ModuleId;
-    /** NavigationConfig key that controls this item's visibility */
-    navConfigKey?: keyof NavigationConfig;
+    /** AppModuleId — must be in org's enabledModules to appear */
+    appModuleId?: AppModuleId;
 }
 
 interface NavSection {
@@ -92,56 +92,51 @@ interface NavSection {
     items: NavItem[];
     /** Restrict entire section to this max level */
     maxLevel?: number;
-    /** Module that must be active for this section to appear */
-    moduleId?: ModuleId;
 }
 
 const NAV_SECTIONS: NavSection[] = [
+    /* ─── Cœur ────────────────────────────────── */
     {
-        title: "Principal",
+        title: "Cœur",
         items: [
-            { label: "Dashboard", href: "/pro", icon: LayoutDashboard },
+            { label: "Dashboard", href: "/pro", icon: LayoutDashboard, appModuleId: "dashboard" },
         ],
     },
+    /* ─── Modules Métier ──────────────────────── */
     {
-        title: "Documents",
-        moduleId: "idocument",
+        title: "Modules Métier",
         items: [
-            { label: "iDocument", href: "/pro/idocument", icon: FileText, moduleId: "idocument" },
+            { label: "iDocument", href: "/pro/idocument", icon: FileText, appModuleId: "idocument" },
+            { label: "iArchive", href: "/pro/iarchive", icon: Archive, appModuleId: "iarchive" },
+            { label: "iSignature", href: "/pro/isignature", icon: PenTool, appModuleId: "isignature" },
+            { label: "iAsted", href: "/pro/iasted", icon: Bot, appModuleId: "iasted" },
         ],
     },
+    /* ─── Commercial ──────────────────────────── */
     {
-        title: "Archives",
-        moduleId: "iarchive",
+        title: "Commercial",
         items: [
-            { label: "iArchive", href: "/pro/iarchive", icon: Archive, moduleId: "iarchive" },
+            { label: "Clients", href: "/pro/clients", icon: UserCircle, appModuleId: "crm_clients" },
+            { label: "Leads", href: "/pro/leads", icon: Target, appModuleId: "crm_leads" },
         ],
     },
+    /* ─── Organisation ────────────────────────── */
     {
-        title: "Signatures",
-        moduleId: "isignature",
+        title: "Organisation",
+        maxLevel: 3,
         items: [
-            { label: "iSignature", href: "/pro/isignature", icon: PenTool, moduleId: "isignature" },
+            { label: "Organisation", href: "/pro/organization", icon: Building2, appModuleId: "org_structure" },
+            { label: "Équipe", href: "/pro/team", icon: Users, appModuleId: "org_team" },
         ],
     },
+    /* ─── Administration ──────────────────────── */
     {
-        title: "IA",
-        moduleId: "iasted",
+        title: "Administration",
+        maxLevel: 2,
         items: [
-            { label: "iAsted", href: "/pro/iasted", icon: Bot, moduleId: "iasted" },
-            { label: "Analytics IA", href: "/pro/iasted/analytics", icon: BarChart3, moduleId: "iasted" },
-        ],
-    },
-    {
-        title: "Gestion",
-        maxLevel: 3, // org_admin (2) + org_manager (3)
-        items: [
-            { label: "Équipe", href: "/pro/team", icon: Users },
-            { label: "Formation", href: "/pro/formation", icon: GraduationCap, navConfigKey: "showFormation" },
-            { label: "Paramètres", href: "/pro/settings", icon: Settings, maxLevel: 2 },
-            { label: "Facturation", href: "/pro/billing", icon: CreditCard, navConfigKey: "showBilling" },
-            { label: "Intégrations API", href: "/pro/api", icon: Plug, navConfigKey: "showApiIntegrations" },
-            { label: "Analytics", href: "/pro/analytics", icon: ChartArea, navConfigKey: "showAnalytics" },
+            { label: "Formation", href: "/pro/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
+            { label: "Abonnements", href: "/pro/billing", icon: CreditCard, appModuleId: "billing" },
+            { label: "Paramètres", href: "/pro/settings", icon: Settings, appModuleId: "settings" },
         ],
     },
 ];
@@ -258,7 +253,6 @@ function SidebarContent({
     orgName,
     logoUrl,
     layoutTheme,
-    orgModules,
     navConfig,
     onToggle,
     onSignOut,
@@ -269,7 +263,6 @@ function SidebarContent({
     orgName: string;
     logoUrl?: string;
     layoutTheme: ProLayoutTheme;
-    orgModules: string[];
     navConfig: NavigationConfig;
     onToggle: () => void;
     onSignOut: () => void;
@@ -279,22 +272,31 @@ function SidebarContent({
 
     const { theme, toggleTheme } = useThemeContext();
 
-    // Triple-layer filtering: RBAC → Module → NavigationConfig
+    // Dual-layer filtering: RBAC + enabledModules
     const visibleSections = useMemo(() => {
+        const enabled = navConfig?.enabledModules ?? [];
         return NAV_SECTIONS
             .filter((s) => s.maxLevel === undefined || userLevel <= s.maxLevel)
-            .filter((s) => !s.moduleId || orgModules.includes(s.moduleId))
             .map((section) => ({
                 ...section,
                 items: section.items.filter((item) => {
+                    // RBAC check
                     if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
-                    if (item.moduleId && !orgModules.includes(item.moduleId)) return false;
-                    if (item.navConfigKey && !navConfig[item.navConfigKey]) return false;
+                    // Module check: if item has appModuleId, it must be in enabledModules
+                    if (item.appModuleId) {
+                        const mod = APP_MODULES[item.appModuleId];
+                        // Always-on modules bypass enabledModules check
+                        if (mod?.isAlwaysOn) return true;
+                        // Must be in org's enabled modules
+                        if (!enabled.includes(item.appModuleId)) return false;
+                        // RBAC check against module's minRoleLevel
+                        if (mod && userLevel > mod.minRoleLevel) return false;
+                    }
                     return true;
                 }),
             }))
             .filter((s) => s.items.length > 0);
-    }, [userLevel, orgModules, navConfig]);
+    }, [userLevel, navConfig]);
 
     return (
         <div className="flex flex-col h-full">
@@ -327,9 +329,17 @@ function SidebarContent({
             </div>
 
             {/* Nav */}
-            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-                {visibleSections.map((section) => (
-                    <div key={section.title}>
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+                {visibleSections.map((section, idx) => (
+                    <div key={section.title} className={idx > 0 ? "mt-3" : ""}>
+                        {idx > 0 && !collapsed && (
+                            <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                                {section.title}
+                            </p>
+                        )}
+                        {idx > 0 && collapsed && (
+                            <div className="mx-auto my-2 w-6 border-t border-white/10" />
+                        )}
                         <div className="space-y-0.5">
                             {section.items.map((item) => (
                                 <NavLink
@@ -349,20 +359,22 @@ function SidebarContent({
             <div className="px-3 pb-4 pt-2 space-y-1">
                 {!collapsed ? (
                     <>
-                        <button
-                            onClick={toggleTheme}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
-                        >
-                            {theme === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
-                            <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
-                        </button>
-                        <button
-                            onClick={onToggle}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
-                        >
-                            <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
-                            <span>Réduire</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={toggleTheme}
+                                className="flex-1 flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                            >
+                                {theme === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
+                                <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
+                            </button>
+                            <button
+                                onClick={onToggle}
+                                className="flex items-center justify-center h-[42px] w-[42px] rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                                title="Réduire le menu"
+                            >
+                                <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
+                            </button>
+                        </div>
                         <button
                             onClick={onSignOut}
                             className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
@@ -430,7 +442,7 @@ export default function ProLayout({
 
     // Auth + RBAC
     const { user } = useAuth();
-    const { orgName, orgType, orgConfig, orgModules } = useOrganization();
+    const { orgName, orgType, orgConfig } = useOrganization();
     const userLevel = user?.level ?? 4;
     const userInitials = getUserInitials(user);
     const userDisplayName = getUserDisplayName(user);
@@ -472,7 +484,6 @@ export default function ProLayout({
                         orgName={orgName}
                         logoUrl={logoUrl}
                         layoutTheme={layoutTheme}
-                        orgModules={orgModules}
                         navConfig={orgConfig.navigation}
                         onToggle={toggleCollapse}
                         onSignOut={handleSignOut}
@@ -490,7 +501,6 @@ export default function ProLayout({
                             orgName={orgName}
                             logoUrl={logoUrl}
                             layoutTheme={layoutTheme}
-                            orgModules={orgModules}
                             navConfig={orgConfig.navigation}
                             onToggle={() => setMobileOpen(false)}
                             onSignOut={handleSignOut}

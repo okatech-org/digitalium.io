@@ -3,7 +3,8 @@
 // Universal org config system — same schema, custom config
 // ═══════════════════════════════════════════════
 
-import type { ModuleId } from "./modules";
+import type { ModuleId, AppModuleId } from "./modules";
+import { getDefaultModulesForOrgType } from "./modules";
 
 /* ───────────────────────────────────────────────
    Organization types
@@ -67,13 +68,14 @@ export interface DashboardConfig {
 
 /* ───────────────────────────────────────────────
    Navigation Config
+   Data-driven: each visible menu entry maps to an AppModuleId.
+   enabledModules controls sidebar, member access, and config UI.
    ─────────────────────────────────────────────── */
 
 export interface NavigationConfig {
-    showBilling: boolean;
-    showApiIntegrations: boolean;
-    showAnalytics: boolean;
-    showFormation: boolean;
+    /** App modules activated for this organization */
+    enabledModules: AppModuleId[];
+    /** Optional custom sections (for future extensibility) */
     customSections?: {
         title: string;
         items: { label: string; href: string; icon: string }[];
@@ -102,10 +104,7 @@ const DEFAULT_DASHBOARD: DashboardConfig = {
 };
 
 const DEFAULT_NAVIGATION: NavigationConfig = {
-    showBilling: true,
-    showApiIntegrations: true,
-    showAnalytics: true,
-    showFormation: false,
+    enabledModules: getDefaultModulesForOrgType("enterprise"),
 };
 
 const DEFAULT_BRANDING: OrgBranding = {

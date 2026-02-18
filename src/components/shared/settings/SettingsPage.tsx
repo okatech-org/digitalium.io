@@ -12,7 +12,7 @@ import {
     Settings, User, Palette, Globe, Bell, Shield, Accessibility, AlertTriangle,
     Sun, Moon, Monitor, Save, CheckCircle2, Type, Eye, Zap, Download,
     Trash2, LogOut, Lock, Smartphone, ChevronRight, Image, SquareIcon,
-    RectangleHorizontal, Circle, Pipette, RotateCcw,
+    RectangleHorizontal, Circle, Pipette, RotateCcw, Webhook, Key, Plus,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,7 +207,7 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                         <User className="h-3.5 w-3.5" /><span className="hidden lg:inline">Profil</span>
                     </TabsTrigger>
                     <TabsTrigger value="design" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
-                        <Palette className="h-3.5 w-3.5" /><span className="hidden lg:inline">Design System</span>
+                        <Palette className="h-3.5 w-3.5" /><span className="hidden lg:inline">Thème & Design</span>
                     </TabsTrigger>
                     <TabsTrigger value="language" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
                         <Globe className="h-3.5 w-3.5" /><span className="hidden lg:inline">Langue</span>
@@ -220,6 +220,9 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                     </TabsTrigger>
                     <TabsTrigger value="accessibility" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
                         <Accessibility className="h-3.5 w-3.5" /><span className="hidden lg:inline">Accessibilité</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="api" className="text-xs gap-1.5 data-[state=active]:bg-white/10">
+                        <Webhook className="h-3.5 w-3.5" /><span className="hidden lg:inline">Intégrations API</span>
                     </TabsTrigger>
                     <TabsTrigger value="danger" className="text-xs gap-1.5 data-[state=active]:bg-white/10 data-[state=active]:text-red-400">
                         <AlertTriangle className="h-3.5 w-3.5" /><span className="hidden lg:inline">Danger</span>
@@ -804,6 +807,56 @@ export function SettingsPage({ accentColor = "violet" }: SettingsPageProps) {
                                             onCheckedChange={(v: boolean) => updatePref("animationsReduites", v)}
                                         />
                                     </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* ─── API ────────────────────────── */}
+                    <TabsContent value="api" className="mt-0 space-y-4">
+                        <Card className="glass border-white/5">
+                            <CardHeader>
+                                <CardTitle className="text-base">Clés API</CardTitle>
+                                <CardDescription className="text-xs">Gérez les clés d&apos;accès à l&apos;API DIGITALIUM</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded bg-violet-500/20 flex items-center justify-center">
+                                            <Key className="h-4 w-4 text-violet-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium">Clé de production</p>
+                                            <p className="text-[10px] font-mono text-muted-foreground">pk_live_...9f8a</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => toast.success("Clé copiée")}>
+                                        Copier
+                                    </Button>
+                                </div>
+                                <Button size="sm" variant="outline" className="w-full sm:w-auto h-8 text-xs gap-1.5" onClick={() => toast.info("Génération de clé")}>
+                                    <Plus className="h-3.5 w-3.5" /> Générer une nouvelle clé
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="glass border-white/5">
+                            <CardHeader>
+                                <CardTitle className="text-base">Webhooks</CardTitle>
+                                <CardDescription className="text-xs">Notifications d&apos;événements en temps réel</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                                    <div className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
+                                        <Webhook className="h-6 w-6 opacity-50" />
+                                    </div>
+                                    <p className="text-sm font-medium text-foreground">Aucun webhook configuré</p>
+                                    <p className="text-[10px] mb-4 text-center max-w-[200px]">
+                                        Recevez des notifications HTTP pour les événements comme `document.signed` ou `invoice.paid`.
+                                    </p>
+                                    <Button size="sm" className="h-8 text-xs bg-white/10 hover:bg-white/20 text-foreground border-0" onClick={() => toast.info("Ajout de webhook")}>
+                                        Ajouter un endpoint
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
