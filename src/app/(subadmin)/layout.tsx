@@ -2,7 +2,7 @@
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Layout: SubAdmin Routes
-// Protected: org_admin (level ≤ 2) required
+// Protected: admin (level ≤ 2) required
 // ═══════════════════════════════════════════════
 
 import React from "react";
@@ -27,7 +27,7 @@ export default function SubAdminRouteLayout({
         return null;
     }
 
-    // Only level ≤ 2 (org_admin and above) can access subadmin
+    // Only level ≤ 2 (admin and above) can access subadmin
     if (user.level !== undefined && user.level > 2) {
         const redirect = user.personaType === "institutional" ? "/institutional" : "/pro";
         router.replace(redirect);

@@ -390,7 +390,7 @@ export const APP_MODULES: Record<AppModuleId, AppModuleConfig> = {
         icon: "UserCircle",
         color: "#0EA5E9",
         isAlwaysOn: false,
-        minRoleLevel: 3,
+        minRoleLevel: 5,
         defaultEnabled: true,
     },
     crm_leads: {
@@ -401,7 +401,7 @@ export const APP_MODULES: Record<AppModuleId, AppModuleConfig> = {
         icon: "Target",
         color: "#F97316",
         isAlwaysOn: false,
-        minRoleLevel: 3,
+        minRoleLevel: 5,
         defaultEnabled: true,
     },
 
@@ -414,7 +414,7 @@ export const APP_MODULES: Record<AppModuleId, AppModuleConfig> = {
         icon: "Building2",
         color: "#8B5CF6",
         isAlwaysOn: false,
-        minRoleLevel: 2,
+        minRoleLevel: 4,
         defaultEnabled: true,
     },
     org_team: {
@@ -425,7 +425,7 @@ export const APP_MODULES: Record<AppModuleId, AppModuleConfig> = {
         icon: "Users",
         color: "#10B981",
         isAlwaysOn: false,
-        minRoleLevel: 2,
+        minRoleLevel: 4,
         defaultEnabled: true,
     },
 
@@ -438,7 +438,7 @@ export const APP_MODULES: Record<AppModuleId, AppModuleConfig> = {
         icon: "CreditCard",
         color: "#EF4444",
         isAlwaysOn: false,
-        minRoleLevel: 2,
+        minRoleLevel: 5,
         defaultEnabled: true,
     },
     theming: {
@@ -498,6 +498,31 @@ export const APP_MODULES: Record<AppModuleId, AppModuleConfig> = {
     },
 } as const;
 
+/**
+ * Maps AppModuleId → modulePermissions key (used in business_roles).
+ * When an AppModuleId matches a modulePermissions key directly, it maps to itself.
+ * When they differ (e.g., crm_clients → clients), the mapping is explicit.
+ */
+export const MODULE_PERMISSION_MAP: Partial<Record<AppModuleId, string>> = {
+    dashboard: "dashboard",
+    idocument: "idocument",
+    iarchive: "iarchive",
+    isignature: "isignature",
+    crm_clients: "clients",
+    crm_leads: "leads",
+    org_structure: "organisation",
+    org_team: "equipe",
+    billing: "abonnements",
+    org_onboarding: "formation",
+    settings: "parametres",
+    iasted: "iasted",
+};
+
+/** Resolve an AppModuleId to a modulePermissions key, or undefined if no mapping exists. */
+export function toPermissionKey(appModuleId: AppModuleId): string | undefined {
+    return MODULE_PERMISSION_MAP[appModuleId];
+}
+
 /* ─── App Module Helpers ────────────────────────── */
 
 /** Get all app modules as a flat list. */
@@ -528,6 +553,60 @@ export function getDefaultEnabledModuleIds(): AppModuleId[] {
         .filter((m) => m.defaultEnabled)
         .map((m) => m.id);
 }
+
+/* ─── Module Groups (single source of truth for UI) ─ */
+
+/**
+ * Canonical module category groupings for admin UI + sidebar.
+ * Uses modulePermissions keys (not AppModuleId).
+ * Formation is under Administration (not Métier).
+ */
+export interface ModuleGroupItem {
+    key: string;
+    label: string;
+    defaut?: boolean;
+}
+
+export interface ModuleGroup {
+    cat: string;
+    color: string;
+    modules: ModuleGroupItem[];
+}
+
+export const MODULE_GROUPS: ModuleGroup[] = [
+    {
+        cat: "Modules Métier", color: "text-violet-400",
+        modules: [
+            { key: "dashboard", label: "Dashboard", defaut: true },
+            { key: "idocument", label: "iDocument", defaut: true },
+            { key: "iarchive", label: "iArchive", defaut: true },
+            { key: "isignature", label: "iSignature", defaut: true },
+            { key: "iasted", label: "iAsted", defaut: true },
+        ],
+    },
+    {
+        cat: "Commercial", color: "text-amber-400",
+        modules: [
+            { key: "clients", label: "Clients", defaut: false },
+            { key: "leads", label: "Leads & Contacts", defaut: false },
+        ],
+    },
+    {
+        cat: "Organisation", color: "text-sky-400",
+        modules: [
+            { key: "organisation", label: "Organisation", defaut: false },
+            { key: "equipe", label: "Équipe", defaut: false },
+        ],
+    },
+    {
+        cat: "Administration", color: "text-red-400",
+        modules: [
+            { key: "formation", label: "Formation", defaut: true },
+            { key: "abonnements", label: "Abonnements", defaut: false },
+            { key: "parametres", label: "Paramètres", defaut: false },
+        ],
+    },
+];
 
 import type { OrgType } from "./org-config";
 

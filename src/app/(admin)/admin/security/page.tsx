@@ -54,7 +54,7 @@ const SECURITY_ALERTS: SecurityAlert[] = [
     { severity: "high", title: "Token JWT expiré réutilisé", desc: "User ID cmous-7891 — tentative de replay d'un token expiré", time: "Il y a 15 min", status: "investigated" },
     { severity: "medium", title: "Accès API depuis IP non-whitelist", desc: "IP 92.45.12.78 — appel vers /api/admin/users", time: "Il y a 45 min", status: "resolved" },
     { severity: "low", title: "Certificat SSL en approche d'expiration", desc: "*.digitalium.io expire dans 30 jours", time: "Il y a 2h", status: "active" },
-    { severity: "high", title: "Escalade de privilèges bloquée", desc: "org_member → org_admin sans autorisation — User obian-2341", time: "Il y a 3h", status: "resolved" },
+    { severity: "high", title: "Escalade de privilèges bloquée", desc: "membre → admin sans autorisation — User obian-2341", time: "Il y a 3h", status: "resolved" },
     { severity: "medium", title: "Rate limiting déclenché", desc: "Client API key dk-12345 — 500 req/10sec", time: "Il y a 4h", status: "resolved" },
 ];
 

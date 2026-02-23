@@ -44,10 +44,8 @@ const fadeUp = {
 const ROLES = [
     { key: "system_admin", label: "System Admin", level: 0, color: "text-red-400 bg-red-500/15" },
     { key: "platform_admin", label: "Platform Admin", level: 1, color: "text-orange-400 bg-orange-500/15" },
-    { key: "org_admin", label: "Org Admin", level: 2, color: "text-blue-400 bg-blue-500/15" },
-    { key: "org_manager", label: "Manager", level: 3, color: "text-violet-400 bg-violet-500/15" },
-    { key: "org_member", label: "Membre", level: 4, color: "text-emerald-400 bg-emerald-500/15" },
-    { key: "viewer", label: "Lecteur", level: 5, color: "text-muted-foreground bg-white/5" },
+    { key: "admin", label: "Admin Org", level: 2, color: "text-violet-400 bg-violet-500/15" },
+    { key: "membre", label: "Membre", level: 4, color: "text-emerald-400 bg-emerald-500/15" },
 ];
 
 const ORGANIZATIONS = [
@@ -57,14 +55,14 @@ const ORGANIZATIONS = [
 const MOCK_USERS = [
     { id: "1", name: "Jean-Pierre Ondo", email: "jp.ondo@dgdi.ga", role: "system_admin", org: "DGDI", status: "active" as const, lastActive: "En ligne", mfa: true },
     { id: "2", name: "Marie Nzé", email: "m.nze@dgdi.ga", role: "platform_admin", org: "DGDI", status: "active" as const, lastActive: "Il y a 5 min", mfa: true },
-    { id: "3", name: "Patrick Obiang", email: "p.obiang@minterieur.ga", role: "org_admin", org: "Ministère de l'Intérieur", status: "active" as const, lastActive: "Il y a 1h", mfa: true },
-    { id: "4", name: "Sylvie Moussavou", email: "s.moussavou@pgl.ga", role: "org_manager", org: "Port-Gentil Logistique", status: "active" as const, lastActive: "Il y a 3h", mfa: false },
-    { id: "5", name: "David Mba", email: "d.mba@gabtelecom.ga", role: "org_member", org: "Gabon Télécom", status: "active" as const, lastActive: "Hier", mfa: true },
-    { id: "6", name: "Chantal Ayo", email: "c.ayo@seeg.ga", role: "org_admin", org: "SEEG", status: "active" as const, lastActive: "Il y a 2h", mfa: true },
-    { id: "7", name: "Robert Ndong", email: "r.ndong@okcapital.ga", role: "org_manager", org: "Okoumé Capital", status: "suspended" as const, lastActive: "Il y a 7j", mfa: false },
-    { id: "8", name: "Alice Bekale", email: "a.bekale@dgdi.ga", role: "org_member", org: "DGDI", status: "active" as const, lastActive: "Il y a 30 min", mfa: true },
-    { id: "9", name: "François Engonga", email: "f.engonga@minterieur.ga", role: "viewer", org: "Ministère de l'Intérieur", status: "invited" as const, lastActive: "Jamais", mfa: false },
-    { id: "10", name: "Isabelle Mounanga", email: "i.mounanga@pgl.ga", role: "org_member", org: "Port-Gentil Logistique", status: "active" as const, lastActive: "Il y a 4h", mfa: true },
+    { id: "3", name: "Patrick Obiang", email: "p.obiang@minterieur.ga", role: "admin", org: "Ministère de l'Intérieur", status: "active" as const, lastActive: "Il y a 1h", mfa: true },
+    { id: "4", name: "Sylvie Moussavou", email: "s.moussavou@pgl.ga", role: "membre", org: "Port-Gentil Logistique", status: "active" as const, lastActive: "Il y a 3h", mfa: false },
+    { id: "5", name: "David Mba", email: "d.mba@gabtelecom.ga", role: "membre", org: "Gabon Télécom", status: "active" as const, lastActive: "Hier", mfa: true },
+    { id: "6", name: "Chantal Ayo", email: "c.ayo@seeg.ga", role: "admin", org: "SEEG", status: "active" as const, lastActive: "Il y a 2h", mfa: true },
+    { id: "7", name: "Robert Ndong", email: "r.ndong@okcapital.ga", role: "membre", org: "Okoumé Capital", status: "suspended" as const, lastActive: "Il y a 7j", mfa: false },
+    { id: "8", name: "Alice Bekale", email: "a.bekale@dgdi.ga", role: "membre", org: "DGDI", status: "active" as const, lastActive: "Il y a 30 min", mfa: true },
+    { id: "9", name: "François Engonga", email: "f.engonga@minterieur.ga", role: "membre", org: "Ministère de l'Intérieur", status: "invited" as const, lastActive: "Jamais", mfa: false },
+    { id: "10", name: "Isabelle Mounanga", email: "i.mounanga@pgl.ga", role: "membre", org: "Port-Gentil Logistique", status: "active" as const, lastActive: "Il y a 4h", mfa: true },
 ];
 
 const statusCfg = {

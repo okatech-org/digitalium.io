@@ -17,7 +17,7 @@ import { useArchiveEntries } from "@/hooks/useArchiveEntries";
 const CONFIG: CategoryConfig = {
     key: "vault",
     label: "Coffre-Fort Numérique",
-    description: "Documents sensibles — Accès org_admin uniquement",
+    description: "Documents sensibles — Accès admin uniquement",
     icon: Lock,
     gradient: "from-rose-600 to-pink-500",
     color: "text-rose-400",

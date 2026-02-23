@@ -5,12 +5,14 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
     Building2,
     Search,
@@ -29,6 +31,10 @@ import {
     HardDrive,
     Sparkles,
     Loader2,
+    Play,
+    Pause,
+    Clock,
+    XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +43,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -146,6 +153,44 @@ export default function AdminOrganizationsPage() {
     const stats = useQuery(api.organizations.getStats);
 
     const isLoading = organizations === undefined;
+
+    // ─── Status mutations ───
+    const activateMut = useMutation(api.organizations.activate);
+    const suspendMut = useMutation(api.organizations.suspend);
+    const startTrialMut = useMutation(api.organizations.startTrial);
+    const updateStatusMut = useMutation(api.organizations.updateStatus);
+    const terminateMut = useMutation(api.organizations.terminate);
+
+    const handleQuickAction = useCallback(async (orgId: Id<"organizations">, action: string, orgName: string) => {
+        try {
+            switch (action) {
+                case "activate":
+                    await activateMut({ id: orgId });
+                    toast.success(`${orgName} activée`);
+                    break;
+                case "reactivate":
+                    await updateStatusMut({ id: orgId, status: "active" });
+                    toast.success(`${orgName} réactivée`);
+                    break;
+                case "suspend":
+                    await suspendMut({ id: orgId });
+                    toast.success(`${orgName} suspendue`);
+                    break;
+                case "trial":
+                    await startTrialMut({ id: orgId, durationDays: 14 });
+                    toast.success(`Essai de 14 jours démarré pour ${orgName}`);
+                    break;
+                case "terminate":
+                    await terminateMut({ id: orgId });
+                    toast.success(`${orgName} résiliée`);
+                    break;
+            }
+        } catch (err) {
+            toast.error("Échec", {
+                description: err instanceof Error ? err.message : "Veuillez réessayer.",
+            });
+        }
+    }, [activateMut, suspendMut, startTrialMut, updateStatusMut, terminateMut]);
 
     // Filter
     const filteredOrgs = (organizations ?? []).filter((org) => {
@@ -291,7 +336,7 @@ export default function AdminOrganizationsPage() {
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-44">
+                                        <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-white/10">
                                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/admin/organizations/${org._id}`); }} className="text-xs gap-2">
                                                 <Eye className="h-3.5 w-3.5" /> Voir détails
                                             </DropdownMenuItem>
@@ -301,6 +346,55 @@ export default function AdminOrganizationsPage() {
                                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/admin/users?org=${org._id}`); }} className="text-xs gap-2">
                                                 <Users className="h-3.5 w-3.5" /> Gérer membres
                                             </DropdownMenuItem>
+                                            <DropdownMenuSeparator className="bg-white/5" />
+                                            <div className="px-2 py-1 text-[10px] text-white/30 font-medium uppercase">Statut</div>
+                                            {org.status === "brouillon" && (
+                                                <>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "trial", org.name); }} className="text-xs gap-2">
+                                                        <Clock className="h-3.5 w-3.5 text-amber-400" /> Démarrer un essai
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                            {org.status === "prete" && (
+                                                <>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "activate", org.name); }} className="text-xs gap-2">
+                                                        <Play className="h-3.5 w-3.5 text-emerald-400" /> Activer
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "trial", org.name); }} className="text-xs gap-2">
+                                                        <Clock className="h-3.5 w-3.5 text-amber-400" /> Démarrer un essai
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                            {org.status === "active" && (
+                                                <>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "trial", org.name); }} className="text-xs gap-2">
+                                                        <Clock className="h-3.5 w-3.5 text-amber-400" /> Passer en essai
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "suspend", org.name); }} className="text-xs gap-2 text-orange-400">
+                                                        <Pause className="h-3.5 w-3.5" /> Suspendre
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                            {org.status === "trial" && (
+                                                <>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "activate", org.name); }} className="text-xs gap-2">
+                                                        <Play className="h-3.5 w-3.5 text-emerald-400" /> Activer
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "suspend", org.name); }} className="text-xs gap-2 text-orange-400">
+                                                        <Pause className="h-3.5 w-3.5" /> Suspendre
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                            {org.status === "suspended" && (
+                                                <>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "reactivate", org.name); }} className="text-xs gap-2">
+                                                        <Play className="h-3.5 w-3.5 text-emerald-400" /> Réactiver
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "terminate", org.name); }} className="text-xs gap-2 text-red-400">
+                                                        <XCircle className="h-3.5 w-3.5" /> Résilier
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>

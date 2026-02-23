@@ -10,6 +10,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import type { ArchiveEntry } from "@/components/modules/iarchive/ArchiveCategoryTable";
 
 type ArchiveCategory = "fiscal" | "social" | "legal" | "client" | "vault";
@@ -23,8 +24,8 @@ export function useArchiveEntries(categorySlug: ArchiveCategory): {
     isLoading: boolean;
 } {
     const { orgId } = useOrganization();
-    const isConvexId = orgId.length > 10;
-    const convexOrgId = isConvexId ? (orgId as Id<"organizations">) : undefined;
+    // Resolve display name to real Convex document ID
+    const { convexOrgId } = useConvexOrgId();
 
     const rawArchives = useQuery(
         api.archives.list,
@@ -55,7 +56,7 @@ export function useArchiveEntries(categorySlug: ArchiveCategory): {
 
     return {
         entries,
-        isLoading: isConvexId && rawArchives === undefined,
+        isLoading: convexOrgId !== undefined && rawArchives === undefined,
     };
 }
 

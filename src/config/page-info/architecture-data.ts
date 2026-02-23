@@ -674,7 +674,7 @@ export const ARCHITECTURE_DATA: Record<string, ArchitectureInfo> = {
     },
     "subadmin-formation": {
         stack: BASE_STACK,
-        pattern: "Formation contextuelle au rôle org_admin.",
+        pattern: "Formation contextuelle au rôle admin.",
         dataFlow: "Contenu statique depuis config formation/. Contextuel au rôle.",
         diagram: DIAGRAMS.formation,
         keyComponents: ["FormationModule", "GuideCard"],

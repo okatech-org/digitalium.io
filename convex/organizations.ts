@@ -80,6 +80,18 @@ export const getById = query({
 });
 
 /**
+ * Get a single organization by its display name.
+ * Used to resolve org-context names (e.g. "OKA TECH") to Convex _id.
+ */
+export const getByName = query({
+    args: { name: v.string() },
+    handler: async (ctx, args) => {
+        const orgs = await ctx.db.query("organizations").collect();
+        return orgs.find((o) => o.name.toLowerCase() === args.name.toLowerCase()) ?? null;
+    },
+});
+
+/**
  * Get aggregated KPI stats for the organizations dashboard.
  */
 export const getStats = query({
@@ -154,7 +166,7 @@ export const create = mutation({
         const now = Date.now();
         const modules = args.modules ?? ["iDocument", "iArchive", "iSignature"];
 
-        return await ctx.db.insert("organizations", {
+        const orgId = await ctx.db.insert("organizations", {
             name: args.name,
             subdomain: args.hosting?.domain || undefined,
             type: args.type,
@@ -193,6 +205,22 @@ export const create = mutation({
             createdAt: now,
             updatedAt: now,
         });
+
+        // Auto-créer le contact admin obligatoire
+        await ctx.db.insert("organization_members", {
+            organizationId: orgId,
+            userId: args.ownerId,
+            role: "admin",
+            estAdmin: true,
+            level: 2,
+            nom: args.contact,
+            email: args.email,
+            telephone: args.telephone,
+            status: "active",
+            joinedAt: now,
+        });
+
+        return orgId;
     },
 });
 
@@ -364,6 +392,20 @@ export const createDraft = mutation({
             updatedAt: now,
         });
 
+        // Auto-créer le contact admin obligatoire
+        await ctx.db.insert("organization_members", {
+            organizationId: orgId,
+            userId: args.ownerId,
+            role: "admin",
+            estAdmin: true,
+            level: 2,
+            nom: args.contact,
+            email: args.email,
+            telephone: args.telephone,
+            status: "active",
+            joinedAt: now,
+        });
+
         return orgId;
     },
 });
@@ -493,8 +535,8 @@ export const activate = mutation({
     handler: async (ctx, args) => {
         const org = await ctx.db.get(args.id);
         if (!org) throw new Error("Organisation introuvable");
-        if (org.status !== "prete") {
-            throw new Error(`Transition invalide : statut actuel "${org.status}", attendu "prete"`);
+        if (org.status !== "prete" && org.status !== "trial") {
+            throw new Error(`Transition invalide : statut actuel "${org.status}", attendu "prete" ou "trial"`);
         }
 
         await ctx.db.patch(args.id, {
@@ -514,13 +556,46 @@ export const suspend = mutation({
     handler: async (ctx, args) => {
         const org = await ctx.db.get(args.id);
         if (!org) throw new Error("Organisation introuvable");
-        if (org.status !== "active") {
-            throw new Error(`Transition invalide : statut actuel "${org.status}", attendu "active"`);
+        if (org.status !== "active" && org.status !== "trial") {
+            throw new Error(`Transition invalide : statut actuel "${org.status}", attendu "active" ou "trial"`);
         }
 
         await ctx.db.patch(args.id, {
             status: "suspended",
             updatedAt: Date.now(),
+        });
+
+        return args.id;
+    },
+});
+
+/**
+ * Start a trial period for an organization.
+ * Accepts transitions from: brouillon, prete, active.
+ */
+export const startTrial = mutation({
+    args: {
+        id: v.id("organizations"),
+        durationDays: v.optional(v.number()), // default 14
+    },
+    handler: async (ctx, args) => {
+        const org = await ctx.db.get(args.id);
+        if (!org) throw new Error("Organisation introuvable");
+
+        const allowed = ["brouillon", "prete", "active"];
+        if (!allowed.includes(org.status)) {
+            throw new Error(`Transition invalide : statut "${org.status}" → "trial" non autorisé`);
+        }
+
+        const days = args.durationDays ?? 14;
+        const now = Date.now();
+        const trialEndsAt = now + days * 24 * 60 * 60 * 1000;
+
+        await ctx.db.patch(args.id, {
+            status: "trial",
+            trialDuration: days,
+            trialEndsAt,
+            updatedAt: now,
         });
 
         return args.id;

@@ -1,31 +1,28 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Types: Authentication & RBAC
-// 6-level hierarchical role system
+// Simplified: 4 platform roles + estAdmin flag
 // ═══════════════════════════════════════════════
 
 /* ───────────────────────────────────────────────
-   RBAC Roles (6 niveaux)
+   RBAC Roles (simplifié)
    ─────────────────────────────────────────────── */
 
 /**
- * Platform roles ordered by privilege level (0 = highest).
+ * Platform roles (simplifié).
+ * Le level numérique est désormais dérivé de la catégorie du rôle métier.
  *
  * | Level | Role            | Scope           |
  * |-------|-----------------|-----------------|
  * | 0     | system_admin    | Infrastructure  |
  * | 1     | platform_admin  | Plateforme      |
- * | 2     | org_admin       | Organisation    |
- * | 3     | org_manager     | Service/Dept    |
- * | 4     | org_member      | Collaborateur   |
- * | 5     | org_viewer      | Lecture seule   |
+ * | 2     | admin           | Organisation    |
+ * | 3-5   | membre          | Collaborateur   |
  */
 export type PlatformRole =
     | "system_admin"
     | "platform_admin"
-    | "org_admin"
-    | "org_manager"
-    | "org_member"
-    | "org_viewer";
+    | "admin"
+    | "membre";
 
 /**
  * @deprecated Use `PlatformRole` instead. Kept for backwards compatibility.
@@ -77,11 +74,9 @@ export interface AuthUser {
     level: number;
 
     // ── Convenience booleans
-    isAdmin: boolean;           // level ≤ 2
+    isAdmin: boolean;           // estAdmin === true OR level ≤ 2
     isSystemAdmin: boolean;     // level === 0
     isPlatformAdmin: boolean;   // level === 1
-    isOrgAdmin: boolean;        // level === 2
-    isManager: boolean;         // level === 3
 
     // ── Multi-org support
     roles: UserRoleInfo[];

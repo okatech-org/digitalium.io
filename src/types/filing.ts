@@ -152,14 +152,13 @@ export interface AccessResolution {
     cappedBy?: string; // platform role that capped the access
 }
 
-// Plafond par rôle plateforme
-export const PLATFORM_ROLE_CAP: Record<string, AccessLevel> = {
-    system_admin: "admin",
-    platform_admin: "admin",
-    org_admin: "admin",
-    org_manager: "gestion",
-    org_member: "ecriture",
-    org_viewer: "lecture",
+// Plafond par level (niveau dérivé du rôle métier)
+export const PLATFORM_ROLE_CAP: Record<number, AccessLevel> = {
+    1: "admin",    // platform_admin
+    2: "admin",    // admin (estAdmin)
+    3: "gestion",  // management
+    4: "ecriture", // opérationnel
+    5: "lecture",   // sans rôle métier
 };
 
 /**

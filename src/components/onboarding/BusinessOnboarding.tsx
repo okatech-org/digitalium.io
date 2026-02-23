@@ -103,10 +103,8 @@ const PLANS = [
 ];
 
 const TEAM_ROLES = [
-    { value: "org_admin", label: "Admin Organisation", level: 2 },
-    { value: "org_manager", label: "Manager", level: 3 },
-    { value: "org_member", label: "Membre", level: 4 },
-    { value: "org_viewer", label: "Lecteur", level: 5 },
+    { value: "admin", label: "Admin", level: 2 },
+    { value: "membre", label: "Membre", level: 4 },
 ] as const;
 
 const PAYMENT_METHODS = [
@@ -522,7 +520,7 @@ function StepTeamInvites({
     onRemove: (id: string) => void;
 }) {
     const [email, setEmail] = useState("");
-    const [role, setRole] = useState("org_member");
+    const [role, setRole] = useState("membre");
 
     const handleAdd = () => {
         if (!email.includes("@")) return;

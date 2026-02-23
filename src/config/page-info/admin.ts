@@ -531,7 +531,7 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
         pageId: "sysadmin-iam",
         titre: "IAM (Identités & Accès)",
         but: "Gérer les rôles, permissions et politiques d'accès de la plateforme.",
-        description: "Administration des rôles (system_admin, platform_admin, org_admin...), attribution des permissions, et gestion des politiques d'accès aux ressources.",
+        description: "Administration des rôles (system_admin, platform_admin, admin...), attribution des permissions, et gestion des politiques d'accès aux ressources.",
         elements: [
             { nom: "Tableau des rôles", type: "tableau", description: "Tous les rôles avec leurs niveaux et permissions" },
             { nom: "Bouton Créer rôle", type: "bouton", description: "Crée un nouveau rôle personnalisé" },

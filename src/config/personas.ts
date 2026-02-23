@@ -171,7 +171,7 @@ export const PERSONAS: Record<PersonaType, PersonaConfig> = {
                 },
             ],
         },
-        rbacLevels: ["org_admin", "org_manager", "org_member", "org_viewer"],
+        rbacLevels: ["admin", "membre"],
     },
 
     /* ─── INSTITUTIONS ─────────────────────────── */
@@ -252,7 +252,7 @@ export const PERSONAS: Record<PersonaType, PersonaConfig> = {
                 },
             ],
         },
-        rbacLevels: ["org_admin", "org_manager", "org_member", "org_viewer"],
+        rbacLevels: ["admin", "membre"],
     },
 } as const;
 

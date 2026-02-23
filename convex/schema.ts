@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 // ═══════════════════════════════════════════════════════════════════
 // DIGITALIUM.IO — Convex Schema
-// 21 tables | RBAC 6-level | iDocument · iArchive · iSignature · iAsted
+// 22 tables | RBAC 6-level | iDocument · iArchive · iSignature · iAsted
 // v2: org_sites, org_units, business_roles, filing_structures,
 //     filing_cells, cell_access_rules, cell_access_overrides
 // ═══════════════════════════════════════════════════════════════════
@@ -15,7 +15,9 @@ const platformRole = v.union(
     v.literal("org_admin"),
     v.literal("org_manager"),
     v.literal("org_member"),
-    v.literal("org_viewer")
+    v.literal("admin"),
+    v.literal("membre"),
+    v.literal("viewer")
 );
 
 const personaType = v.union(
@@ -167,6 +169,9 @@ export default defineSchema({
             automationConfigComplete: v.boolean(),
             deploymentConfigComplete: v.boolean(),
         })),
+        // ── Essai (trial) ──
+        trialDuration: v.optional(v.number()),  // days
+        trialEndsAt: v.optional(v.number()),    // timestamp
         status: orgStatus,
         createdAt: v.number(),
         updatedAt: v.number(),
@@ -183,13 +188,15 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         userId: v.string(), // ref users.userId
         role: platformRole,
-        level: v.number(),  // 0-5
+        estAdmin: v.optional(v.boolean()), // Désignation manuelle d'administrateur
+        level: v.number(),  // 0-5 — dérivé automatiquement du rôle métier
         invitedBy: v.optional(v.string()),
         joinedAt: v.optional(v.number()),
         status: v.union(
             v.literal("active"),
             v.literal("invited"),
-            v.literal("suspended")
+            v.literal("suspended"),
+            v.literal("departed")
         ),
         // ── v2: Structure organisationnelle ──
         orgUnitId: v.optional(v.id("org_units")),
@@ -198,44 +205,36 @@ export default defineSchema({
         email: v.optional(v.string()),
         telephone: v.optional(v.string()),
         poste: v.optional(v.string()),
+        // ── v3: Override des permissions modules (exceptions individuelles) ──
+        moduleOverrides: v.optional(v.object({
+            dashboard: v.optional(v.boolean()),
+            idocument: v.optional(v.boolean()),
+            iarchive: v.optional(v.boolean()),
+            isignature: v.optional(v.boolean()),
+            formation: v.optional(v.boolean()),
+            clients: v.optional(v.boolean()),
+            leads: v.optional(v.boolean()),
+            organisation: v.optional(v.boolean()),
+            equipe: v.optional(v.boolean()),
+            abonnements: v.optional(v.boolean()),
+            parametres: v.optional(v.boolean()),
+        })),
+        // ── v4: Départ / archivage de membre ──
+        departedAt: v.optional(v.number()),
+        departureReason: v.optional(v.string()),
+        replacedById: v.optional(v.id("organization_members")),
     })
         .index("by_organizationId", ["organizationId"])
         .index("by_userId", ["userId"])
         .index("by_org_user", ["organizationId", "userId"])
         .index("by_org_role", ["organizationId", "role"])
         .index("by_orgUnitId", ["orgUnitId"])
-        .index("by_businessRoleId", ["businessRoleId"]),
+        .index("by_businessRoleId", ["businessRoleId"])
+        .index("by_org_status", ["organizationId", "status"]),
 
-    // ═══════════════════════════════════════════
-    // 3b. ACCESS MATRIX (Matrice d'Accès)
-    // ═══════════════════════════════════════════
-    access_matrix: defineTable({
-        organizationId: v.id("organizations"),
-        accessKey: v.string(),   // e.g. "mod:iDocument", "cfg:Gestion du Personnel", "doc:Fiscal/TVA"
-        roleKey: v.string(),     // e.g. "Président", "Directrice"
-        granted: v.boolean(),
-    })
-        .index("by_org", ["organizationId"])
-        .index("by_org_key", ["organizationId", "accessKey"]),
 
-    // ═══════════════════════════════════════════
-    // 3c. HABILITATIONS (Dérogations individuelles)
-    // ═══════════════════════════════════════════
-    habilitations: defineTable({
-        organizationId: v.id("organizations"),
-        memberId: v.id("organization_members"),
-        memberName: v.string(),
-        accessLabel: v.string(),   // human-readable label
-        accessCellId: v.optional(v.string()), // filing cell ID if applicable
-        type: v.union(
-            v.literal("accorde"),
-            v.literal("retire"),
-            v.literal("temporaire")
-        ),
-        createdAt: v.number(),
-    })
-        .index("by_org", ["organizationId"])
-        .index("by_member", ["memberId"]),
+
+
 
     // ═══════════════════════════════════════════
     // 4a. FOLDERS (iDocument — Dossiers)
@@ -619,7 +618,9 @@ export default defineSchema({
         paymentMethod: v.union(
             v.literal("mobile_money"),
             v.literal("bank_transfer"),
-            v.literal("card")
+            v.literal("card"),
+            v.literal("check"),
+            v.literal("simulation")
         ),
         status: v.union(
             v.literal("trial"),
@@ -678,7 +679,9 @@ export default defineSchema({
         paymentMethod: v.union(
             v.literal("mobile_money"),
             v.literal("bank_transfer"),
-            v.literal("card")
+            v.literal("card"),
+            v.literal("check"),
+            v.literal("simulation")
         ),
         paymentDetails: v.optional(v.any()),
         periodStart: v.number(),
@@ -744,6 +747,25 @@ export default defineSchema({
         niveau: v.optional(v.number()),
         couleur: v.optional(v.string()),
         icone: v.optional(v.string()),
+        // Module permissions — hérité par tous les collaborateurs avec ce rôle
+        modulePermissions: v.optional(v.object({
+            // Modules Métier (par défaut: tous)
+            dashboard: v.optional(v.boolean()),
+            idocument: v.optional(v.boolean()),
+            iarchive: v.optional(v.boolean()),
+            isignature: v.optional(v.boolean()),
+            iasted: v.optional(v.boolean()),
+            formation: v.optional(v.boolean()),
+            // Commercial (par défaut: admin seulement)
+            clients: v.optional(v.boolean()),
+            leads: v.optional(v.boolean()),
+            // Organisation (par défaut: admin seulement)
+            organisation: v.optional(v.boolean()),
+            equipe: v.optional(v.boolean()),
+            // Administration (par défaut: admin seulement)
+            abonnements: v.optional(v.boolean()),
+            parametres: v.optional(v.boolean()),
+        })),
         estActif: v.boolean(),
         createdAt: v.number(),
         updatedAt: v.number(),
@@ -873,4 +895,67 @@ export default defineSchema({
         .index("by_email", ["email"])
         .index("by_source", ["source"])
         .index("by_createdAt", ["createdAt"]),
+
+    // ═══════════════════════════════════════════
+    // 22. PAYMENTS (transactions de paiement)
+    // ═══════════════════════════════════════════
+    payments: defineTable({
+        organizationId: v.id("organizations"),
+        subscriptionId: v.optional(v.id("subscriptions")),
+        invoiceId: v.optional(v.id("invoices")),
+        amount: v.number(),           // montant en XAF
+        currency: v.string(),         // "XAF"
+        method: v.union(
+            v.literal("mobile_money"),
+            v.literal("bank_transfer"),
+            v.literal("card"),
+            v.literal("check"),
+            v.literal("simulation")
+        ),
+        provider: v.union(
+            v.literal("airtel_money"),
+            v.literal("stripe"),
+            v.literal("bank_transfer"),
+            v.literal("check"),
+            v.literal("simulation")
+        ),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("processing"),
+            v.literal("completed"),
+            v.literal("failed"),
+            v.literal("refunded"),
+            v.literal("cancelled")
+        ),
+        // Provider-specific reference
+        externalId: v.optional(v.string()),       // ID du fournisseur (Stripe charge_id, Airtel txn_id...)
+        externalStatus: v.optional(v.string()),   // Statut brut du fournisseur
+        // Payment details
+        description: v.optional(v.string()),
+        metadata: v.optional(v.any()),             // Données fournisseur (numéro chèque, IBAN...)
+        // Mobile Money specifics
+        phoneNumber: v.optional(v.string()),
+        // Card specifics
+        cardLast4: v.optional(v.string()),
+        cardBrand: v.optional(v.string()),
+        // Check specifics
+        checkNumber: v.optional(v.string()),
+        bankName: v.optional(v.string()),
+        // Bank transfer specifics
+        transferReference: v.optional(v.string()),
+        // Lifecycle
+        initiatedBy: v.string(),       // ref users.userId
+        completedAt: v.optional(v.number()),
+        failedReason: v.optional(v.string()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_subscriptionId", ["subscriptionId"])
+        .index("by_invoiceId", ["invoiceId"])
+        .index("by_status", ["status"])
+        .index("by_provider", ["provider"])
+        .index("by_method", ["method"])
+        .index("by_externalId", ["externalId"])
+        .index("by_org_status", ["organizationId", "status"]),
 });

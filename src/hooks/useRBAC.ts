@@ -25,19 +25,19 @@ export function useRBAC() {
 
     // ── Level-based convenience methods (as requested) ──
 
-    /** Can manage users: level ≤ 3 (org_admin, platform_admin, system_admin, org_manager) */
+    /** Can manage users: level ≤ 3 (admin, platform_admin, system_admin) */
     const canManageUsers = useCallback((): boolean => {
         if (level === null || level === undefined) return false;
         return level <= 3;
     }, [level]);
 
-    /** Can edit documents: level ≤ 4 (all except org_viewer) */
+    /** Can edit documents: level ≤ 4 (all except read-only) */
     const canEditDocuments = useCallback((): boolean => {
         if (level === null || level === undefined) return false;
         return level <= 4;
     }, [level]);
 
-    /** View-only: level === 5 (org_viewer) */
+    /** View-only: level === 5 (membre read-only) */
     const canViewOnly = useCallback((): boolean => {
         return level === 5;
     }, [level]);

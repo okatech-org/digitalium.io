@@ -19,6 +19,20 @@ const orgUnitType = v.union(
     v.literal("cellule")
 );
 
+const modulePermissionsValidator = v.optional(v.object({
+    dashboard: v.optional(v.boolean()),
+    idocument: v.optional(v.boolean()),
+    iarchive: v.optional(v.boolean()),
+    isignature: v.optional(v.boolean()),
+    formation: v.optional(v.boolean()),
+    clients: v.optional(v.boolean()),
+    leads: v.optional(v.boolean()),
+    organisation: v.optional(v.boolean()),
+    equipe: v.optional(v.boolean()),
+    abonnements: v.optional(v.boolean()),
+    parametres: v.optional(v.boolean()),
+}));
+
 /* ─── Queries ────────────────────────────────── */
 
 export const list = query({
@@ -80,6 +94,7 @@ export const create = mutation({
         niveau: v.optional(v.number()),
         couleur: v.optional(v.string()),
         icone: v.optional(v.string()),
+        modulePermissions: modulePermissionsValidator,
     },
     handler: async (ctx, args) => {
         const now = Date.now();
@@ -102,6 +117,7 @@ export const update = mutation({
         couleur: v.optional(v.string()),
         icone: v.optional(v.string()),
         estActif: v.optional(v.boolean()),
+        modulePermissions: modulePermissionsValidator,
     },
     handler: async (ctx, args) => {
         const { id, ...updates } = args;
@@ -176,6 +192,7 @@ export const bulkCreate = mutation({
                 niveau: v.optional(v.number()),
                 couleur: v.optional(v.string()),
                 icone: v.optional(v.string()),
+                modulePermissions: modulePermissionsValidator,
             })
         ),
     },
@@ -195,5 +212,85 @@ export const bulkCreate = mutation({
         }
 
         return { created: ids.length };
+    },
+});
+
+// ═══════════════════════════════════════════════
+// MODULE ACCESS RESOLVER
+// Détermine l'accès aux modules pour un collaborateur
+// ═══════════════════════════════════════════════
+
+// Defaults: modules métier = true, tout le reste = false
+const MODULE_DEFAULTS: Record<string, boolean> = {
+    dashboard: true,
+    idocument: true,
+    iarchive: true,
+    isignature: true,
+    formation: true,
+    clients: false,
+    leads: false,
+    organisation: false,
+    equipe: false,
+    abonnements: false,
+    parametres: false,
+};
+
+export const resolveModuleAccess = query({
+    args: {
+        userId: v.string(),
+        organizationId: v.string(), // Accepts both Convex IDs and slugs
+    },
+    handler: async (ctx, args) => {
+        // 1. Trouver le membre — query by userId, then filter
+        const members = await ctx.db
+            .query("organization_members")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .collect();
+
+        // Match by organizationId (could be Convex ID or partial match)
+        const member = members.find((m) => m.organizationId === args.organizationId)
+            ?? members[0]; // Fallback: first membership
+
+        if (!member) return null;
+
+        // 2. Admin bypass → tout autorisé
+        if (member.estAdmin === true || ["system_admin", "platform_admin"].includes(member.role)) {
+            const all: Record<string, boolean> = {};
+            for (const key of Object.keys(MODULE_DEFAULTS)) {
+                all[key] = true;
+            }
+            return { permissions: all, source: "admin" as const };
+        }
+
+        // 3. Charger le rôle métier
+        let rolePerms: Record<string, boolean | undefined> = {};
+        if (member.businessRoleId) {
+            const role = await ctx.db.get(member.businessRoleId);
+            if (role?.modulePermissions) {
+                rolePerms = role.modulePermissions as Record<string, boolean | undefined>;
+            }
+        }
+
+        // 4. Construire les permissions effectives
+        // Priorité: override individuel > rôle métier > défaut
+        const memberOverrides: Record<string, boolean | undefined> =
+            (member as any).moduleOverrides ?? {};
+        const effective: Record<string, boolean> = {};
+        for (const [key, defaultVal] of Object.entries(MODULE_DEFAULTS)) {
+            const overrideVal = memberOverrides[key];
+            if (overrideVal !== undefined) {
+                effective[key] = overrideVal; // Override individuel
+            } else {
+                const roleVal = rolePerms[key];
+                effective[key] = roleVal !== undefined ? roleVal : defaultVal;
+            }
+        }
+
+        return {
+            permissions: effective,
+            source: "role" as const,
+            roleId: member.businessRoleId,
+            hasOverrides: Object.keys(memberOverrides).length > 0,
+        };
     },
 });

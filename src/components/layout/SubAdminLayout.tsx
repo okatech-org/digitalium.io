@@ -36,7 +36,8 @@ import {
     UserCircle,
     Target,
     Receipt,
-    Palette
+    Palette,
+    Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,7 +72,9 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 import { getUserInitials, getUserDisplayName, getRoleLabel } from "@/config/role-helpers";
 import { getProLayoutTheme, type ProLayoutTheme, type NavigationConfig } from "@/config/org-config";
 import type { AppModuleId } from "@/config/modules";
-import { APP_MODULES } from "@/config/modules";
+import { APP_MODULES, toPermissionKey } from "@/config/modules";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 /* ─── Navigation Config ─────────────────────────── */
 
@@ -94,20 +97,15 @@ interface NavSection {
 }
 
 const NAV_SECTIONS: NavSection[] = [
-    /* ─── Cœur ────────────────────────────────── */
-    {
-        title: "Cœur",
-        items: [
-            { label: "Dashboard", href: "/subadmin", icon: LayoutDashboard, appModuleId: "dashboard" },
-        ],
-    },
     /* ─── Modules Métier ──────────────────────── */
     {
         title: "Modules Métier",
         items: [
+            { label: "Dashboard", href: "/subadmin", icon: LayoutDashboard, appModuleId: "dashboard" },
             { label: "iDocument", href: "/subadmin/idocument", icon: FileText, appModuleId: "idocument" },
             { label: "iArchive", href: "/subadmin/iarchive", icon: Archive, appModuleId: "iarchive" },
             { label: "iSignature", href: "/subadmin/isignature", icon: PenTool, appModuleId: "isignature" },
+            { label: "iAsted", href: "/subadmin/iasted", icon: Bot, appModuleId: "iasted" },
         ],
     },
     /* ─── Commercial ──────────────────────────── */
@@ -121,7 +119,6 @@ const NAV_SECTIONS: NavSection[] = [
     /* ─── Organisation ────────────────────────── */
     {
         title: "Organisation",
-        maxLevel: 2,
         items: [
             { label: "Organisation", href: "/subadmin/organization", icon: Building2, appModuleId: "org_structure" },
             { label: "Équipe", href: "/subadmin/iam", icon: Users, appModuleId: "org_team" },
@@ -130,7 +127,6 @@ const NAV_SECTIONS: NavSection[] = [
     /* ─── Administration ──────────────────────── */
     {
         title: "Administration",
-        maxLevel: 2,
         items: [
             { label: "Formation", href: "/subadmin/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
             { label: "Abonnements", href: "/subadmin/subscriptions", icon: CreditCard, appModuleId: "billing" },
@@ -247,6 +243,7 @@ function SidebarContent({
     logoUrl,
     layoutTheme,
     navConfig,
+    moduleAccess,
     onToggle,
     onSignOut,
 }: {
@@ -257,6 +254,7 @@ function SidebarContent({
     logoUrl?: string;
     layoutTheme: ProLayoutTheme;
     navConfig: NavigationConfig;
+    moduleAccess: any;
     onToggle: () => void;
     onSignOut: () => void;
 }) {
@@ -265,31 +263,44 @@ function SidebarContent({
 
     const { theme, toggleTheme } = useThemeContext();
 
-    // Dual-layer filtering: RBAC + enabledModules
+    // Triple-layer filtering: RBAC + enabledModules + modulePermissions
+    // Key rule: if modulePermissions explicitly grants a module, it bypasses RBAC level gates
     const visibleSections = useMemo(() => {
         const enabled = navConfig?.enabledModules ?? [];
+        const perms = moduleAccess?.permissions;
+        const isAdmin = !perms || moduleAccess?.source === "admin";
+
         return NAV_SECTIONS
-            .filter((s) => s.maxLevel === undefined || userLevel <= s.maxLevel)
             .map((section) => ({
                 ...section,
                 items: section.items.filter((item) => {
-                    // RBAC check
-                    if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
-                    // Module check: if item has appModuleId, it must be in enabledModules
-                    if (item.appModuleId) {
-                        const mod = APP_MODULES[item.appModuleId];
-                        // Always-on modules bypass enabledModules check
+                    if (!item.appModuleId) return true;
+
+                    const mod = APP_MODULES[item.appModuleId];
+                    const permKey = toPermissionKey(item.appModuleId);
+                    const explicitlyGranted = !isAdmin && perms && permKey ? perms[permKey] === true : false;
+                    const explicitlyDenied = !isAdmin && perms && permKey ? perms[permKey] === false : false;
+
+                    // If modulePermissions explicitly denies → always hide
+                    if (explicitlyDenied) return false;
+
+                    // If modulePermissions explicitly grants → bypass RBAC, just check enabledModules
+                    if (explicitlyGranted) {
                         if (mod?.isAlwaysOn) return true;
-                        // Must be in org's enabled modules
-                        if (!enabled.includes(item.appModuleId)) return false;
-                        // RBAC check against module's minRoleLevel
-                        if (mod && userLevel > mod.minRoleLevel) return false;
+                        return enabled.includes(item.appModuleId);
                     }
+
+                    // Default path: standard RBAC + enabledModules filtering
+                    if (section.maxLevel !== undefined && userLevel > section.maxLevel) return false;
+                    if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
+                    if (mod?.isAlwaysOn) return true;
+                    if (!enabled.includes(item.appModuleId)) return false;
+                    if (mod && userLevel > mod.minRoleLevel) return false;
                     return true;
                 }),
             }))
             .filter((s) => s.items.length > 0);
-    }, [userLevel, navConfig]);
+    }, [userLevel, navConfig, moduleAccess]);
 
     return (
         <div className="flex flex-col h-full">
@@ -460,6 +471,17 @@ export default function SubAdminLayout({
 
     const toggleCollapse = useCallback(() => setCollapsed((p) => !p), []);
 
+    // Module access query — skip for admins and non-Convex org IDs
+    const orgId = user?.organizations?.[0]?.id;
+    const isAdminUser = user?.isSystemAdmin || user?.isPlatformAdmin;
+    const isValidConvexId = orgId && !orgId.includes("-") && orgId.length > 10;
+    const moduleAccess = useQuery(
+        api.businessRoles.resolveModuleAccess,
+        isValidConvexId && !isAdminUser
+            ? { userId: user?.uid ?? "", organizationId: orgId as any }
+            : "skip"
+    );
+
     return (
         <TooltipProvider delayDuration={0}>
             <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
@@ -478,6 +500,7 @@ export default function SubAdminLayout({
                         logoUrl={logoUrl}
                         layoutTheme={layoutTheme}
                         navConfig={orgConfig.navigation}
+                        moduleAccess={moduleAccess}
                         onToggle={toggleCollapse}
                         onSignOut={handleSignOut}
                     />
@@ -495,6 +518,7 @@ export default function SubAdminLayout({
                             logoUrl={logoUrl}
                             layoutTheme={layoutTheme}
                             navConfig={orgConfig.navigation}
+                            moduleAccess={moduleAccess}
                             onToggle={() => setMobileOpen(false)}
                             onSignOut={handleSignOut}
                         />

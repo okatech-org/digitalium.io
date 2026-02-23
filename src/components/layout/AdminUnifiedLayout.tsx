@@ -11,6 +11,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import {
     LayoutDashboard,
     Target,
@@ -153,6 +155,7 @@ interface NavItem {
     href: string;
     icon: React.ElementType;
     badge?: number;
+    appModuleId?: string; // Identifiant module pour filtrage (matches modulePermissions keys)
     children?: { label: string; href: string; icon: React.ElementType }[];
 }
 
@@ -165,16 +168,16 @@ const BUSINESS_NAV: NavSection[] = [
     {
         title: "Plateforme",
         items: [
-            { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-            { label: "Leads & Contacts", href: "/admin/leads", icon: Target, badge: 7 },
+            { label: "Dashboard", href: "/admin", icon: LayoutDashboard, appModuleId: "dashboard" },
+            { label: "Leads & Contacts", href: "/admin/leads", icon: Target, badge: 7, appModuleId: "leads" },
             { label: "Utilisateurs", href: "/admin/users", icon: Users },
-            { label: "Organisations", href: "/admin/organizations", icon: Building2 },
-            { label: "Clients", href: "/admin/clients", icon: UserCircle },
-            { label: "Abonnements", href: "/admin/subscriptions", icon: CreditCard },
+            { label: "Organisations", href: "/admin/organizations", icon: Building2, appModuleId: "organisation" },
+            { label: "Clients", href: "/admin/clients", icon: UserCircle, appModuleId: "clients" },
+            { label: "Abonnements", href: "/admin/subscriptions", icon: CreditCard, appModuleId: "abonnements" },
             { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
             { label: "Facturation", href: "/admin/billing", icon: Receipt },
-            { label: "Formation", href: "/admin/formation", icon: GraduationCap },
-            { label: "Paramètres", href: "/admin/parametres", icon: Settings },
+            { label: "Formation", href: "/admin/formation", icon: GraduationCap, appModuleId: "formation" },
+            { label: "Paramètres", href: "/admin/parametres", icon: Settings, appModuleId: "parametres" },
         ],
     },
 ];
@@ -184,35 +187,35 @@ const DIGITALIUM_NAV: NavSection[] = [
     {
         title: "Modules Métier",
         items: [
-            { label: "Dashboard", href: "/admin/digitalium", icon: LayoutDashboard },
-            { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText },
-            { label: "iArchive", href: "/admin/digitalium/iarchive", icon: Archive },
-            { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool },
+            { label: "Dashboard", href: "/admin/digitalium", icon: LayoutDashboard, appModuleId: "dashboard" },
+            { label: "iDocument", href: "/admin/digitalium/idocument", icon: FileText, appModuleId: "idocument" },
+            { label: "iArchive", href: "/admin/digitalium/iarchive", icon: Archive, appModuleId: "iarchive" },
+            { label: "iSignature", href: "/admin/digitalium/isignature", icon: PenTool, appModuleId: "isignature" },
         ],
     },
     /* ─── Commercial ──────────────────────────── */
     {
         title: "Commercial",
         items: [
-            { label: "Clients", href: "/admin/digitalium/clients", icon: UserCircle },
-            { label: "Leads", href: "/admin/digitalium/leads", icon: Target, badge: 3 },
+            { label: "Clients", href: "/admin/digitalium/clients", icon: UserCircle, appModuleId: "clients" },
+            { label: "Leads", href: "/admin/digitalium/leads", icon: Target, badge: 3, appModuleId: "leads" },
         ],
     },
     /* ─── Organisation ────────────────────────── */
     {
         title: "Organisation",
         items: [
-            { label: "Organisation", href: "/admin/digitalium/organization", icon: Building2 },
-            { label: "Équipe", href: "/admin/digitalium/team", icon: Users },
+            { label: "Organisation", href: "/admin/digitalium/organization", icon: Building2, appModuleId: "organisation" },
+            { label: "Équipe", href: "/admin/digitalium/team", icon: Users, appModuleId: "equipe" },
         ],
     },
     /* ─── Administration ──────────────────────── */
     {
         title: "Administration",
         items: [
-            { label: "Formation", href: "/admin/digitalium/formation", icon: GraduationCap },
-            { label: "Abonnements", href: "/admin/digitalium/subscriptions", icon: CreditCard },
-            { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings },
+            { label: "Formation", href: "/admin/digitalium/formation", icon: GraduationCap, appModuleId: "formation" },
+            { label: "Abonnements", href: "/admin/digitalium/subscriptions", icon: CreditCard, appModuleId: "abonnements" },
+            { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings, appModuleId: "parametres" },
         ],
     },
 ];
@@ -437,6 +440,7 @@ function SidebarContent({
     collapsed,
     pathname,
     activeSpace,
+    sections,
     theme,
     onToggle,
     onSignOut,
@@ -444,6 +448,7 @@ function SidebarContent({
     collapsed: boolean;
     pathname: string;
     activeSpace: AdminSpace;
+    sections: NavSection[];
     theme: typeof SPACE_THEMES.business;
     onToggle: () => void;
     onSignOut: () => void;
@@ -456,8 +461,6 @@ function SidebarContent({
     };
 
     const { theme: colorMode, toggleTheme: toggleColorMode } = useThemeContext();
-
-    const sections = SPACE_NAVS[activeSpace];
 
     const renderNavItem = (item: NavItem) => {
         if (item.children) {
@@ -604,6 +607,26 @@ export default function AdminUnifiedLayout({
     const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
     const { user } = useAuth();
 
+    // ── Module access filtering (hoisted from SidebarContent to avoid render-phase setState) ──
+    const orgId = user?.organizations?.[0]?.id;
+    const isAdminUser = user?.isSystemAdmin || user?.isPlatformAdmin;
+    const moduleAccess = useQuery(
+        api.businessRoles.resolveModuleAccess,
+        orgId && !isAdminUser
+            ? { userId: user?.uid ?? "", organizationId: orgId }
+            : "skip"
+    );
+
+    const filteredSections = useMemo(() => {
+        const raw = SPACE_NAVS[activeSpace];
+        if (!moduleAccess?.permissions) return raw;
+        if (moduleAccess.source === "admin") return raw;
+        const perms = moduleAccess.permissions;
+        return raw
+            .map((s) => ({ ...s, items: s.items.filter((i) => !i.appModuleId || perms[i.appModuleId] !== false) }))
+            .filter((s) => s.items.length > 0);
+    }, [activeSpace, moduleAccess]);
+
     // Compute user display info
     const userDisplayName = user?.displayName || user?.email?.split("@")[0] || "Utilisateur";
     const userInitials = useMemo(() => {
@@ -644,6 +667,7 @@ export default function AdminUnifiedLayout({
                         collapsed={collapsed}
                         pathname={pathname}
                         activeSpace={activeSpace}
+                        sections={filteredSections}
                         theme={theme}
                         onToggle={toggleCollapse}
                         onSignOut={handleSignOut}
@@ -658,6 +682,7 @@ export default function AdminUnifiedLayout({
                             collapsed={false}
                             pathname={pathname}
                             activeSpace={activeSpace}
+                            sections={filteredSections}
                             theme={theme}
                             onToggle={() => setMobileOpen(false)}
                             onSignOut={handleSignOut}

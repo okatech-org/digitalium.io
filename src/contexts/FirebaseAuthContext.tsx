@@ -70,8 +70,6 @@ interface AdminRoleResponse {
     level: number;
     isSystemAdmin: boolean;
     isPlatformAdmin: boolean;
-    isOrgAdmin: boolean;
-    isManager: boolean;
     roles: UserRoleInfo[];
     organizations: Organization[];
     personaType?: PersonaType;
@@ -85,17 +83,17 @@ const DEV_EMAIL_ROLES: Record<string, { role: PlatformRole; level: number }> = {
     "demo-sysadmin@digitalium.ga": { role: "system_admin", level: 0 },
     "demo-admin@digitalium.ga": { role: "platform_admin", level: 1 },
     "ornella.doumba@digitalium.ga": { role: "platform_admin", level: 1 },
-    "rodrigues.ntoutoum@digitalium.ga": { role: "org_admin", level: 2 },
-    "dg@ascoma.ga": { role: "org_admin", level: 2 },
-    "commercial@ascoma.ga": { role: "org_manager", level: 3 },
-    "sinistres@ascoma.ga": { role: "org_manager", level: 3 },
-    "agent@ascoma.ga": { role: "org_member", level: 4 },
-    "juridique@ascoma.ga": { role: "org_viewer", level: 5 },
-    "ministre-peche@digitalium.io": { role: "org_admin", level: 2 },
-    "admin-peche@digitalium.io": { role: "org_admin", level: 2 },
-    "dgpa@digitalium.io": { role: "org_manager", level: 3 },
-    "anpa@digitalium.io": { role: "org_manager", level: 3 },
-    "inspecteur-peche@digitalium.io": { role: "org_member", level: 4 },
+    "rodrigues.ntoutoum@digitalium.ga": { role: "admin", level: 2 },
+    "dg@ascoma.ga": { role: "admin", level: 2 },
+    "commercial@ascoma.ga": { role: "membre", level: 3 },
+    "sinistres@ascoma.ga": { role: "membre", level: 3 },
+    "agent@ascoma.ga": { role: "membre", level: 4 },
+    "juridique@ascoma.ga": { role: "membre", level: 5 },
+    "ministre-peche@digitalium.io": { role: "admin", level: 2 },
+    "admin-peche@digitalium.io": { role: "admin", level: 2 },
+    "dgpa@digitalium.io": { role: "membre", level: 3 },
+    "anpa@digitalium.io": { role: "membre", level: 3 },
+    "inspecteur-peche@digitalium.io": { role: "membre", level: 4 },
 };
 
 /** Persona type per demo email — required for PersonaProtectedRoute guard. */
@@ -113,7 +111,7 @@ const DEV_EMAIL_PERSONAS: Record<string, PersonaType> = {
 };
 
 const DEFAULT_DEV_ROLE: { role: PlatformRole; level: number } = {
-    role: "org_member",
+    role: "membre",
     level: 4,
 };
 
@@ -209,8 +207,6 @@ function buildDevFallback(
         level: mapping.level,
         isSystemAdmin: mapping.level === 0,
         isPlatformAdmin: mapping.level === 1,
-        isOrgAdmin: mapping.level === 2,
-        isManager: mapping.level === 3,
         roles: [{ role: mapping.role, level: mapping.level }],
         personaType,
     };
@@ -285,8 +281,6 @@ function buildAuthUser(
         isAdmin: rbac.isAdmin,
         isSystemAdmin: rbac.isSystemAdmin,
         isPlatformAdmin: rbac.isPlatformAdmin,
-        isOrgAdmin: rbac.isOrgAdmin,
-        isManager: rbac.isManager,
 
         roles: rbac.roles,
         organizations: rbac.organizations,

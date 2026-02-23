@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -23,10 +23,34 @@ import {
     Zap,
     Server,
     Loader2,
+    ChevronDown,
+    Play,
+    Pause,
+    Clock,
+    XCircle,
+    CheckCircle2,
+    AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 import { useOrgLifecycle } from "@/hooks/useOrgLifecycle";
@@ -65,6 +89,41 @@ const TABS = [
     { value: "deployment", label: "Déploiement", icon: Server },
 ];
 
+/* ─── Status transitions config ─── */
+
+type StatusTransition = {
+    target: OrgStatus;
+    label: string;
+    icon: React.ElementType;
+    color: string;
+    destructive?: boolean;
+    needsConfirm?: boolean;
+};
+
+const STATUS_TRANSITIONS: Record<OrgStatus, StatusTransition[]> = {
+    brouillon: [
+        { target: "prete", label: "Marquer Prête", icon: CheckCircle2, color: "text-blue-400" },
+        { target: "trial", label: "Démarrer un essai", icon: Clock, color: "text-amber-400" },
+    ],
+    prete: [
+        { target: "active", label: "Activer", icon: Play, color: "text-emerald-400" },
+        { target: "trial", label: "Démarrer un essai", icon: Clock, color: "text-amber-400" },
+    ],
+    active: [
+        { target: "trial", label: "Passer en essai", icon: Clock, color: "text-amber-400" },
+        { target: "suspended", label: "Suspendre", icon: Pause, color: "text-orange-400", destructive: true, needsConfirm: true },
+    ],
+    trial: [
+        { target: "active", label: "Activer (fin d'essai)", icon: Play, color: "text-emerald-400" },
+        { target: "suspended", label: "Suspendre", icon: Pause, color: "text-orange-400", destructive: true, needsConfirm: true },
+    ],
+    suspended: [
+        { target: "active", label: "Réactiver", icon: Play, color: "text-emerald-400" },
+        { target: "resiliee", label: "Résilier", icon: XCircle, color: "text-red-400", destructive: true, needsConfirm: true },
+    ],
+    resiliee: [],
+};
+
 /* ═══════════════════════════════════════════════
    INNER COMPONENT
    ═══════════════════════════════════════════════ */
@@ -75,6 +134,7 @@ function OrganizationDetailInner() {
     const orgId = rawId as Id<"organizations">;
 
     const [activeTab, setActiveTab] = useState("profil");
+    const [confirmAction, setConfirmAction] = useState<StatusTransition | null>(null);
 
     // ─── Data from Convex ───
     const orgData = useQuery(api.organizations.getById, { id: orgId });
@@ -85,6 +145,44 @@ function OrganizationDetailInner() {
     // ─── Mutations ───
     const updateConfig = useMutation(api.organizations.updateConfig);
     const updateHosting = useMutation(api.organizations.updateHosting);
+    const updateStatusMut = useMutation(api.organizations.updateStatus);
+
+    // ─── Status transition handler ───
+    const handleStatusTransition = useCallback(async (transition: StatusTransition) => {
+        try {
+            if (transition.target === "trial") {
+                await lifecycle.startTrial(14);
+                toast.success("Essai démarré", {
+                    description: "L'organisation est en période d'essai de 14 jours.",
+                });
+            } else if (transition.target === "active") {
+                const currentStatus = (orgData?.status ?? "active") as OrgStatus;
+                if (currentStatus === "suspended") {
+                    await updateStatusMut({ id: orgId, status: "active" });
+                } else {
+                    await lifecycle.activate();
+                }
+                toast.success("Organisation activée");
+            } else if (transition.target === "prete") {
+                await lifecycle.markAsReady();
+                toast.success("Organisation marquée comme prête", {
+                    description: "Elle peut maintenant être activée.",
+                });
+            } else if (transition.target === "suspended") {
+                await lifecycle.suspend();
+                toast.success("Organisation suspendue");
+            } else if (transition.target === "resiliee") {
+                await lifecycle.terminate();
+                toast.success("Organisation résiliée", {
+                    description: "L'accès est définitivement coupé.",
+                });
+            }
+        } catch (err) {
+            toast.error("Échec de la transition", {
+                description: err instanceof Error ? err.message : "Veuillez réessayer.",
+            });
+        }
+    }, [lifecycle, orgData?.status, orgId, updateStatusMut]);
 
     // ─── Loading state ───
     if (orgData === undefined) {
@@ -112,24 +210,16 @@ function OrganizationDetailInner() {
     const status = (org.status ?? "active") as OrgStatus;
     const statusColors = ORG_STATUS_COLORS[status] ?? ORG_STATUS_COLORS.active;
     const statusLabel = ORG_STATUS_LABELS[status] ?? status;
+    const transitions = STATUS_TRANSITIONS[status] ?? [];
+
+    // Trial info
+    const trialEndsAt = (org as any).trialEndsAt as number | undefined;
+    const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt - Date.now()) / (1000 * 60 * 60 * 24))) : null;
 
     // Active modules from quota
     const activeModules: string[] = org.quota?.modules ?? [];
 
     // ─── Handlers ───
-    const handleMarkAsReady = async () => {
-        try {
-            await lifecycle.markAsReady();
-            toast.success("Organisation marquée comme prête", {
-                description: "Elle peut maintenant être activée via le volet Clients.",
-            });
-        } catch (err) {
-            toast.error("Impossible de marquer comme prête", {
-                description: err instanceof Error ? err.message : "Veuillez réessayer.",
-            });
-        }
-    };
-
     const handleSaveConfig = async (config: Record<string, unknown>) => {
         try {
             await updateConfig({ id: orgId, config });
@@ -187,17 +277,102 @@ function OrganizationDetailInner() {
                                     {org.sector}
                                 </Badge>
                             )}
-                            <Badge
-                                variant="secondary"
-                                className={`text-[9px] border-0 ${statusColors.bg} ${statusColors.text}`}
-                            >
-                                <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1 ${statusColors.dot}`} />
-                                {statusLabel}
-                            </Badge>
+
+                            {/* ─── Status Dropdown ─── */}
+                            {transitions.length > 0 ? (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium cursor-pointer transition-all hover:ring-1 hover:ring-white/20 ${statusColors.bg} ${statusColors.text}`}>
+                                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${statusColors.dot}`} />
+                                            {statusLabel}
+                                            {status === "trial" && trialDaysLeft !== null && (
+                                                <span className="ml-0.5 opacity-70">({trialDaysLeft}j)</span>
+                                            )}
+                                            <ChevronDown className="h-2.5 w-2.5 ml-0.5 opacity-60" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="bg-zinc-900 border-white/10 min-w-[200px]">
+                                        <div className="px-3 py-1.5 text-[10px] text-white/40 font-medium uppercase tracking-wide">
+                                            Changer le statut
+                                        </div>
+                                        <DropdownMenuSeparator className="bg-white/5" />
+                                        {transitions.map((t) => {
+                                            const Icon = t.icon;
+                                            return (
+                                                <DropdownMenuItem
+                                                    key={t.target}
+                                                    className={`gap-2 text-xs cursor-pointer ${t.destructive ? "text-red-400 focus:text-red-300" : ""}`}
+                                                    onClick={() => {
+                                                        if (t.needsConfirm) {
+                                                            setConfirmAction(t);
+                                                        } else {
+                                                            handleStatusTransition(t);
+                                                        }
+                                                    }}
+                                                >
+                                                    <Icon className={`h-3.5 w-3.5 ${t.color}`} />
+                                                    {t.label}
+                                                    {t.target === "trial" && (
+                                                        <span className="ml-auto text-[10px] text-white/30">14 jours</span>
+                                                    )}
+                                                </DropdownMenuItem>
+                                            );
+                                        })}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            ) : (
+                                <Badge
+                                    variant="secondary"
+                                    className={`text-[9px] border-0 ${statusColors.bg} ${statusColors.text}`}
+                                >
+                                    <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1 ${statusColors.dot}`} />
+                                    {statusLabel}
+                                </Badge>
+                            )}
+
+                            {/* Trial countdown badge */}
+                            {status === "trial" && trialDaysLeft !== null && (
+                                <Badge variant="secondary" className={`text-[9px] border-0 ${trialDaysLeft <= 3 ? "bg-red-500/15 text-red-400" : "bg-amber-500/15 text-amber-400"}`}>
+                                    <Clock className="h-2.5 w-2.5 mr-1" />
+                                    {trialDaysLeft > 0 ? `${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""}` : "Essai expiré"}
+                                </Badge>
+                            )}
                         </div>
                     </div>
                 </div>
             </motion.div>
+
+            {/* ─── Confirmation Dialog ─── */}
+            <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
+                <AlertDialogContent className="bg-zinc-900 border-white/10">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-amber-400" />
+                            Confirmer le changement de statut
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-white/60">
+                            {confirmAction?.target === "suspended" && (
+                                <>Suspendre l&apos;organisation <strong>{org.name}</strong> coupera l&apos;accès à tous les membres. Cette action est réversible.</>
+                            )}
+                            {confirmAction?.target === "resiliee" && (
+                                <>Résilier l&apos;organisation <strong>{org.name}</strong> est une action <strong>définitive</strong>. L&apos;accès sera coupé et les données archivées.</>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="border-white/10 text-white/60 hover:bg-white/5">Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                            className={confirmAction?.target === "resiliee" ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"}
+                            onClick={() => {
+                                if (confirmAction) handleStatusTransition(confirmAction);
+                                setConfirmAction(null);
+                            }}
+                        >
+                            {confirmAction?.label}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* ─── Progress Banner ─── */}
             <ProgressBanner
@@ -207,7 +382,7 @@ function OrganizationDetailInner() {
                 progressPercent={lifecycle.progressPercent}
                 requiredItems={lifecycle.requiredItems}
                 optionalItems={lifecycle.optionalItems}
-                onMarkAsReady={handleMarkAsReady}
+                onMarkAsReady={() => handleStatusTransition({ target: "prete", label: "Marquer Prête", icon: CheckCircle2, color: "text-blue-400" })}
                 onTabChange={setActiveTab}
             />
 

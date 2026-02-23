@@ -27,6 +27,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { useOrganization } from "@/contexts/OrganizationContext";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 
 /* ─── Animations ──────────────────────────────── */
 
@@ -108,8 +109,8 @@ const FALLBACK_DISPLAY = {
 
 export default function SubAdminIArchivePage() {
     const { orgId } = useOrganization();
-    const isConvexId = orgId.length > 10;
-    const convexOrgId = isConvexId ? (orgId as Id<"organizations">) : undefined;
+    // Resolve display name to real Convex document ID
+    const { convexOrgId } = useConvexOrgId();
 
     // Fetch categories and all archives for this org
     const categories = useQuery(
@@ -121,7 +122,7 @@ export default function SubAdminIArchivePage() {
         convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
 
-    const isLoading = isConvexId && (categories === undefined || archives === undefined);
+    const isLoading = convexOrgId !== undefined && (categories === undefined || archives === undefined);
 
     // Compute stats
     const totalArchives = archives?.length ?? 0;

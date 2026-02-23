@@ -42,7 +42,6 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import EditorToolbar from "./EditorToolbar";
 import WorkflowStatusBar from "./WorkflowStatusBar";
-import type { UserRole } from "./WorkflowStatusBar";
 import type { ApprovalAction } from "./ApprovalModal";
 import ApprovalModal from "./ApprovalModal";
 import ArchiveModal from "./ArchiveModal";
@@ -263,7 +262,8 @@ export default function EditorPage({ documentId }: EditorPageProps) {
     const autoSaveRef = useRef<NodeJS.Timeout | null>(null);
 
     // ─── Workflow state ────────────────────────
-    const [userRole] = useState<UserRole>("org_admin"); // Demo: admin role
+    const [userLevel] = useState(2); // Demo: admin level
+    const [isAdmin] = useState(true); // Demo: admin
     const [approvalModal, setApprovalModal] = useState<{ open: boolean; action: ApprovalAction }>({ open: false, action: "submit_review" });
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [certificateData, setCertificateData] = useState<{
@@ -616,7 +616,8 @@ export default function EditorPage({ documentId }: EditorPageProps) {
             {/* ═══ WORKFLOW STATUS BAR ═══ */}
             <WorkflowStatusBar
                 status={meta.status}
-                userRole={userRole}
+                userLevel={userLevel}
+                isAdmin={isAdmin}
                 onSubmitForReview={() => handleWorkflowAction("submit_review")}
                 onApprove={() => handleWorkflowAction("approve")}
                 onReject={() => handleWorkflowAction("reject")}

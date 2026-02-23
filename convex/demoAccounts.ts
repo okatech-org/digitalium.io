@@ -8,7 +8,7 @@ import { query } from "./_generated/server";
 /**
  * Normalize a name to a demo email: "Gueylord Asted PELLEN-LAKOUMA" → "gueylord.pellen-lakouma@digitalium.io"
  */
-function generateDemoEmail(nom: string): string {
+export function generateDemoEmail(nom: string): string {
     // Remove accents
     const normalized = nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     // Split into parts

@@ -65,7 +65,7 @@ import { toast } from "sonner";
 /* ─── Types & Config ────────────────────────────── */
 
 type MemberStatus = "active" | "invited" | "suspended";
-type MemberRole = "org_admin" | "org_manager" | "org_member" | "org_viewer";
+type MemberRole = "admin" | "membre";
 
 const STATUS_CONFIG: Record<MemberStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
     active: { label: "Actif", color: "text-emerald-400", bg: "bg-emerald-500/15", icon: CheckCircle2 },
@@ -74,10 +74,8 @@ const STATUS_CONFIG: Record<MemberStatus, { label: string; color: string; bg: st
 };
 
 const ROLE_CONFIG: Record<MemberRole, { label: string; color: string; bg: string }> = {
-    org_admin: { label: "Admin Org", color: "text-violet-400", bg: "bg-violet-500/15" },
-    org_manager: { label: "Manager", color: "text-blue-400", bg: "bg-blue-500/15" },
-    org_member: { label: "Membre", color: "text-cyan-400", bg: "bg-cyan-500/15" },
-    org_viewer: { label: "Lecteur", color: "text-gray-400", bg: "bg-gray-500/15" },
+    admin: { label: "Admin Org", color: "text-violet-400", bg: "bg-violet-500/15" },
+    membre: { label: "Membre", color: "text-emerald-400", bg: "bg-emerald-500/15" },
 };
 
 /* ─── Animations ─────────────────────────────────── */
@@ -90,7 +88,7 @@ const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } }
 
 /* ─── Invite Form ─────────────────────────────── */
 
-const EMPTY_INVITE = { nom: "", email: "", telephone: "", poste: "", role: "org_member" as MemberRole };
+const EMPTY_INVITE = { nom: "", email: "", telephone: "", poste: "", role: "membre" as MemberRole };
 
 /* ═══════════════════════════════════════════════
    Inner component (needs Suspense for useSearchParams)
@@ -191,7 +189,7 @@ function UsersPageInner() {
                 email: inviteForm.email || undefined,
                 telephone: inviteForm.telephone || undefined,
                 poste: inviteForm.poste || undefined,
-                role: inviteForm.role,
+                estAdmin: inviteForm.role === "admin",
             });
             setInviteForm(EMPTY_INVITE);
             setShowInvite(false);
@@ -322,7 +320,7 @@ function UsersPageInner() {
                             <tbody>
                                 {filteredMembers.map((member, i) => {
                                     const statusCfg = STATUS_CONFIG[member.status as MemberStatus] ?? STATUS_CONFIG.active;
-                                    const roleCfg = ROLE_CONFIG[member.role as MemberRole] ?? ROLE_CONFIG.org_member;
+                                    const roleCfg = ROLE_CONFIG[member.role as MemberRole] ?? ROLE_CONFIG.membre;
                                     const initials = getInitials(member.nom);
                                     return (
                                         <motion.tr
@@ -427,7 +425,7 @@ function UsersPageInner() {
                 <motion.div variants={stagger} className="space-y-3 sm:hidden">
                     {filteredMembers.map((member, i) => {
                         const statusCfg = STATUS_CONFIG[member.status as MemberStatus] ?? STATUS_CONFIG.active;
-                        const roleCfg = ROLE_CONFIG[member.role as MemberRole] ?? ROLE_CONFIG.org_member;
+                        const roleCfg = ROLE_CONFIG[member.role as MemberRole] ?? ROLE_CONFIG.membre;
                         const StatusIcon = statusCfg.icon;
                         const initials = getInitials(member.nom);
                         return (

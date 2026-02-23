@@ -28,6 +28,7 @@ export function useOrgLifecycle(organizationId?: Id<"organizations">) {
     const activate = useMutation(api.organizations.activate);
     const suspend = useMutation(api.organizations.suspend);
     const terminate = useMutation(api.organizations.terminate);
+    const startTrialMut = useMutation(api.organizations.startTrial);
     const updateConfig = useMutation(api.organizations.updateConfig);
     const updateHosting = useMutation(api.organizations.updateHosting);
 
@@ -101,6 +102,10 @@ export function useOrgLifecycle(organizationId?: Id<"organizations">) {
         terminate: () =>
             organizationId
                 ? terminate({ id: organizationId })
+                : Promise.reject("No org ID"),
+        startTrial: (durationDays?: number) =>
+            organizationId
+                ? startTrialMut({ id: organizationId, durationDays })
                 : Promise.reject("No org ID"),
         updateConfig,
         updateHosting,

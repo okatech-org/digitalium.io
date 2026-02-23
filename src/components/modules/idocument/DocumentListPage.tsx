@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useFilingStructures, useFilingCells, useUserFilingAccess, useAccessRules } from "@/hooks/useFilingAccess";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -375,22 +376,25 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const isAdmin = (user?.level ?? 99) <= 2; // Admin = level 1 or 2
 
     // ─── Convex: fetch filing structure ─────────────────────────
-    const isConvexId = orgId.length > 10;
-    const convexOrgId = isConvexId ? (orgId as Id<"organizations">) : undefined;
+    // Resolve the org display name to a real Convex document ID
+    const { convexOrgId } = useConvexOrgId();
     const { activeStructure } = useFilingStructures(convexOrgId);
     const { cells, isLoading: cellsLoading, createCell } = useFilingCells(activeStructure?._id);
     const { setRule } = useAccessRules(convexOrgId);
 
     // ─── Résolution d'accès utilisateur ─────────────────────────
+    // NOTE: organization_members stores email as userId, not Firebase UID
     const { visibleCellIds, isLoading: accessLoading } = useUserFilingAccess(
-        user?.uid, convexOrgId, user?.email ?? undefined, user?.displayName ?? undefined
+        user?.email, convexOrgId
     );
 
     // ─── Map filing_cells → FileManagerFolder (filtré par accès) ─
     const dynamicFolders = useMemo<FileManagerFolder[]>(() => {
         if (!cells || cells.length === 0) return [];
+
         return cells
             .filter((c) => c.estActif)
+            // Strict access: only show cells the user has access to
             .filter((c) => visibleCellIds.includes(c._id))
             .map((cell) => ({
                 id: cell._id,

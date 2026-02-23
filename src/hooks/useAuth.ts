@@ -21,8 +21,6 @@ export function useAuth() {
         level: ctx.user?.level ?? null,
         isSystemAdmin: ctx.user?.isSystemAdmin ?? false,
         isPlatformAdmin: ctx.user?.isPlatformAdmin ?? false,
-        isOrgAdmin: ctx.user?.isOrgAdmin ?? false,
-        isManager: ctx.user?.isManager ?? false,
         roles: ctx.user?.roles ?? [],
         organizations: ctx.user?.organizations ?? [],
         userPersona: ctx.user?.personaType ?? null,

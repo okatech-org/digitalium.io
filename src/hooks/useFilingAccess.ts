@@ -72,6 +72,7 @@ export function useAccessRules(organizationId?: Id<"organizations">) {
     const setRule = useMutation(api.cellAccessRules.setRule);
     const removeRule = useMutation(api.cellAccessRules.removeRule);
     const bulkSet = useMutation(api.cellAccessRules.bulkSet);
+    const bulkUpsert = useMutation(api.cellAccessRules.bulkUpsert);
 
     return {
         rules: rules ?? [],
@@ -79,6 +80,7 @@ export function useAccessRules(organizationId?: Id<"organizations">) {
         setRule,
         removeRule,
         bulkSet,
+        bulkUpsert,
     };
 }
 
@@ -116,12 +118,10 @@ export function useAccessOverrides(organizationId?: Id<"organizations">) {
 export function useUserFilingAccess(
     userId?: string,
     organizationId?: Id<"organizations">,
-    userEmail?: string,
-    displayName?: string,
 ) {
     const accessList = useQuery(
         api.cellAccessRules.resolveUserAccess,
-        userId && organizationId ? { userId, organizationId, userEmail, displayName } : "skip"
+        userId && organizationId ? { userId, organizationId } : "skip"
     );
 
     // Construire la map pour lookup rapide

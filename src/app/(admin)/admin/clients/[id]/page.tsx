@@ -84,10 +84,8 @@ const PLAN_LABELS: Record<string, string> = {
 const ROLE_LABELS: Record<string, string> = {
     system_admin: "Admin Système",
     platform_admin: "Admin Plateforme",
-    org_admin: "Admin Organisation",
-    org_manager: "Manager",
-    org_member: "Membre",
-    org_viewer: "Observateur",
+    admin: "Admin Organisation",
+    membre: "Membre",
 };
 
 /* ═══════════════════════════════════════════════
@@ -319,10 +317,10 @@ export default function ClientDetailPage() {
                                         </Badge>
                                         <Badge
                                             className={`text-[8px] py-0 border-0 ${member.status === "active"
-                                                    ? "bg-emerald-500/15 text-emerald-400"
-                                                    : member.status === "invited"
-                                                        ? "bg-blue-500/15 text-blue-400"
-                                                        : "bg-red-500/15 text-red-400"
+                                                ? "bg-emerald-500/15 text-emerald-400"
+                                                : member.status === "invited"
+                                                    ? "bg-blue-500/15 text-blue-400"
+                                                    : "bg-red-500/15 text-red-400"
                                                 }`}
                                         >
                                             {member.status === "active" ? "Actif" : member.status === "invited" ? "Invité" : "Suspendu"}
@@ -388,10 +386,10 @@ export default function ClientDetailPage() {
                                     <span className="text-xs text-muted-foreground">Statut</span>
                                     <Badge
                                         className={`text-[9px] py-0 border-0 ${client.subscription.status === "active"
-                                                ? "bg-emerald-500/15 text-emerald-400"
-                                                : client.subscription.status === "trial"
-                                                    ? "bg-blue-500/15 text-blue-400"
-                                                    : "bg-red-500/15 text-red-400"
+                                            ? "bg-emerald-500/15 text-emerald-400"
+                                            : client.subscription.status === "trial"
+                                                ? "bg-blue-500/15 text-blue-400"
+                                                : "bg-red-500/15 text-red-400"
                                             }`}
                                     >
                                         {client.subscription.status === "active" ? "Actif" : client.subscription.status === "trial" ? "Essai" : client.subscription.status}

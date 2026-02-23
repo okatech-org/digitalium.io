@@ -19,7 +19,9 @@ const billingCycle = v.union(v.literal("monthly"), v.literal("annual"));
 const paymentMethod = v.union(
     v.literal("mobile_money"),
     v.literal("bank_transfer"),
-    v.literal("card")
+    v.literal("card"),
+    v.literal("check"),
+    v.literal("simulation")
 );
 
 const subscriptionStatus = v.union(

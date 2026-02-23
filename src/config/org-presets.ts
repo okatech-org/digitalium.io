@@ -20,9 +20,9 @@ const ENTERPRISE_WORKFLOWS: OrgWorkflowBundle = {
             description: "Circuit d'approbation simple — soumission → DG valide → publié",
             trigger: "document.submitted",
             steps: [
-                { id: "s1", type: "notification", label: "Notifier le DG", assignTo: { type: "role", value: "org_admin" }, order: 1 },
-                { id: "s2", type: "approval", label: "Approbation DG", assignTo: { type: "role", value: "org_admin" }, order: 2 },
-                { id: "s3", type: "notification", label: "Notifier l'auteur", assignTo: { type: "role", value: "org_member" }, order: 3 },
+                { id: "s1", type: "notification", label: "Notifier le DG", assignTo: { type: "role", value: "admin" }, order: 1 },
+                { id: "s2", type: "approval", label: "Approbation DG", assignTo: { type: "role", value: "admin" }, order: 2 },
+                { id: "s3", type: "notification", label: "Notifier l'auteur", assignTo: { type: "role", value: "membre" }, order: 3 },
             ],
             isActive: true,
             isTemplate: true,
@@ -35,7 +35,7 @@ const ENTERPRISE_WORKFLOWS: OrgWorkflowBundle = {
             trigger: "signature.completed",
             steps: [
                 { id: "s1", type: "auto_archive", label: "Archiver le document signé", order: 1 },
-                { id: "s2", type: "notification", label: "Confirmer l'archivage", assignTo: { type: "role", value: "org_admin" }, order: 2 },
+                { id: "s2", type: "notification", label: "Confirmer l'archivage", assignTo: { type: "role", value: "admin" }, order: 2 },
             ],
             isActive: true,
             isTemplate: true,
@@ -91,9 +91,9 @@ const ADMINISTRATION_WORKFLOWS: OrgWorkflowBundle = {
             description: "Circuit de validation : Chef de service → Directeur → Secrétaire Général → Ministre",
             trigger: "document.submitted",
             steps: [
-                { id: "s1", type: "review", label: "Revue Chef de service", assignTo: { type: "role", value: "org_member" }, order: 1 },
-                { id: "s2", type: "approval", label: "Validation Directeur", assignTo: { type: "role", value: "org_manager" }, order: 2 },
-                { id: "s3", type: "approval", label: "Approbation finale", assignTo: { type: "role", value: "org_admin" }, order: 3 },
+                { id: "s1", type: "review", label: "Revue Chef de service", assignTo: { type: "role", value: "membre" }, order: 1 },
+                { id: "s2", type: "approval", label: "Validation Directeur", assignTo: { type: "role", value: "admin" }, order: 2 },
+                { id: "s3", type: "approval", label: "Approbation finale", assignTo: { type: "role", value: "admin" }, order: 3 },
                 { id: "s4", type: "notification", label: "Notification diffusion", order: 4 },
             ],
             isActive: true,
@@ -107,8 +107,8 @@ const ADMINISTRATION_WORKFLOWS: OrgWorkflowBundle = {
             trigger: "signature.requested",
             steps: [
                 { id: "s1", type: "notification", label: "Mise en parapheur", order: 1 },
-                { id: "s2", type: "approval", label: "Visa technique", assignTo: { type: "role", value: "org_manager" }, order: 2 },
-                { id: "s3", type: "auto_sign", label: "Signature officielle", assignTo: { type: "role", value: "org_admin" }, order: 3 },
+                { id: "s2", type: "approval", label: "Visa technique", assignTo: { type: "role", value: "admin" }, order: 2 },
+                { id: "s3", type: "auto_sign", label: "Signature officielle", assignTo: { type: "role", value: "admin" }, order: 3 },
                 { id: "s4", type: "auto_archive", label: "Archivage réglementaire", order: 4 },
             ],
             isActive: true,
@@ -136,7 +136,7 @@ const ADMINISTRATION_WORKFLOWS: OrgWorkflowBundle = {
             triggerConfig: { cron: "0 7 * * 1" },
             actions: [
                 { type: "generate_report", params: { type: "compliance_weekly" } },
-                { type: "send_notification", params: { to: "org_admin" } },
+                { type: "send_notification", params: { to: "admin" } },
             ],
             isActive: true,
             schedule: "0 7 * * 1",
@@ -153,7 +153,7 @@ const ORGANISME_WORKFLOWS: OrgWorkflowBundle = {
             description: "Soumission au comité de validation — quorum requis",
             trigger: "document.submitted",
             steps: [
-                { id: "s1", type: "review", label: "Instruction du dossier", assignTo: { type: "role", value: "org_member" }, order: 1 },
+                { id: "s1", type: "review", label: "Instruction du dossier", assignTo: { type: "role", value: "membre" }, order: 1 },
                 { id: "s2", type: "approval", label: "Vote du comité", assignTo: { type: "group", value: "committee" }, order: 2, config: { quorum: 3 } },
                 { id: "s3", type: "notification", label: "Publication de la décision", order: 3 },
             ],

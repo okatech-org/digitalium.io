@@ -2,7 +2,7 @@
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — iArchive: Coffre-Fort Numérique
-// Restricted access (org_admin only) with encryption indicator
+// Restricted access (admin only) with encryption indicator
 // ═══════════════════════════════════════════════
 
 import React, { useState } from "react";
@@ -19,7 +19,7 @@ import ArchiveCategoryTable, {
 const CONFIG: CategoryConfig = {
     key: "vault",
     label: "Coffre-Fort Numérique",
-    description: "Documents sensibles — Accès org_admin uniquement",
+    description: "Documents sensibles — Accès admin uniquement",
     icon: Lock,
     gradient: "from-rose-600 to-pink-500",
     color: "text-rose-400",
@@ -37,15 +37,15 @@ const ENTRIES: ArchiveEntry[] = [
     { id: "v5", title: "Audit sécurité SI — Rapport confidentiel 2025", archivedAt: "10/09/2025", expiresAt: "∞ Illimité", size: "5.6 Mo", hash: "d6f9c2e5b8d1a4c7f0e3b6d9a2c5f8e1b4d7a0c3f6e9b2d5a8c1f4e7b0d3a6c9", status: "active", certId: "CERT-2025-06543", archivedBy: "Daniel Nguema" },
 ];
 
-type UserRole = "org_member" | "org_manager" | "org_admin" | "org_viewer";
+type UserRole = "admin" | "membre";
 
 export default function VaultPage() {
-    // Demo: toggle between admin and non-admin views
-    const [userRole] = useState<UserRole>("org_admin");
+    // ─── State ─────────────────────────────────────
+    const [userRole] = useState<UserRole>("admin");
     const [unlocked, setUnlocked] = useState(false);
     const [pin, setPin] = useState("");
 
-    const isAdmin = userRole === "org_admin";
+    const isAdmin = userRole === "admin";
 
     // Access gate for non-admin users
     if (!isAdmin) {
@@ -65,7 +65,7 @@ export default function VaultPage() {
                         Contactez votre administrateur pour obtenir l&apos;accès.
                     </p>
                     <Badge variant="outline" className="text-xs border-red-500/20 text-red-400">
-                        Rôle requis : org_admin
+                        Rôle requis : admin
                     </Badge>
                 </motion.div>
             </div>

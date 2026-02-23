@@ -8,12 +8,11 @@
  * @module
  */
 
-import type * as accessMatrix from "../accessMatrix.js";
+import type * as aiSmartImport from "../aiSmartImport.js";
 import type * as archiveConfig from "../archiveConfig.js";
 import type * as archives from "../archives.js";
 import type * as auditLogs from "../auditLogs.js";
 import type * as businessRoles from "../businessRoles.js";
-import type * as cellAccess from "../cellAccess.js";
 import type * as cellAccessOverrides from "../cellAccessOverrides.js";
 import type * as cellAccessRules from "../cellAccessRules.js";
 import type * as clients from "../clients.js";
@@ -25,7 +24,6 @@ import type * as filingStructures from "../filingStructures.js";
 import type * as fixArchiveData from "../fixArchiveData.js";
 import type * as fixLifecycleData from "../fixLifecycleData.js";
 import type * as generateDemoAccounts from "../generateDemoAccounts.js";
-import type * as habilitations from "../habilitations.js";
 import type * as leads from "../leads.js";
 import type * as lifecycleScheduler from "../lifecycleScheduler.js";
 import type * as orgMembers from "../orgMembers.js";
@@ -33,6 +31,7 @@ import type * as orgSites from "../orgSites.js";
 import type * as orgUnits from "../orgUnits.js";
 import type * as org_lifecycle from "../org_lifecycle.js";
 import type * as organizations from "../organizations.js";
+import type * as payments from "../payments.js";
 import type * as retentionAlerts from "../retentionAlerts.js";
 import type * as seed from "../seed.js";
 import type * as seedLeads from "../seedLeads.js";
@@ -47,12 +46,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  accessMatrix: typeof accessMatrix;
+  aiSmartImport: typeof aiSmartImport;
   archiveConfig: typeof archiveConfig;
   archives: typeof archives;
   auditLogs: typeof auditLogs;
   businessRoles: typeof businessRoles;
-  cellAccess: typeof cellAccess;
   cellAccessOverrides: typeof cellAccessOverrides;
   cellAccessRules: typeof cellAccessRules;
   clients: typeof clients;
@@ -64,7 +62,6 @@ declare const fullApi: ApiFromModules<{
   fixArchiveData: typeof fixArchiveData;
   fixLifecycleData: typeof fixLifecycleData;
   generateDemoAccounts: typeof generateDemoAccounts;
-  habilitations: typeof habilitations;
   leads: typeof leads;
   lifecycleScheduler: typeof lifecycleScheduler;
   orgMembers: typeof orgMembers;
@@ -72,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   orgUnits: typeof orgUnits;
   org_lifecycle: typeof org_lifecycle;
   organizations: typeof organizations;
+  payments: typeof payments;
   retentionAlerts: typeof retentionAlerts;
   seed: typeof seed;
   seedLeads: typeof seedLeads;

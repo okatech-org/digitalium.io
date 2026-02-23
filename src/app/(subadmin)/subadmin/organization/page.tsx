@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 
 /* ─── Types ────────────────────────────────────── */
 
@@ -429,9 +430,8 @@ export default function SubAdminOrganizationPage() {
   const { orgName, orgId, orgType, orgConfig, orgModules } = useOrganization();
   const { user } = useAuth();
 
-  // Resolve Convex org ID
-  const isConvexId = orgId.length > 10;
-  const convexOrgId = isConvexId ? (orgId as Id<"organizations">) : undefined;
+  // Resolve Convex org ID from display name
+  const { convexOrgId } = useConvexOrgId();
 
   // Fetch org data from Convex
   const orgData = useQuery(

@@ -83,6 +83,7 @@ function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
                                     alt="DIGITALIUM.IO"
                                     width={96}
                                     height={96}
+                                    priority
                                     className="h-24 w-24 rounded-xl translate-y-6"
                                 />
                             </div>
@@ -217,8 +218,8 @@ function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ delay: index * 0.05 }}
                                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${link.active
-                                                        ? "bg-white/10 text-white font-medium"
-                                                        : "text-white/60 hover:text-white hover:bg-white/5"
+                                                    ? "bg-white/10 text-white font-medium"
+                                                    : "text-white/60 hover:text-white hover:bg-white/5"
                                                     }`}
                                                 onClick={() => setMobileMenuOpen(false)}
                                             >

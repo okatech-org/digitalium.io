@@ -141,25 +141,6 @@ const PLATFORM_ORG: DemoOrganization = {
             orgType: "platform",
         },
         {
-            email: "ornella.doumba@digitalium.ga",
-            password: "demo123456",
-            role: "Ornella DOUMBA (Admin interne)",
-            roleLevel: 1,
-            description:
-                "Administratrice interne — utilise DIGITALIUM en interne",
-            spaces: ["/admin", "/sysadmin", "/subadmin"],
-            capabilities: [
-                "iDocument interne",
-                "iArchive interne",
-                "iSignature",
-                "Gestion clients",
-            ],
-            personaType: "platform",
-            orgId: "digitalium",
-            orgName: "DIGITALIUM",
-            orgType: "platform",
-        },
-        {
             email: "rodrigues.ntoutoum@digitalium.ga",
             password: "demo123456",
             role: "Rodrigues NTOUTOUM (Sous-Admin)",
@@ -200,14 +181,10 @@ const ORG_TYPE_CONFIG: Record<string, {
 
 const DEFAULT_ORG_CONFIG = { type: "enterprise" as const, icon: "🏢", gradient: "from-violet-500 to-purple-500", personaType: "business" as const };
 
-/** Map member role to roleLevel */
-function mapRoleLevel(role?: string): number {
-    switch (role) {
-        case "org_admin": return 2;
-        case "org_manager": return 3;
-        case "org_member": return 4;
-        default: return 4;
-    }
+/** Map member to roleLevel — le level est désormais stocké directement */
+function mapRoleLevel(member: { role?: string; estAdmin?: boolean; level?: number }): number {
+    if (member.estAdmin) return 2;
+    return member.level ?? 4;
 }
 
 /* ═══════════════════════════════════════════════
@@ -231,7 +208,7 @@ function getRedirectPath(account: DemoAccount): string {
 
 export default function DemoAccountSwitcher() {
     const [open, setOpen] = useState(false);
-    const [expandedOrgs, setExpandedOrgs] = useState<string[]>(["digitalium"]);
+    const [expandedOrgs, setExpandedOrgs] = useState<string[]>([]);
     const [loading, setLoading] = useState<string | null>(null);
     const [confirmSwitch, setConfirmSwitch] = useState<DemoAccount | null>(null);
     const [currentEmail, setCurrentEmail] = useState<string | null>(null);
@@ -249,15 +226,9 @@ export default function DemoAccountSwitcher() {
                 const config = ORG_TYPE_CONFIG[org.type] ?? DEFAULT_ORG_CONFIG;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const accounts: DemoAccount[] = org.members.map((m: any) => {
-                    const level = mapRoleLevel(m.role);
+                    const level = mapRoleLevel(m);
                     const posteName = m.businessRoleName ?? m.poste ?? "Membre";
-                    const sysRoleLabel: Record<string, string> = {
-                        org_admin: "Admin",
-                        org_manager: "Responsable",
-                        org_member: "Collaborateur",
-                        org_viewer: "Observateur",
-                    };
-                    const sysLabel = sysRoleLabel[m.role] ?? "Collaborateur";
+                    const sysLabel = m.estAdmin ? "Admin" : "Membre";
                     return {
                         email: m.demoEmail,
                         password: "demo123456",
@@ -359,7 +330,7 @@ export default function DemoAccountSwitcher() {
             // Store role override for auth context
             localStorage.setItem("demo_role_override", JSON.stringify({
                 email: account.email,
-                role: account.roleLevel <= 1 ? "platform_admin" : account.roleLevel === 2 ? "org_admin" : account.roleLevel === 3 ? "org_manager" : "org_member",
+                role: account.roleLevel <= 1 ? "platform_admin" : account.roleLevel === 2 ? "admin" : "membre",
                 level: account.roleLevel,
                 personaType: account.personaType,
             }));
@@ -405,7 +376,7 @@ export default function DemoAccountSwitcher() {
                 // Store role override for auth context
                 localStorage.setItem("demo_role_override", JSON.stringify({
                     email: account.email,
-                    role: account.roleLevel <= 1 ? "platform_admin" : account.roleLevel === 2 ? "org_admin" : account.roleLevel === 3 ? "org_manager" : "org_member",
+                    role: account.roleLevel <= 1 ? "platform_admin" : account.roleLevel === 2 ? "admin" : "membre",
                     level: account.roleLevel,
                     personaType: account.personaType,
                 }));

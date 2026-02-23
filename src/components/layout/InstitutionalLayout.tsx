@@ -68,14 +68,21 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { AppModuleId } from "@/config/modules";
+import { toPermissionKey } from "@/config/modules";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 /* ─── Navigation Config ─────────────────────────── */
 
 interface NavItem {
     label: string;
     href: string;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     badge?: number;
+    /** AppModuleId — used for business role permission filtering */
+    appModuleId?: AppModuleId;
+    maxLevel?: number;
 }
 
 interface NavSection {
@@ -83,47 +90,40 @@ interface NavSection {
     items: NavItem[];
 }
 
-function buildNavSections(userLevel: number): NavSection[] {
+function buildNavSections(_userLevel: number): NavSection[] {
     const sections: NavSection[] = [
         {
             title: "Principal",
             items: [
-                { label: "Dashboard", href: "/institutional", icon: LayoutDashboard },
+                { label: "Dashboard", href: "/institutional", icon: LayoutDashboard, appModuleId: "dashboard" },
             ],
         },
         {
             title: "Modules",
             items: [
-                { label: "iDocument", href: "/institutional/idocument", icon: FileText },
-                { label: "iArchive", href: "/institutional/iarchive", icon: Archive },
-                { label: "iSignature", href: "/institutional/isignature", icon: PenTool },
-                { label: "iAsted", href: "/institutional/iasted", icon: Bot },
+                { label: "iDocument", href: "/institutional/idocument", icon: FileText, appModuleId: "idocument" },
+                { label: "iArchive", href: "/institutional/iarchive", icon: Archive, appModuleId: "iarchive" },
+                { label: "iSignature", href: "/institutional/isignature", icon: PenTool, appModuleId: "isignature" },
+                { label: "iAsted", href: "/institutional/iasted", icon: Bot, appModuleId: "iasted" },
+            ],
+        },
+        {
+            title: "Administration",
+            items: [
+                { label: "Workflows", href: "/institutional/workflows", icon: Workflow, appModuleId: "workflow_templates", maxLevel: 3 },
+                { label: "Utilisateurs", href: "/institutional/users", icon: Users, appModuleId: "org_team" },
+                { label: "Sécurité & Conformité", href: "/institutional/compliance", icon: Shield, maxLevel: 3 },
+                { label: "Console SubAdmin", href: "/subadmin", icon: SlidersHorizontal, maxLevel: 2 },
+            ],
+        },
+        {
+            title: "Compte",
+            items: [
+                { label: "Formation", href: "/institutional/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
+                { label: "Paramètres", href: "/institutional/parametres", icon: Settings, appModuleId: "settings" },
             ],
         },
     ];
-
-    // Admin section only for level ≤ 3 (managers and above)
-    if (userLevel <= 3) {
-        sections.push({
-            title: "Administration",
-            items: [
-                { label: "Workflows", href: "/institutional/workflows", icon: Workflow },
-                { label: "Utilisateurs", href: "/institutional/users", icon: Users },
-                { label: "Sécurité & Conformité", href: "/institutional/compliance", icon: Shield },
-                ...(userLevel <= 2
-                    ? [{ label: "Console SubAdmin", href: "/subadmin", icon: SlidersHorizontal }]
-                    : []),
-            ],
-        });
-    }
-
-    sections.push({
-        title: "Compte",
-        items: [
-            { label: "Formation", href: "/institutional/formation", icon: GraduationCap },
-            { label: "Paramètres", href: "/institutional/parametres", icon: Settings },
-        ],
-    });
 
     return sections;
 }
@@ -222,7 +222,49 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
     const userInitials = getUserInitials(user);
     const userDisplayName = getUserDisplayName(user);
     const userRoleLabel = getRoleLabel(user);
-    const navSections = useMemo(() => buildNavSections(userLevel), [userLevel]);
+    const navSectionsRaw = useMemo(() => buildNavSections(userLevel), [userLevel]);
+
+    // Business role module permissions filtering
+    const isAdminUser = user?.isSystemAdmin || user?.isPlatformAdmin;
+    const orgId = user?.organizations?.[0]?.id;
+    const isValidConvexId = orgId && !orgId.includes("-") && orgId.length > 10;
+    const moduleAccess = useQuery(
+        api.businessRoles.resolveModuleAccess,
+        isValidConvexId && !isAdminUser
+            ? { userId: user?.uid ?? "", organizationId: orgId as any }
+            : "skip"
+    );
+
+    // Triple-layer filtering: RBAC + enabledModules + modulePermissions
+    // Key rule: if modulePermissions explicitly grants a module, it bypasses RBAC level gates
+    const navSections = useMemo(() => {
+        const perms = moduleAccess?.permissions;
+        const isAdmin = !perms || moduleAccess?.source === "admin";
+
+        return navSectionsRaw
+            .map((section) => ({
+                ...section,
+                items: section.items.filter((item) => {
+                    if (!item.appModuleId) {
+                        // Items without appModuleId use maxLevel gating only
+                        if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
+                        return true;
+                    }
+
+                    const permKey = toPermissionKey(item.appModuleId);
+                    const explicitlyGranted = !isAdmin && perms && permKey ? perms[permKey] === true : false;
+                    const explicitlyDenied = !isAdmin && perms && permKey ? perms[permKey] === false : false;
+
+                    if (explicitlyDenied) return false;
+                    if (explicitlyGranted) return true;
+
+                    // Default RBAC path
+                    if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
+                    return true;
+                }),
+            }))
+            .filter((s) => s.items.length > 0);
+    }, [navSectionsRaw, moduleAccess, userLevel]);
 
     const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
 

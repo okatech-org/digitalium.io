@@ -7,6 +7,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Id, Doc } from "./_generated/dataModel";
+import { generateDemoEmail } from "./demoAccounts";
 
 const accessLevel = v.union(
     v.literal("aucun"),
@@ -26,14 +27,13 @@ const ACCESS_ORDER: Record<AccessLevel, number> = {
     admin: 4,
 };
 
-/** Plafond d'accès par rôle plateforme */
-const PLATFORM_CAP: Record<string, AccessLevel> = {
-    system_admin: "admin",
-    platform_admin: "admin",
-    org_admin: "admin",
-    org_manager: "gestion",
-    org_member: "ecriture",
-    org_viewer: "lecture",
+/** Plafond d'accès par rôle plateforme — le level est désormais dérivé du rôle métier */
+const PLATFORM_CAP: Record<number, AccessLevel> = {
+    1: "admin",   // platform_admin
+    2: "admin",   // gouvernance / direction
+    3: "gestion", // management
+    4: "ecriture",// opérationnel / support
+    5: "lecture",  // sans rôle métier
 };
 
 function minAccess(a: AccessLevel, b: AccessLevel): AccessLevel {
@@ -201,6 +201,61 @@ export const bulkSet = mutation({
     },
 });
 
+/**
+ * Diff-based bulk upsert – only insert/update/delete changes.
+ * Used by the Matrix UI "Sauvegarder" button.
+ */
+export const bulkUpsert = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+        upserts: v.array(v.object({
+            filingCellId: v.id("filing_cells"),
+            orgUnitId: v.optional(v.id("org_units")),
+            businessRoleId: v.optional(v.id("business_roles")),
+            acces: accessLevel,
+        })),
+        removals: v.array(v.id("cell_access_rules")),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+
+        // 1. Delete removed rules
+        for (const id of args.removals) {
+            await ctx.db.delete(id);
+        }
+
+        // 2. Upsert changes (find existing → patch or insert)
+        for (const rule of args.upserts) {
+            if (rule.acces === "aucun") continue; // skip "aucun" – no need to store
+            const existing = await findExistingRule(
+                ctx, rule.filingCellId, rule.orgUnitId, rule.businessRoleId
+            );
+            if (existing) {
+                await ctx.db.patch(existing._id, {
+                    acces: rule.acces,
+                    priorite: computePriority(rule.orgUnitId, rule.businessRoleId),
+                    estActif: true,
+                    updatedAt: now,
+                });
+            } else {
+                await ctx.db.insert("cell_access_rules", {
+                    organizationId: args.organizationId,
+                    filingCellId: rule.filingCellId,
+                    orgUnitId: rule.orgUnitId,
+                    businessRoleId: rule.businessRoleId,
+                    acces: rule.acces,
+                    priorite: computePriority(rule.orgUnitId, rule.businessRoleId),
+                    estActif: true,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+            }
+        }
+
+        return { upserted: args.upserts.length, removed: args.removals.length };
+    },
+});
+
 // ─── Résolution d'accès ─────────────────────────
 
 /**
@@ -209,7 +264,8 @@ export const bulkSet = mutation({
  *
  * Algorithme :
  * 1. Récupérer le membre → orgUnitId, businessRoleId, platformRole
- * 2. Si org_admin / platform_admin / system_admin → bypass (admin sur tout)
+ *    (essaye userId, puis email, puis demoEmail généré à partir du nom)
+ * 2. Si estAdmin / platform_admin / system_admin → bypass (admin sur tout)
  * 3. Chercher les règles cell_access_rules correspondantes
  * 4. Chercher les overrides cell_access_overrides pour cet utilisateur
  * 5. Override > règle > aucun
@@ -219,80 +275,29 @@ export const bulkSet = mutation({
 export const resolveUserAccess = query({
     args: {
         userId: v.string(),
-        userEmail: v.optional(v.string()),
-        displayName: v.optional(v.string()),
         organizationId: v.id("organizations"),
     },
     handler: async (ctx, args) => {
-        // 1. Trouver le membre — par userId (Firebase UID) d'abord
-        let member = await ctx.db
+        // 1. Trouver le membre — 3 stratégies de match :
+        //    a) userId direct (cas standard)
+        //    b) email field match
+        //    c) demoEmail match (comptes démo: nom → email généré)
+        const allMembers = await ctx.db
             .query("organization_members")
             .withIndex("by_org_user", (q) =>
-                q.eq("organizationId", args.organizationId).eq("userId", args.userId)
+                q.eq("organizationId", args.organizationId)
             )
-            .first();
+            .collect();
 
-        // 2. Fallback: chercher parmi tous les membres de l'org
-        if (!member) {
-            const allMembers = await ctx.db
-                .query("organization_members")
-                .withIndex("by_organizationId", (q) =>
-                    q.eq("organizationId", args.organizationId)
-                )
-                .collect();
-
-            /** Strip "(role)" or "· Label" suffix from displayName and match against member.nom */
-            const matchByName = (name: string) => {
-                const cleanName = name
-                    .replace(/\s*\(.*\)\s*$/, "")      // strip "(Role)" suffix
-                    .replace(/\s*[·–—]\s+.*$/, "")     // strip "· Label" / "– Label" suffix
-                    .trim().toLowerCase();
-                if (!cleanName) return null;
-                return allMembers.find(
-                    (m) => m.nom?.trim().toLowerCase() === cleanName
-                ) ?? null;
-            };
-
-            // a) Par email (direct match ou pattern demo firstname.lastname@digitalium.io)
-            if (args.userEmail) {
-                member = allMembers.find((m) => {
-                    // Direct match
-                    if (m.email === args.userEmail || m.userId === args.userEmail) return true;
-                    // Match demo email pattern: firstname.lastname@digitalium.io
-                    if (args.userEmail?.endsWith("@digitalium.io") && m.nom) {
-                        const parts = m.nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                            .trim().split(/\s+/);
-                        if (parts.length >= 2) {
-                            const expected = `${parts[0].toLowerCase()}.${parts[parts.length - 1].toLowerCase()}@digitalium.io`
-                                .replace(/[^a-z0-9.\-@]/g, "");
-                            return args.userEmail === expected;
-                        }
-                    }
-                    return false;
-                }) ?? null;
-            }
-
-            // b) Par displayName fourni par le frontend
-            if (!member && args.displayName) {
-                member = matchByName(args.displayName);
-            }
-
-            // c) Lookup interne: chercher dans la table users par Firebase UID → displayName → nom
-            if (!member) {
-                const convexUser = await ctx.db
-                    .query("users")
-                    .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-                    .first();
-                if (convexUser?.displayName) {
-                    member = matchByName(convexUser.displayName);
-                }
-            }
-        }
+        const member = allMembers.find((m) => m.userId === args.userId)
+            ?? allMembers.find((m) => m.email === args.userId)
+            ?? allMembers.find((m) => m.nom && generateDemoEmail(m.nom) === args.userId)
+            ?? null;
 
         if (!member) return [];
 
-        // 2. Bypass admin
-        const isAdmin = ["system_admin", "platform_admin", "org_admin"].includes(member.role);
+        // 2. Bypass admin — estAdmin ou rôle plateforme global
+        const isAdmin = member.estAdmin === true || ["system_admin", "platform_admin"].includes(member.role);
 
         // Récupérer toutes les cellules actives de l'org
         const cells = await ctx.db
@@ -319,11 +324,20 @@ export const resolveUserAccess = query({
             .filter((q) => q.eq(q.field("estActif"), true))
             .collect();
 
-        // Filtrer les règles applicables à ce membre
+        // Filtrer les règles applicables à ce membre.
+        // IMPORTANT : seules les règles avec un businessRoleId explicite sont
+        // considérées. Les règles sans businessRoleId sont des « globales orphelines »
+        // qui ne figurent pas dans la Matrice d'Accès et ne doivent accorder d'accès
+        // à personne individuellement.
         const memberRules = allRules.filter((rule) => {
-            const unitMatch = !rule.orgUnitId || rule.orgUnitId === member.orgUnitId;
-            const roleMatch = !rule.businessRoleId || rule.businessRoleId === member.businessRoleId;
-            return unitMatch && roleMatch;
+            // Exiger un businessRoleId correspondant
+            if (!rule.businessRoleId || rule.businessRoleId !== member.businessRoleId) return false;
+            // orgUnitId : match si (a) règle sans orgUnitId (globale),
+            //   (b) orgUnitId identique, ou (c) membre sans orgUnitId (accepter toute règle pour son rôle)
+            const unitMatch = !rule.orgUnitId
+                || rule.orgUnitId === member.orgUnitId
+                || !member.orgUnitId;
+            return unitMatch;
         });
 
         // 4. Récupérer les overrides
@@ -345,7 +359,7 @@ export const resolveUserAccess = query({
         );
 
         // 5. Construire la map d'accès
-        const cap = PLATFORM_CAP[member.role] ?? "lecture";
+        const cap = PLATFORM_CAP[member.level] ?? "lecture";
 
         return cells.map((cell) => {
             // Chercher un override pour cette cellule

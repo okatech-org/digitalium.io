@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// DIGITALIUM.IO — Config: RBAC (6 niveaux)
+// DIGITALIUM.IO — Config: RBAC (simplifié)
 // Centralised role-based access control constants
 // ═══════════════════════════════════════════════
 
@@ -20,10 +20,8 @@ export type { PlatformRole, AdminPermissions };
 export const ROLE_LEVELS: Record<PlatformRole, number> = {
     system_admin: 0,
     platform_admin: 1,
-    org_admin: 2,
-    org_manager: 3,
-    org_member: 4,
-    org_viewer: 5,
+    admin: 2,
+    membre: 4,
 } as const;
 
 /* ───────────────────────────────────────────────
@@ -33,10 +31,10 @@ export const ROLE_LEVELS: Record<PlatformRole, number> = {
 export const LEVEL_TO_ROLE: Record<number, PlatformRole> = {
     0: "system_admin",
     1: "platform_admin",
-    2: "org_admin",
-    3: "org_manager",
-    4: "org_member",
-    5: "org_viewer",
+    2: "admin",
+    3: "membre",
+    4: "membre",
+    5: "membre",
 } as const;
 
 /* ───────────────────────────────────────────────
@@ -46,16 +44,14 @@ export const LEVEL_TO_ROLE: Record<number, PlatformRole> = {
 export const ADMIN_ROLES: PlatformRole[] = [
     "system_admin",
     "platform_admin",
-    "org_admin",
+    "admin",
 ] as const;
 
 export const ALL_ROLES: PlatformRole[] = [
     "system_admin",
     "platform_admin",
-    "org_admin",
-    "org_manager",
-    "org_member",
-    "org_viewer",
+    "admin",
+    "membre",
 ] as const;
 
 /* ───────────────────────────────────────────────
@@ -65,19 +61,15 @@ export const ALL_ROLES: PlatformRole[] = [
 export const ROLE_LABELS: Record<PlatformRole, string> = {
     system_admin: "Administrateur Système",
     platform_admin: "Administrateur Plateforme",
-    org_admin: "Administrateur Organisation",
-    org_manager: "Gestionnaire",
-    org_member: "Collaborateur",
-    org_viewer: "Observateur",
+    admin: "Administrateur Organisation",
+    membre: "Membre",
 } as const;
 
 export const ROLE_DESCRIPTIONS: Record<PlatformRole, string> = {
     system_admin: "Accès total à l'infrastructure et à la plateforme",
     platform_admin: "Administration de la plateforme, organisations et utilisateurs",
-    org_admin: "Administration complète d'une organisation",
-    org_manager: "Gestion d'un service ou département",
-    org_member: "Collaborateur avec accès lecture/écriture",
-    org_viewer: "Accès en lecture seule",
+    admin: "Administration complète d'une organisation",
+    membre: "Collaborateur — accès déterminé par le rôle métier",
 } as const;
 
 /* ───────────────────────────────────────────────
@@ -87,10 +79,8 @@ export const ROLE_DESCRIPTIONS: Record<PlatformRole, string> = {
 export const ROLE_COLORS: Record<PlatformRole, string> = {
     system_admin: "#EF4444",   // red
     platform_admin: "#F97316", // orange
-    org_admin: "#8B5CF6",      // violet
-    org_manager: "#3B82F6",    // blue
-    org_member: "#10B981",     // emerald
-    org_viewer: "#6B7280",     // gray
+    admin: "#8B5CF6",          // violet
+    membre: "#10B981",         // emerald
 } as const;
 
 /* ───────────────────────────────────────────────
@@ -120,7 +110,7 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canManageFilingStructure: true,
         canManageModuleConfig: true,
     },
-    org_admin: {
+    admin: {
         canManageUsers: true,
         canManageOrganizations: false,
         canManageSystem: false,
@@ -131,35 +121,13 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, AdminPermissions> = {
         canManageFilingStructure: true,
         canManageModuleConfig: true,
     },
-    org_manager: {
-        canManageUsers: false,
-        canManageOrganizations: false,
-        canManageSystem: false,
-        canViewAnalytics: true,
-        canManageBilling: false,
-        canEditContent: true,
-        canManageOrgStructure: false,
-        canManageFilingStructure: false,
-        canManageModuleConfig: false,
-    },
-    org_member: {
+    membre: {
         canManageUsers: false,
         canManageOrganizations: false,
         canManageSystem: false,
         canViewAnalytics: false,
         canManageBilling: false,
         canEditContent: true,
-        canManageOrgStructure: false,
-        canManageFilingStructure: false,
-        canManageModuleConfig: false,
-    },
-    org_viewer: {
-        canManageUsers: false,
-        canManageOrganizations: false,
-        canManageSystem: false,
-        canViewAnalytics: false,
-        canManageBilling: false,
-        canEditContent: false,
         canManageOrgStructure: false,
         canManageFilingStructure: false,
         canManageModuleConfig: false,

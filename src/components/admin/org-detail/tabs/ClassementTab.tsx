@@ -22,6 +22,8 @@ import {
   Loader2,
   Download,
   X,
+  RotateCcw,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -346,7 +348,7 @@ function ArborescencePanel({ orgId, orgType }: { orgId: any; orgType: string }) 
         code: data.code,
         intitule: data.intitule,
         accessDefaut: data.accessDefaut,
-        parentId: data.parentId ?? undefined,
+        parentId: data.parentId ? (data.parentId as any) : undefined,
         niveau: data.parentId ? 1 : 0,
         tags: [],
         ordre: tree.length,
@@ -529,7 +531,6 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
     const roles = businessRoles ?? [];
 
     if (units.length > 0 && roles.length > 0) {
-      // Scoped matrix: each unit × roles matching that unit's type
       for (const unit of units) {
         const unitType = (unit as any).type;
         const matchingRoles = roles.filter(
@@ -546,12 +547,10 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
         }
       }
     } else if (roles.length > 0) {
-      // Roles only (no units created yet)
       for (const role of roles) {
         cols.push({ key: `__${role._id}`, roleId: role._id, label: (role as any).nom });
       }
     } else if (units.length > 0) {
-      // Units only (no roles created yet)
       for (const unit of units) {
         cols.push({ key: `${unit._id}__`, unitId: unit._id, label: (unit as any).nom });
       }
@@ -561,51 +560,182 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
 
   // ─── Convex persistence (cell_access_rules) ───
   const accessRules = useQuery(api.cellAccessRules.listByOrg, { organizationId: orgId });
-  const setRuleMutation = useMutation(api.cellAccessRules.setRule);
+  const bulkUpsertMutation = useMutation(api.cellAccessRules.bulkUpsert);
 
-  // Build lookup: "cellId__unitId__roleId" → access level
-  const ruleMap = React.useMemo(() => {
-    const map: Record<string, AccessLevelType> = {};
+  // ─── Server state snapshot (readonly reference) ───
+  const serverMap = React.useMemo(() => {
+    const map: Record<string, { acces: AccessLevelType; ruleId?: string }> = {};
     if (accessRules) {
       for (const r of accessRules) {
         if (!r.estActif) continue;
         const key = `${r.filingCellId}__${r.orgUnitId ?? ""}__${r.businessRoleId ?? ""}`;
-        map[key] = r.acces as AccessLevelType;
+        map[key] = { acces: r.acces as AccessLevelType, ruleId: r._id };
       }
     }
     return map;
   }, [accessRules]);
 
+  // ─── Local state (editable copy) ───
+  const [localMap, setLocalMap] = React.useState<Record<string, AccessLevelType>>({});
+  const [saving, setSaving] = React.useState(false);
+
+  // Sync local state from server rules whenever accessRules changes
+  // Use a ref to track what we last synced from, so we only overwrite
+  // localMap when server data actually changes (not on every render).
+  const lastSyncedRulesRef = React.useRef<typeof accessRules>(undefined);
+
+  React.useEffect(() => {
+    if (accessRules && accessRules !== lastSyncedRulesRef.current) {
+      lastSyncedRulesRef.current = accessRules;
+      const init: Record<string, AccessLevelType> = {};
+      for (const [key, val] of Object.entries(serverMap)) {
+        init[key] = val.acces;
+      }
+      setLocalMap(init);
+    }
+  }, [accessRules, serverMap]);
+
+  // ─── Dirty tracking ───
+  const dirtyKeys = React.useMemo(() => {
+    const dirty = new Set<string>();
+    // Check modified or added
+    for (const [key, localAccess] of Object.entries(localMap)) {
+      const serverAccess = serverMap[key]?.acces ?? "aucun";
+      if (localAccess !== serverAccess) dirty.add(key);
+    }
+    // Check removed (was on server but now "aucun" or removed from local)
+    for (const [key, val] of Object.entries(serverMap)) {
+      const localAccess = localMap[key] ?? "aucun";
+      if (localAccess !== val.acces) dirty.add(key);
+    }
+    return dirty;
+  }, [localMap, serverMap]);
+
+  const isDirty = dirtyKeys.size > 0;
+
+  // ─── Helpers ───
+  const makeKey = (cellId: string, unitId?: string, roleId?: string) =>
+    `${cellId}__${unitId ?? ""}__${roleId ?? ""}`;
+
   const getAccess = (cellId: string, unitId?: string, roleId?: string): AccessLevelType => {
-    return ruleMap[`${cellId}__${unitId ?? ""}__${roleId ?? ""}`] ?? "aucun";
+    return localMap[makeKey(cellId, unitId, roleId)] ?? "aucun";
   };
 
-  const handleCycleAccess = async (cellId: string, unitId?: string, roleId?: string) => {
-    const current = getAccess(cellId, unitId, roleId);
+  // ─── Click: cycle access (local only) ───
+  const handleCycleAccess = (cellId: string, unitId?: string, roleId?: string) => {
+    const key = makeKey(cellId, unitId, roleId);
+    const current = localMap[key] ?? "aucun";
     const next = nextAccessLevel(current);
+    setLocalMap((prev) => {
+      const copy = { ...prev };
+      if (next === "aucun") {
+        delete copy[key];
+      } else {
+        copy[key] = next;
+      }
+      return copy;
+    });
+  };
+
+  // ─── Fill column: set all cells for one column to a level ───
+  const handleFillColumn = (col: typeof columns[0], level: AccessLevelType) => {
+    setLocalMap((prev) => {
+      const copy = { ...prev };
+      for (const cell of flatCells) {
+        const key = makeKey(cell.id, col.unitId, col.roleId);
+        if (level === "aucun") {
+          delete copy[key];
+        } else {
+          copy[key] = level;
+        }
+      }
+      return copy;
+    });
+  };
+
+  // ─── Fill row: set all columns for one cell to a level ───
+  const handleFillRow = (cellId: string, level: AccessLevelType) => {
+    setLocalMap((prev) => {
+      const copy = { ...prev };
+      for (const col of columns) {
+        const key = makeKey(cellId, col.unitId, col.roleId);
+        if (level === "aucun") {
+          delete copy[key];
+        } else {
+          copy[key] = level;
+        }
+      }
+      return copy;
+    });
+  };
+
+  // ─── Reset to server state ───
+  const handleReset = () => {
+    const init: Record<string, AccessLevelType> = {};
+    for (const [key, val] of Object.entries(serverMap)) {
+      init[key] = val.acces;
+    }
+    setLocalMap(init);
+  };
+
+  // ─── Save: compute diff → bulkUpsert ───
+  const handleSave = async () => {
+    setSaving(true);
     try {
-      await setRuleMutation({
+      // Upserts: keys in local that differ from server
+      const upserts: { filingCellId: any; orgUnitId?: any; businessRoleId?: any; acces: any }[] = [];
+      const removals: any[] = [];
+
+      for (const key of Array.from(dirtyKeys)) {
+        const [cellId, unitId, roleId] = key.split("__");
+        const localAccess = localMap[key] ?? "aucun";
+        const serverEntry = serverMap[key];
+
+        if (localAccess === "aucun" && serverEntry?.ruleId) {
+          // Rule was on server, now removed
+          removals.push(serverEntry.ruleId);
+        } else if (localAccess !== "aucun") {
+          // New or changed rule
+          upserts.push({
+            filingCellId: cellId,
+            orgUnitId: unitId || undefined,
+            businessRoleId: roleId || undefined,
+            acces: localAccess,
+          });
+        }
+      }
+
+      await bulkUpsertMutation({
         organizationId: orgId,
-        filingCellId: cellId as any,
-        orgUnitId: unitId ? (unitId as any) : undefined,
-        businessRoleId: roleId ? (roleId as any) : undefined,
-        acces: next,
+        upserts,
+        removals,
       });
-    } catch {
-      toast.error("Erreur de sauvegarde");
+
+      toast.success("Matrice sauvegardée", {
+        description: `${upserts.length} règle(s) modifiée(s), ${removals.length} supprimée(s)`,
+      });
+    } catch (err: any) {
+      console.error("Matrice save error:", err);
+      toast.error("Erreur lors de la sauvegarde", {
+        description: err?.message ?? "Erreur inconnue",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Access cell renderer
+  // ─── Access cell renderer ───
   const renderAccessCell = (cellId: string, col: typeof columns[0]) => {
-    const level = getAccess(cellId, col.unitId, col.roleId);
+    const key = makeKey(cellId, col.unitId, col.roleId);
+    const level = localMap[key] ?? "aucun";
     const display = ACCESS_DISPLAY[level];
+    const modified = dirtyKeys.has(key);
     return (
       <td key={col.key} className="py-1.5 px-2 text-center">
         <button
           onClick={() => handleCycleAccess(cellId, col.unitId, col.roleId)}
-          className={`w-8 h-8 rounded-lg border border-white/10 transition-all hover:scale-105 hover:border-white/20 flex items-center justify-center mx-auto ${display.bg}`}
-          title={`${display.label} — cliquez pour changer`}
+          className={`w-8 h-8 rounded-lg border transition-all hover:scale-105 hover:border-white/20 flex items-center justify-center mx-auto ${display.bg} ${modified ? "border-amber-400/60 ring-1 ring-amber-400/30" : "border-white/10"}`}
+          title={`${display.label}${modified ? " (modifié)" : ""} — cliquez pour changer`}
         >
           <span className={`text-sm ${display.text}`}>{display.icon}</span>
         </button>
@@ -617,24 +747,64 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
   const hasUnits = (orgUnits ?? []).length > 0;
   const hasRoles = (businessRoles ?? []).length > 0;
 
+  // ─── Fill menu state ───
+  const [fillMenu, setFillMenu] = React.useState<{
+    type: "col" | "row";
+    col?: typeof columns[0];
+    cellId?: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   return (
     <motion.div variants={fadeUp} className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Grid3X3 className="h-4 w-4 text-blue-400" />
           <span className="text-sm font-semibold">Matrice d&apos;Accès</span>
+          {isDirty && (
+            <Badge variant="secondary" className="text-[9px] bg-amber-500/15 text-amber-400 border-0 animate-pulse">
+              {dirtyKeys.size} modification{dirtyKeys.size > 1 ? "s" : ""}
+            </Badge>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-[9px] text-muted-foreground">
-          {ACCESS_LEVELS.map((level) => {
-            const d = ACCESS_DISPLAY[level];
-            return (
-              <div key={level} className="flex items-center gap-1">
-                <span className={`inline-block w-4 h-4 rounded text-center leading-4 text-[10px] ${d.bg} ${d.text}`}>{d.icon}</span>
-                <span>{d.label}</span>
-              </div>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          {isDirty && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[10px] text-white/50 hover:text-white/70"
+                onClick={handleReset}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 text-[10px] bg-gradient-to-r from-emerald-600 to-green-500 text-white border-0 hover:opacity-90 gap-1"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                Sauvegarder
+              </Button>
+            </>
+          )}
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-2 text-[9px] text-muted-foreground">
+        {ACCESS_LEVELS.map((level) => {
+          const d = ACCESS_DISPLAY[level];
+          return (
+            <div key={level} className="flex items-center gap-1">
+              <span className={`inline-block w-4 h-4 rounded text-center leading-4 text-[10px] ${d.bg} ${d.text}`}>{d.icon}</span>
+              <span>{d.label}</span>
+            </div>
+          );
+        })}
       </div>
 
       {(!hasUnits || !hasRoles) && (
@@ -673,11 +843,19 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
                     ))}
                   </tr>
                 )}
-                {/* Main labels row (role names) */}
+                {/* Main labels row (role names) — click for fill column */}
                 <tr className="border-b border-white/5">
                   <th className="text-left py-2.5 px-3 font-medium text-white/50 min-w-[200px]">Cellule / Rôle</th>
                   {columns.map((col) => (
-                    <th key={col.key} className="py-2.5 px-2 font-medium text-white/50 text-center min-w-[60px] text-[10px]">
+                    <th
+                      key={col.key}
+                      className="py-2.5 px-2 font-medium text-white/50 text-center min-w-[60px] text-[10px] cursor-pointer hover:text-blue-400 transition-colors"
+                      title="Clic droit : remplir la colonne"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setFillMenu({ type: "col", col, x: e.clientX, y: e.clientY });
+                      }}
+                    >
                       {col.label}
                     </th>
                   ))}
@@ -686,7 +864,15 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
               <tbody>
                 {flatCells.map((cell) => (
                   <tr key={cell.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <td className="py-1.5 px-3 text-white/70 font-medium" style={{ paddingLeft: 12 + cell.depth * 16 }}>
+                    <td
+                      className="py-1.5 px-3 text-white/70 font-medium cursor-pointer hover:text-blue-400 transition-colors"
+                      style={{ paddingLeft: 12 + cell.depth * 16 }}
+                      title="Clic droit : remplir la ligne"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setFillMenu({ type: "row", cellId: cell.id, x: e.clientX, y: e.clientY });
+                      }}
+                    >
                       {cell.depth > 0 && <span className="text-white/20 mr-1">└</span>}
                       {cell.label.split(" / ").pop()}
                     </td>
@@ -698,8 +884,45 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
           </div>
 
           <p className="text-[11px] text-muted-foreground text-center">
-            Cliquez sur une cellule pour cycler le niveau d&apos;accès : — → 👁 → ✏️ → ⚙️ → 🔑 → —
+            Cliquez sur une cellule pour cycler le niveau d&apos;accès · Clic droit sur un en-tête pour remplir
           </p>
+        </>
+      )}
+
+      {/* ─── Fill Context Menu ─── */}
+      {fillMenu && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setFillMenu(null)} />
+          {/* Menu */}
+          <div
+            className="fixed z-50 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl py-1 min-w-[160px]"
+            style={{ left: fillMenu.x, top: fillMenu.y }}
+          >
+            <p className="text-[9px] text-white/30 px-3 py-1 uppercase tracking-wider">
+              Remplir {fillMenu.type === "col" ? "la colonne" : "la ligne"}
+            </p>
+            {ACCESS_LEVELS.map((level) => {
+              const d = ACCESS_DISPLAY[level];
+              return (
+                <button
+                  key={level}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-white/5 transition-colors flex items-center gap-2"
+                  onClick={() => {
+                    if (fillMenu.type === "col" && fillMenu.col) {
+                      handleFillColumn(fillMenu.col, level);
+                    } else if (fillMenu.type === "row" && fillMenu.cellId) {
+                      handleFillRow(fillMenu.cellId, level);
+                    }
+                    setFillMenu(null);
+                  }}
+                >
+                  <span className={`inline-block w-4 h-4 rounded text-center leading-4 text-[10px] ${d.bg} ${d.text}`}>{d.icon}</span>
+                  <span>{d.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </>
       )}
     </motion.div>

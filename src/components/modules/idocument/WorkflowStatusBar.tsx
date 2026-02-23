@@ -25,11 +25,12 @@ import {
 // ─── Types ──────────────────────────────────────
 
 export type DocStatus = "draft" | "review" | "approved" | "archived";
-export type UserRole = "org_member" | "org_manager" | "org_admin" | "org_viewer";
 
+/** userLevel: 2 = admin/gouvernance, 3 = management, 4 = opérationnel, 5 = lecture seule */
 interface WorkflowStatusBarProps {
     status: DocStatus;
-    userRole: UserRole;
+    userLevel: number;
+    isAdmin?: boolean;
     onSubmitForReview?: () => void;
     onApprove?: () => void;
     onReject?: () => void;
@@ -50,7 +51,8 @@ const STATUS_ORDER: DocStatus[] = ["draft", "review", "approved", "archived"];
 
 export default function WorkflowStatusBar({
     status,
-    userRole,
+    userLevel,
+    isAdmin = false,
     onSubmitForReview,
     onApprove,
     onReject,
@@ -58,6 +60,9 @@ export default function WorkflowStatusBar({
     onArchive,
 }: WorkflowStatusBarProps) {
     const currentIdx = STATUS_ORDER.indexOf(status);
+    const canEdit = userLevel <= 4;         // Tout sauf lecture seule
+    const canValidate = userLevel <= 3;     // Management + direction + gouvernance
+    const canAdminister = isAdmin || userLevel <= 2; // Admin ou gouvernance/direction
 
     return (
         <motion.div
@@ -80,8 +85,8 @@ export default function WorkflowStatusBar({
                                 <div className="flex items-center mx-1">
                                     <ChevronRight
                                         className={`h-3 w-3 ${isPast
-                                                ? "text-emerald-500/50"
-                                                : "text-zinc-700"
+                                            ? "text-emerald-500/50"
+                                            : "text-zinc-700"
                                             }`}
                                     />
                                 </div>
@@ -105,12 +110,12 @@ export default function WorkflowStatusBar({
                                 <Badge
                                     variant="outline"
                                     className={`text-[10px] h-6 px-2.5 gap-1.5 border transition-all ${isActive
-                                            ? `${step.activeBg} ${step.activeColor} ${step.activeBorder} shadow-sm`
-                                            : isPast
-                                                ? "bg-emerald-500/10 text-emerald-400/60 border-emerald-500/15"
-                                                : isFuture
-                                                    ? "bg-zinc-800/40 text-zinc-600 border-zinc-700/30"
-                                                    : `${step.bg} ${step.color} ${step.border}`
+                                        ? `${step.activeBg} ${step.activeColor} ${step.activeBorder} shadow-sm`
+                                        : isPast
+                                            ? "bg-emerald-500/10 text-emerald-400/60 border-emerald-500/15"
+                                            : isFuture
+                                                ? "bg-zinc-800/40 text-zinc-600 border-zinc-700/30"
+                                                : `${step.bg} ${step.color} ${step.border}`
                                         }`}
                                 >
                                     {isPast ? (
@@ -128,8 +133,8 @@ export default function WorkflowStatusBar({
 
             {/* ─── Action Buttons ─── */}
             <div className="flex items-center justify-center gap-2">
-                {/* DRAFT → Submit for review (org_member, org_manager, org_admin) */}
-                {status === "draft" && userRole !== "org_viewer" && (
+                {/* DRAFT → Submit for review (tout le monde sauf lecture seule) */}
+                {status === "draft" && canEdit && (
                     <Button
                         size="sm"
                         className="h-7 text-[11px] gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
@@ -140,35 +145,33 @@ export default function WorkflowStatusBar({
                     </Button>
                 )}
 
-                {/* REVIEW → Approve (org_manager, org_admin) */}
-                {status === "review" &&
-                    (userRole === "org_manager" || userRole === "org_admin") && (
-                        <Button
-                            size="sm"
-                            className="h-7 text-[11px] gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={onApprove}
-                        >
-                            <ThumbsUp className="h-3 w-3" />
-                            Approuver
-                        </Button>
-                    )}
+                {/* REVIEW → Approve (management+) */}
+                {status === "review" && canValidate && (
+                    <Button
+                        size="sm"
+                        className="h-7 text-[11px] gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={onApprove}
+                    >
+                        <ThumbsUp className="h-3 w-3" />
+                        Approuver
+                    </Button>
+                )}
 
-                {/* REVIEW → Request changes (org_manager, org_admin) */}
-                {status === "review" &&
-                    (userRole === "org_manager" || userRole === "org_admin") && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-[11px] gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                            onClick={onRequestChanges}
-                        >
-                            <RotateCcw className="h-3 w-3" />
-                            Demander des modifications
-                        </Button>
-                    )}
+                {/* REVIEW → Request changes (management+) */}
+                {status === "review" && canValidate && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                        onClick={onRequestChanges}
+                    >
+                        <RotateCcw className="h-3 w-3" />
+                        Demander des modifications
+                    </Button>
+                )}
 
-                {/* REVIEW → Reject (org_admin only) */}
-                {status === "review" && userRole === "org_admin" && (
+                {/* REVIEW → Reject (admin seulement) */}
+                {status === "review" && canAdminister && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -180,8 +183,8 @@ export default function WorkflowStatusBar({
                     </Button>
                 )}
 
-                {/* APPROVED → Archive (org_admin only) */}
-                {status === "approved" && userRole === "org_admin" && (
+                {/* APPROVED → Archive (admin seulement) */}
+                {status === "approved" && canAdminister && (
                     <Button
                         size="sm"
                         className="h-7 text-[11px] gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
