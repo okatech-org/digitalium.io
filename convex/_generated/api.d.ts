@@ -9,9 +9,11 @@
  */
 
 import type * as aiSmartImport from "../aiSmartImport.js";
+import type * as archiveBridge from "../archiveBridge.js";
 import type * as archiveConfig from "../archiveConfig.js";
 import type * as archives from "../archives.js";
 import type * as auditLogs from "../auditLogs.js";
+import type * as automationEngine from "../automationEngine.js";
 import type * as businessRoles from "../businessRoles.js";
 import type * as cellAccessOverrides from "../cellAccessOverrides.js";
 import type * as cellAccessRules from "../cellAccessRules.js";
@@ -23,8 +25,11 @@ import type * as filingCells from "../filingCells.js";
 import type * as filingStructures from "../filingStructures.js";
 import type * as fixArchiveData from "../fixArchiveData.js";
 import type * as fixLifecycleData from "../fixLifecycleData.js";
+import type * as folderArchiveMetadata from "../folderArchiveMetadata.js";
+import type * as folders from "../folders.js";
 import type * as generateDemoAccounts from "../generateDemoAccounts.js";
 import type * as leads from "../leads.js";
+import type * as lib_certificateNumber from "../lib/certificateNumber.js";
 import type * as lifecycleScheduler from "../lifecycleScheduler.js";
 import type * as orgMembers from "../orgMembers.js";
 import type * as orgSites from "../orgSites.js";
@@ -47,9 +52,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   aiSmartImport: typeof aiSmartImport;
+  archiveBridge: typeof archiveBridge;
   archiveConfig: typeof archiveConfig;
   archives: typeof archives;
   auditLogs: typeof auditLogs;
+  automationEngine: typeof automationEngine;
   businessRoles: typeof businessRoles;
   cellAccessOverrides: typeof cellAccessOverrides;
   cellAccessRules: typeof cellAccessRules;
@@ -61,8 +68,11 @@ declare const fullApi: ApiFromModules<{
   filingStructures: typeof filingStructures;
   fixArchiveData: typeof fixArchiveData;
   fixLifecycleData: typeof fixLifecycleData;
+  folderArchiveMetadata: typeof folderArchiveMetadata;
+  folders: typeof folders;
   generateDemoAccounts: typeof generateDemoAccounts;
   leads: typeof leads;
+  "lib/certificateNumber": typeof lib_certificateNumber;
   lifecycleScheduler: typeof lifecycleScheduler;
   orgMembers: typeof orgMembers;
   orgSites: typeof orgSites;

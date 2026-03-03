@@ -64,7 +64,7 @@ const personas = [
             "API & intégrations",
             "Support prioritaire (< 4h)",
         ],
-        cta: "Configurer mon écosystème",
+        cta: "Configurer ma Structure de Classement",
         ctaHref: "/register",
         ctaExternal: false,
         ctaNote: null,

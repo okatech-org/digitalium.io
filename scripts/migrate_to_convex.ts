@@ -61,9 +61,9 @@ async function migrateOrganizations() {
 
         for (const org of rows) {
             const convexOrg = {
-                orgId: org.id || org.uid,
                 name: org.name,
-                domain: org.domain,
+                type: (org.type || "enterprise") as "enterprise" | "institution" | "government",
+                ownerId: org.owner_id || org.id || org.uid || "migration",
                 logoUrl: org.logo_url,
             };
 

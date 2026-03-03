@@ -1,14 +1,14 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════
-// DIGITALIUM.IO — iDocument: Corbeille (Trash)
+// DIGITALIUM.IO — iDocument: Corbeille (Trash) — Connecté Convex
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Trash2, FileText, RotateCcw, XCircle, Search, Clock, AlertTriangle,
-    CheckCircle2,
+    Trash2, FileText, RotateCcw, XCircle, Search, AlertTriangle,
+    CheckCircle2, Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,53 +23,9 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
-
-// ─── Types ──────────────────────────────────────────────────────
-
-interface TrashedDoc {
-    id: string;
-    title: string;
-    deletedBy: string;
-    deletedAt: string;
-    daysRemaining: number;
-    size: string;
-    originalStatus: string;
-}
-
-// ─── Demo data ──────────────────────────────────────────────────
-
-const INITIAL_TRASH: TrashedDoc[] = [
-    {
-        id: "tr-1",
-        title: "Ancien organigramme 2025 — ASCOMA Gabon",
-        deletedBy: "Marie Nzé", deletedAt: "Il y a 2 jours",
-        daysRemaining: 28, size: "1.2 MB", originalStatus: "Approuvé",
-    },
-    {
-        id: "tr-2",
-        title: "Brouillon contrat prestation v1 — Gabon Télécom",
-        deletedBy: "Patrick Obiang", deletedAt: "Il y a 5 jours",
-        daysRemaining: 25, size: "456 KB", originalStatus: "Brouillon",
-    },
-    {
-        id: "tr-3",
-        title: "Notes réunion SEEG — version obsolète",
-        deletedBy: "Aimée Gondjout", deletedAt: "Il y a 8 jours",
-        daysRemaining: 22, size: "234 KB", originalStatus: "Brouillon",
-    },
-    {
-        id: "tr-4",
-        title: "Rapport Q3 2025 — version remplacée",
-        deletedBy: "Claude Mboumba", deletedAt: "Il y a 12 jours",
-        daysRemaining: 18, size: "3.1 MB", originalStatus: "Archivé",
-    },
-    {
-        id: "tr-5",
-        title: "Devis prestation audit — doublon",
-        deletedBy: "Daniel Nguema", deletedAt: "Il y a 20 jours",
-        daysRemaining: 10, size: "890 KB", originalStatus: "En révision",
-    },
-];
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 // ─── Animations ─────────────────────────────────────────────────
 
@@ -79,22 +35,63 @@ const fadeUp = {
 };
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 
+// ─── Helpers ────────────────────────────────────────────────────
+
+function formatTimeAgo(ts: number): string {
+    const diff = Date.now() - ts;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `Il y a ${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Il y a ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `Il y a ${days}j`;
+}
+
+function formatSize(bytes?: number): string {
+    if (!bytes) return "—";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function getDaysRemaining(trashedAt?: number): number {
+    if (!trashedAt) return 30;
+    const elapsed = Date.now() - trashedAt;
+    return Math.max(0, 30 - Math.floor(elapsed / 86400000));
+}
+
+const STATUS_LABELS: Record<string, string> = {
+    draft: "Brouillon",
+    review: "En révision",
+    approved: "Approuvé",
+    archived: "Archivé",
+};
+
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
 export default function DocumentTrashPage() {
-    const [items, setItems] = useState<TrashedDoc[]>(INITIAL_TRASH);
+    // ─── Convex data ─────────────────────────
+    const trashedDocs = useQuery(api.documents.listTrashed, {});
+    const restoreMut = useMutation(api.documents.restore);
+    const permanentDeleteMut = useMutation(api.documents.permanentDelete);
+
     const [search, setSearch] = useState("");
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [showEmptyDialog, setShowEmptyDialog] = useState(false);
     const [toastMsg, setToastMsg] = useState("");
+    const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+
+    const items = trashedDocs ?? [];
 
     const filtered = useMemo(() => {
         if (!search) return items;
         const q = search.toLowerCase();
         return items.filter(
-            (d) => d.title.toLowerCase().includes(q) || d.deletedBy.toLowerCase().includes(q)
+            (d) =>
+                d.title.toLowerCase().includes(q) ||
+                (d.trashedBy && d.trashedBy.toLowerCase().includes(q))
         );
     }, [items, search]);
 
@@ -109,7 +106,7 @@ export default function DocumentTrashPage() {
 
     const toggleSelectAll = useCallback(() => {
         setSelected((prev) =>
-            prev.size === filtered.length ? new Set() : new Set(filtered.map((d) => d.id))
+            prev.size === filtered.length ? new Set() : new Set(filtered.map((d) => d._id))
         );
     }, [filtered]);
 
@@ -119,45 +116,88 @@ export default function DocumentTrashPage() {
     };
 
     const handleRestore = useCallback(
-        (id: string) => {
-            const doc = items.find((d) => d.id === id);
-            setItems((prev) => prev.filter((d) => d.id !== id));
-            setSelected((prev) => {
+        async (id: string) => {
+            setLoadingIds((prev) => new Set(prev).add(id));
+            try {
+                await restoreMut({ id: id as Id<"documents"> });
+                setSelected((prev) => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+                showToast("Document restauré avec succès");
+            } catch (err) {
+                console.error("[Trash] Restore error:", err);
+                showToast("Erreur lors de la restauration");
+            }
+            setLoadingIds((prev) => {
                 const next = new Set(prev);
                 next.delete(id);
                 return next;
             });
-            showToast(`« ${doc?.title} » restauré avec succès`);
         },
-        [items]
+        [restoreMut]
     );
 
-    const handleRestoreSelected = useCallback(() => {
-        const count = selected.size;
-        setItems((prev) => prev.filter((d) => !selected.has(d.id)));
+    const handleRestoreSelected = useCallback(async () => {
+        const ids = Array.from(selected);
+        for (const id of ids) {
+            try {
+                await restoreMut({ id: id as Id<"documents"> });
+            } catch (err) {
+                console.error("[Trash] Bulk restore error:", err);
+            }
+        }
         setSelected(new Set());
-        showToast(`${count} document(s) restauré(s)`);
-    }, [selected]);
+        showToast(`${ids.length} document(s) restauré(s)`);
+    }, [selected, restoreMut]);
 
     const handleDeletePermanent = useCallback(
-        (id: string) => {
-            setItems((prev) => prev.filter((d) => d.id !== id));
-            setSelected((prev) => {
+        async (id: string) => {
+            setLoadingIds((prev) => new Set(prev).add(id));
+            try {
+                await permanentDeleteMut({ id: id as Id<"documents"> });
+                setSelected((prev) => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+                showToast("Document supprimé définitivement");
+            } catch (err) {
+                console.error("[Trash] Delete error:", err);
+                showToast("Erreur lors de la suppression");
+            }
+            setLoadingIds((prev) => {
                 const next = new Set(prev);
                 next.delete(id);
                 return next;
             });
-            showToast("Document supprimé définitivement");
         },
-        []
+        [permanentDeleteMut]
     );
 
-    const handleEmptyTrash = useCallback(() => {
-        setItems([]);
-        setSelected(new Set());
+    const handleEmptyTrash = useCallback(async () => {
         setShowEmptyDialog(false);
+        for (const doc of items) {
+            try {
+                await permanentDeleteMut({ id: doc._id });
+            } catch (err) {
+                console.error("[Trash] Empty error:", err);
+            }
+        }
+        setSelected(new Set());
         showToast("Corbeille vidée");
-    }, []);
+    }, [items, permanentDeleteMut]);
+
+    // ─── Loading state ──────────────────────────
+    if (trashedDocs === undefined) {
+        return (
+            <div className="flex items-center justify-center py-24">
+                <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+                <span className="ml-2 text-sm text-muted-foreground">Chargement de la corbeille…</span>
+            </div>
+        );
+    }
 
     return (
         <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-5 max-w-[1400px] mx-auto">
@@ -264,11 +304,13 @@ export default function DocumentTrashPage() {
                             {/* Items */}
                             <AnimatePresence>
                                 {filtered.map((doc) => {
-                                    const isSelected = selected.has(doc.id);
-                                    const isUrgent = doc.daysRemaining <= 10;
+                                    const isSelected = selected.has(doc._id);
+                                    const daysRemaining = getDaysRemaining(doc.trashedAt);
+                                    const isUrgent = daysRemaining <= 10;
+                                    const isLoading = loadingIds.has(doc._id);
                                     return (
                                         <motion.div
-                                            key={doc.id}
+                                            key={doc._id}
                                             layout
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: "auto" }}
@@ -278,7 +320,7 @@ export default function DocumentTrashPage() {
                                         >
                                             <Checkbox
                                                 checked={isSelected}
-                                                onCheckedChange={() => toggleSelect(doc.id)}
+                                                onCheckedChange={() => toggleSelect(doc._id)}
                                                 className="border-white/20 data-[state=checked]:bg-violet-600 data-[state=checked]:border-violet-600"
                                             />
 
@@ -290,49 +332,55 @@ export default function DocumentTrashPage() {
                                                         {doc.title}
                                                     </p>
                                                     <p className="text-[10px] text-muted-foreground/60">
-                                                        {doc.deletedAt} · Statut: {doc.originalStatus}
+                                                        {doc.trashedAt ? formatTimeAgo(doc.trashedAt) : "—"} · Statut: {STATUS_LABELS[doc.previousStatus ?? "draft"] ?? doc.previousStatus}
                                                     </p>
                                                 </div>
                                             </div>
 
                                             <span className="w-28 text-[11px] text-muted-foreground hidden sm:block truncate">
-                                                {doc.deletedBy}
+                                                {doc.trashedBy ?? doc.createdBy}
                                             </span>
 
                                             <span className="w-24 text-[11px] text-muted-foreground font-mono hidden md:block">
-                                                {doc.size}
+                                                {formatSize(doc.fileSize)}
                                             </span>
 
                                             <div className="w-28 hidden lg:block">
                                                 <Badge
                                                     className={`text-[9px] h-5 border-0 ${isUrgent
-                                                            ? "bg-red-500/15 text-red-400"
-                                                            : "bg-zinc-500/15 text-zinc-400"
+                                                        ? "bg-red-500/15 text-red-400"
+                                                        : "bg-zinc-500/15 text-zinc-400"
                                                         }`}
                                                 >
                                                     {isUrgent && <AlertTriangle className="h-2.5 w-2.5 mr-1" />}
-                                                    {doc.daysRemaining} jours
+                                                    {daysRemaining} jours
                                                 </Badge>
                                             </div>
 
                                             {/* Actions */}
                                             <div className="w-24 flex items-center gap-1 justify-end">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 text-[10px] text-emerald-400 hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 gap-1 transition-opacity"
-                                                    onClick={() => handleRestore(doc.id)}
-                                                >
-                                                    <RotateCcw className="h-3 w-3" /> Restaurer
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => handleDeletePermanent(doc.id)}
-                                                >
-                                                    <XCircle className="h-3.5 w-3.5" />
-                                                </Button>
+                                                {isLoading ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                                ) : (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 text-[10px] text-emerald-400 hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 gap-1 transition-opacity"
+                                                            onClick={() => handleRestore(doc._id)}
+                                                        >
+                                                            <RotateCcw className="h-3 w-3" /> Restaurer
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={() => handleDeletePermanent(doc._id)}
+                                                        >
+                                                            <XCircle className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </>
+                                                )}
                                             </div>
                                         </motion.div>
                                     );

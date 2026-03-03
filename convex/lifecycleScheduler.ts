@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════
 
 import { internalMutation } from "./_generated/server";
+import { generateDestructionCertNumber } from "./lib/certificateNumber";
 
 // ─── Helpers ──────────────────────────────────
 
@@ -93,6 +94,104 @@ export const processTransitions = internalMutation({
                     stateChangedAt: now,
                     updatedAt: now,
                 });
+                transitioned++;
+            }
+        }
+
+        // ── Étape 3 : Détecter les archives expirées ──
+
+        const archivedItems = await ctx.db
+            .query("archives")
+            .filter((q) => q.eq(q.field("status"), "archived"))
+            .collect();
+
+        for (const archive of archivedItems) {
+            if (!archive.retentionExpiresAt) continue;
+            if (archive.isVault) continue;  // Coffre-Fort = jamais expiré
+
+            if (now >= archive.retentionExpiresAt && archive.status !== "expired" && archive.status !== "destroyed") {
+                // Charger la catégorie pour vérifier autoDestroy
+                const category = archive.categoryId
+                    ? await ctx.db.get(archive.categoryId)
+                    : null;
+
+                const autoDestroy = category?.autoDestroy ?? false;
+
+                if (autoDestroy && !category?.isPerpetual) {
+                    // ── Destruction automatique ──
+                    const certificateNumber = await generateDestructionCertNumber(ctx.db);
+
+                    await ctx.db.insert("destruction_certificates", {
+                        certificateNumber,
+                        archiveId: archive._id,
+                        organizationId: archive.organizationId!,
+                        documentTitle: archive.title,
+                        documentCategory: category?.name ?? "",
+                        documentCategorySlug: archive.categorySlug,
+                        originalFileName: archive.fileName,
+                        originalFileSize: archive.fileSize,
+                        originalMimeType: archive.mimeType,
+                        originalSha256Hash: archive.sha256Hash,
+                        originalContentHash: archive.contentHash,
+                        originalPdfHash: archive.pdfHash,
+                        originalCreatedAt: archive.createdAt,
+                        originalArchivedAt: archive.stateChangedAt ?? archive.createdAt,
+                        retentionYears: archive.retentionYears,
+                        retentionExpiresAt: archive.retentionExpiresAt,
+                        ohadaReference: category?.ohadaReference,
+                        ohadaCompliant: true,
+                        destroyedAt: now,
+                        destroyedBy: "system",
+                        destructionMethod: "legal_expiry",
+                        destructionReason: "Destruction automatique après expiration de la rétention légale",
+                        status: "valid",
+                        issuedAt: now,
+                    });
+
+                    await ctx.db.patch(archive._id, {
+                        status: "destroyed",
+                        lifecycleState: "destroyed",
+                        stateChangedAt: now,
+                        updatedAt: now,
+                    });
+
+                    // Révoquer le certificat d'archivage original
+                    if (archive.certificateId) {
+                        await ctx.db.patch(archive.certificateId, {
+                            status: "revoked",
+                        });
+                    }
+
+                    await ctx.db.insert("audit_logs", {
+                        organizationId: archive.organizationId,
+                        userId: "system",
+                        action: "archive.auto_destroyed",
+                        resourceType: "archive",
+                        resourceId: archive._id,
+                        details: { certificateNumber, reason: "auto_destroy" },
+                        createdAt: now,
+                    });
+                } else {
+                    // ── Marquage "expired" (attente validation manuelle) ──
+                    await ctx.db.patch(archive._id, {
+                        status: "expired",
+                        stateChangedAt: now,
+                        updatedAt: now,
+                    });
+
+                    await ctx.db.insert("audit_logs", {
+                        organizationId: archive.organizationId,
+                        userId: "system",
+                        action: "archive.expired",
+                        resourceType: "archive",
+                        resourceId: archive._id,
+                        details: { retentionExpiresAt: archive.retentionExpiresAt },
+                        createdAt: now,
+                    });
+
+                    // TODO (Itération 2) : Créer notification in-app pour l'admin
+                }
+
                 transitioned++;
             }
         }

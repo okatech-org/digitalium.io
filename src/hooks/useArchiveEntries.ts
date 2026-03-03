@@ -30,7 +30,7 @@ export function useArchiveEntries(categorySlug: ArchiveCategory): {
     const rawArchives = useQuery(
         api.archives.list,
         convexOrgId
-            ? { organizationId: convexOrgId, category: categorySlug }
+            ? { organizationId: convexOrgId, categorySlug: categorySlug }
             : "skip"
     );
 

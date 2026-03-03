@@ -173,7 +173,7 @@ export default function HeroSection({
                             size="lg"
                             className="relative bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90 transition-all text-lg px-8 h-14 shadow-lg shadow-digitalium-blue/20 animate-pulse-glow"
                         >
-                            Configurer Mon Écosystème
+                            Configurer Ma Structure de Classement
                             <ArrowRight className="ml-2 h-5 w-5" />
                         </Button>
                     </Link>

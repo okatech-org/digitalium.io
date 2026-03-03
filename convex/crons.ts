@@ -26,4 +26,12 @@ crons.hourly(
     internal.lifecycleScheduler.processAlerts
 );
 
+// ─── Phase 16 : Scheduled Archives ──────────────
+// Runs every 6 hours — processes folders with archiveSchedule
+crons.interval(
+    "scheduled-archives",
+    { hours: 6 },
+    internal.automationEngine.processScheduledArchives
+);
+
 export default crons;

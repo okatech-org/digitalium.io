@@ -151,11 +151,7 @@ export default function CertificatesPage() {
                 </motion.div>
 
                 <CertificateViewer
-                    certificate={selectedCert}
-                    onVerifyIntegrity={async () => {
-                        await new Promise((r) => setTimeout(r, 1500));
-                        return { isValid: selectedCert.status === "valid" };
-                    }}
+                    archiveId={selectedCert.id as any}
                     onDownloadPDF={() => {
                         // Placeholder for PDF download
                     }}

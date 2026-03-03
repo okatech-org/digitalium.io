@@ -205,6 +205,14 @@ export default defineSchema({
         email: v.optional(v.string()),
         telephone: v.optional(v.string()),
         poste: v.optional(v.string()),
+        // ── v3: Multi-postes (affectations multiples) ──
+        assignments: v.optional(v.array(v.object({
+            businessRoleId: v.id("business_roles"),
+            orgUnitId: v.id("org_units"),
+            isPrimary: v.boolean(),
+            startDate: v.optional(v.number()),
+            endDate: v.optional(v.number()),
+        }))),
         // ── v3: Override des permissions modules (exceptions individuelles) ──
         moduleOverrides: v.optional(v.object({
             dashboard: v.optional(v.boolean()),
@@ -245,6 +253,8 @@ export default defineSchema({
         organizationId: v.optional(v.id("organizations")),
         createdBy: v.string(), // ref users.userId
         parentFolderId: v.optional(v.id("folders")),
+        filingCellId: v.optional(v.id("filing_cells")), // Link to admin structure
+        isSystem: v.optional(v.boolean()), // True if synced from filing_cells
         tags: v.array(v.string()), // e.g. ["fiscal", "social"]
         permissions: v.object({
             visibility: v.union(
@@ -276,7 +286,27 @@ export default defineSchema({
         .index("by_status", ["status"])
         .index("by_parentFolderId", ["parentFolderId"])
         .index("by_isTemplate", ["isTemplate"])
+        .index("by_filingCellId", ["filingCellId"])
         .index("by_org_status", ["organizationId", "status"]),
+
+    // ═══════════════════════════════════════════
+    // 4a-bis. FOLDER ARCHIVE METADATA (Tagging avancé — Phase 15)
+    // ═══════════════════════════════════════════
+    folder_archive_metadata: defineTable({
+        folderId: v.id("folders"),
+        organizationId: v.id("organizations"),
+        archiveCategoryId: v.id("archive_categories"),
+        archiveCategorySlug: v.string(),
+        countingStartEvent: v.string(),  // date_creation | date_cloture | date_tag | date_gel
+        confidentiality: v.string(),     // public | internal | confidential | secret
+        inheritToChildren: v.boolean(),  // Sous-dossiers héritent ?
+        inheritToDocuments: v.boolean(), // Documents enfants héritent ?
+        taggedAt: v.number(),
+        taggedBy: v.string(),            // userId
+    })
+        .index("by_folderId", ["folderId"])
+        .index("by_organizationId", ["organizationId"])
+        .index("by_archiveCategoryId", ["archiveCategoryId"]),
 
     // ═══════════════════════════════════════════
     // 4b. DOCUMENTS (iDocument — Fichiers)
@@ -293,23 +323,48 @@ export default defineSchema({
             v.literal("draft"),
             v.literal("review"),
             v.literal("approved"),
-            v.literal("archived")
+            v.literal("archived"),
+            v.literal("trashed")
         ),
         version: v.number(),
         tags: v.array(v.string()),
         parentFolderId: v.optional(v.string()),
+        // ── Imported file storage (v4) ──
+        folderId: v.optional(v.id("folders")),               // Lien structurel vers le dossier parent
+        storageId: v.optional(v.id("_storage")),             // Convex File Storage ID
+        fileUrl: v.optional(v.string()),                     // URL de téléchargement
+        fileName: v.optional(v.string()),                    // Nom du fichier original
+        fileSize: v.optional(v.number()),                    // Taille en bytes
+        mimeType: v.optional(v.string()),                    // Type MIME du fichier
         // Workflow fields
         workflowReason: v.optional(v.string()),   // approval/rejection comment
         workflowDeadline: v.optional(v.number()),  // deadline timestamp
         workflowAssignee: v.optional(v.string()),  // next approver userId
         sourceDocumentId: v.optional(v.string()),  // link back from archive
+        // ── Trash fields (v5) ──
+        trashedAt: v.optional(v.number()),                   // Timestamp mise en corbeille
+        trashedBy: v.optional(v.string()),                   // Qui a supprimé
+        previousStatus: v.optional(v.string()),              // Statut avant suppression (pour restore)
+        // ── Sharing fields (v5) ──
+        sharedWith: v.optional(v.array(v.object({
+            userId: v.string(),
+            permission: v.union(v.literal("read"), v.literal("edit"), v.literal("comment")),
+            sharedAt: v.number(),
+            sharedBy: v.string(),
+        }))),
+        // ── Archive link fields (v3) ──
+        archiveId: v.optional(v.id("archives")),             // Lien vers l'archive créée
+        archivedAt: v.optional(v.number()),                  // Timestamp d'archivage
+        archiveCategorySlug: v.optional(v.string()),         // Slug catégorie pour affichage rapide
         createdAt: v.number(),
         updatedAt: v.number(),
     })
         .index("by_organizationId", ["organizationId"])
         .index("by_createdBy", ["createdBy"])
         .index("by_status", ["status"])
-        .index("by_org_status", ["organizationId", "status"]),
+        .index("by_org_status", ["organizationId", "status"])
+        .index("by_parentFolderId", ["parentFolderId"])
+        .index("by_folderId", ["folderId"]),
 
     // ═══════════════════════════════════════════
     // 5. DOCUMENT VERSIONS (historique)
@@ -358,6 +413,7 @@ export default defineSchema({
         alertBeforeArchiveMonths: v.optional(v.number()), // délai d'alerte pré-archivage en mois
         hasSemiActivePhase: v.optional(v.boolean()),      // true si phase semi-active activée
         isPerpetual: v.optional(v.boolean()),              // true pour le Coffre-Fort
+        autoDestroy: v.optional(v.boolean()),              // true = destruction auto à l'expiration. Défaut: false
         defaultConfidentiality: v.union(
             v.literal("public"),
             v.literal("internal"),
@@ -373,7 +429,8 @@ export default defineSchema({
         .index("by_organizationId", ["organizationId"])
         .index("by_slug", ["slug"])
         .index("by_isActive", ["isActive"])
-        .index("by_sortOrder", ["sortOrder"]),
+        .index("by_sortOrder", ["sortOrder"])
+        .index("by_organizationId_slug", ["organizationId", "slug"]),
 
     // ═══════════════════════════════════════════
     // 6b. ARCHIVES (iArchive — Fichiers archivés)
@@ -402,11 +459,28 @@ export default defineSchema({
             v.literal("on_hold"),
             v.literal("destroyed")
         ),
+        // ── Traçabilité source (v3) ──
+        sourceDocumentId: v.optional(v.id("documents")),   // Lien vers le document source
+        sourceFolderId: v.optional(v.id("folders")),       // Lien vers le dossier source
+        sourceType: v.optional(v.union(
+            v.literal("manual_upload"),
+            v.literal("document_archive"),
+            v.literal("folder_archive"),
+            v.literal("auto_archive")
+        )),
+        tags: v.optional(v.array(v.string())),             // Tags libres
+        archivedBy: v.optional(v.string()),                // userId de l'archiveur
+        // ── Double hash SHA-256 (v3 — contenu TipTap) ──
+        frozenContent: v.optional(v.any()),                 // Snapshot JSON du contenu TipTap gelé
+        contentHash: v.optional(v.string()),                // SHA-256 du JSON gelé (intégrité interne)
+        pdfUrl: v.optional(v.string()),                     // URL du PDF généré (Supabase Storage)
+        pdfHash: v.optional(v.string()),                    // SHA-256 du PDF (intégrité légale)
         // ── Lifecycle tracking (v2) ──
         lifecycleState: v.optional(v.union(
             v.literal("active"),
             v.literal("semi_active"),
-            v.literal("archived")
+            v.literal("archived"),
+            v.literal("destroyed")
         )),
         countingStartDate: v.optional(v.number()),    // timestamp début comptage
         triggerEvent: v.optional(v.string()),          // événement déclencheur
@@ -439,7 +513,9 @@ export default defineSchema({
         .index("by_sha256Hash", ["sha256Hash"])
         .index("by_isVault", ["isVault"])
         .index("by_org_category", ["organizationId", "categorySlug"])
-        .index("by_lifecycleState", ["lifecycleState"]),
+        .index("by_lifecycleState", ["lifecycleState"])
+        .index("by_sourceDocumentId", ["sourceDocumentId"])
+        .index("by_sourceType", ["sourceType"]),
 
     // ═══════════════════════════════════════════
     // 7. ARCHIVE CERTIFICATES
@@ -458,6 +534,58 @@ export default defineSchema({
     })
         .index("by_archiveId", ["archiveId"])
         .index("by_certificateNumber", ["certificateNumber"]),
+
+    // ═══════════════════════════════════════════
+    // 7a-bis. DESTRUCTION CERTIFICATES (iArchive — Certificats de destruction)
+    // ═══════════════════════════════════════════
+    destruction_certificates: defineTable({
+        // ── Référence ──
+        certificateNumber: v.string(),                    // DEST-YYYY-NNNNN (unique)
+        archiveId: v.id("archives"),
+        organizationId: v.id("organizations"),
+        // ── Informations du document détruit ──
+        documentTitle: v.string(),
+        documentCategory: v.string(),                     // Nom de la catégorie
+        documentCategorySlug: v.string(),                 // Slug de la catégorie
+        originalFileName: v.string(),
+        originalFileSize: v.number(),
+        originalMimeType: v.string(),
+        originalSha256Hash: v.string(),                   // Hash du fichier original
+        originalContentHash: v.optional(v.string()),      // Hash JSON TipTap (si document_archive)
+        originalPdfHash: v.optional(v.string()),          // Hash PDF (si document_archive)
+        originalCreatedAt: v.number(),
+        originalArchivedAt: v.number(),
+        // ── Rétention ──
+        retentionYears: v.number(),
+        retentionExpiresAt: v.number(),
+        ohadaReference: v.optional(v.string()),           // Réf OHADA applicable
+        ohadaCompliant: v.boolean(),                      // true si destruction après expiration complète
+        // ── Destruction ──
+        destroyedAt: v.number(),
+        destroyedBy: v.string(),                          // userId
+        destructionMethod: v.union(
+            v.literal("legal_expiry"),                    // Fin de rétention légale
+            v.literal("manual_request"),                  // Demande admin anticipée
+            v.literal("compliance")                       // Décision DPO/compliance
+        ),
+        destructionReason: v.string(),                    // Description libre
+        // ── Validation ──
+        approvedBy: v.optional(v.string()),               // userId du validateur
+        approvedAt: v.optional(v.number()),
+        // ── Témoins (conformité renforcée) ──
+        witnesses: v.optional(v.array(v.object({
+            userId: v.string(),
+            name: v.string(),
+            role: v.string(),
+            acknowledgedAt: v.number(),
+        }))),
+        // ── Métadonnées certificat ──
+        status: v.union(v.literal("valid"), v.literal("revoked")),
+        issuedAt: v.number(),
+    })
+        .index("by_certificateNumber", ["certificateNumber"])
+        .index("by_organizationId", ["organizationId"])
+        .index("by_archiveId", ["archiveId"]),
 
     // ═══════════════════════════════════════════
     // 7b. RETENTION ALERTS (iArchive — Alertes configurables)

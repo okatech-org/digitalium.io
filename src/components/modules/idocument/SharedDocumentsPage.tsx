@@ -1,14 +1,15 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════
-// DIGITALIUM.IO — iDocument: Documents Partagés
+// DIGITALIUM.IO — iDocument: Documents Partagés — Connecté Convex
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-    Share2, Search, FileText, Clock, Eye, Edit3, User,
-    ChevronRight, Filter, X, Users,
+    Share2, Search, FileText, Clock, Eye, Edit3,
+    ChevronRight, Users, Loader2, MessageSquare,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,23 +17,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 
 // ─── Types ──────────────────────────────────────────────────────
 
-type Permission = "read" | "edit";
-
-interface SharedDoc {
-    id: string;
-    title: string;
-    excerpt: string;
-    sharedBy: string;
-    sharedByInitials: string;
-    sharedAt: string;
-    permission: Permission;
-    status: "draft" | "review" | "approved" | "archived";
-    lastEdited: string;
-    collaborators: number;
-}
+type Permission = "read" | "edit" | "comment";
 
 // ─── Status config ──────────────────────────────────────────────
 
@@ -46,60 +36,24 @@ const STATUS_CFG: Record<string, { label: string; class: string; dot: string }> 
 const PERMISSION_CFG: Record<Permission, { label: string; icon: React.ElementType; class: string }> = {
     read: { label: "Lecture", icon: Eye, class: "bg-zinc-500/15 text-zinc-400" },
     edit: { label: "Édition", icon: Edit3, class: "bg-amber-500/15 text-amber-400" },
+    comment: { label: "Commentaire", icon: MessageSquare, class: "bg-blue-500/15 text-blue-400" },
 };
 
-// ─── Demo data ──────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────
 
-const SHARED_DOCUMENTS: SharedDoc[] = [
-    {
-        id: "sh-1",
-        title: "Budget prévisionnel 2026 — Direction Générale",
-        excerpt: "Version consolidée du budget annuel avec les projections par département…",
-        sharedBy: "Daniel Nguema", sharedByInitials: "DN",
-        sharedAt: "Il y a 30 min", permission: "edit",
-        status: "review", lastEdited: "Il y a 15 min", collaborators: 4,
-    },
-    {
-        id: "sh-2",
-        title: "Rapport d'audit interne Q4 2025",
-        excerpt: "Résultats de l'audit des processus métier et recommandations d'amélioration…",
-        sharedBy: "Aimée Gondjout", sharedByInitials: "AG",
-        sharedAt: "Hier", permission: "read",
-        status: "approved", lastEdited: "Il y a 2j", collaborators: 3,
-    },
-    {
-        id: "sh-3",
-        title: "Présentation stratégie PME Gabon 2026",
-        excerpt: "Slides pour la présentation au comité de pilotage de la stratégie PME nationale…",
-        sharedBy: "Claude Mboumba", sharedByInitials: "CM",
-        sharedAt: "Il y a 2j", permission: "edit",
-        status: "draft", lastEdited: "Il y a 1h", collaborators: 6,
-    },
-    {
-        id: "sh-4",
-        title: "Protocole d'accord COMILOG — Services IT",
-        excerpt: "Version finale du protocole d'accord pour les services informatiques industriels…",
-        sharedBy: "Patrick Obiang", sharedByInitials: "PO",
-        sharedAt: "Il y a 3j", permission: "read",
-        status: "approved", lastEdited: "Il y a 5j", collaborators: 2,
-    },
-    {
-        id: "sh-5",
-        title: "Plan de formation équipe technique 2026",
-        excerpt: "Programme de montée en compétences pour les équipes techniques sur les outils cloud…",
-        sharedBy: "Marie Nzé", sharedByInitials: "MN",
-        sharedAt: "Il y a 5j", permission: "edit",
-        status: "draft", lastEdited: "Il y a 3j", collaborators: 5,
-    },
-    {
-        id: "sh-6",
-        title: "Compte-rendu — Rencontre BGFIBank innovation",
-        excerpt: "Notes et actions issues de la réunion avec l'équipe innovation de BGFIBank…",
-        sharedBy: "Jeanne Reteno", sharedByInitials: "JR",
-        sharedAt: "Il y a 7j", permission: "read",
-        status: "archived", lastEdited: "Il y a 10j", collaborators: 3,
-    },
-];
+function getInitials(name: string): string {
+    return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function formatTimeAgo(ts: number): string {
+    const diff = Date.now() - ts;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `Il y a ${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Il y a ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `Il y a ${days}j`;
+}
 
 // ─── Animations ─────────────────────────────────────────────────
 
@@ -114,22 +68,45 @@ const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } }
 // ═══════════════════════════════════════════════════════════════
 
 export default function SharedDocumentsPage() {
+    const router = useRouter();
+    // Current user (TODO: from auth context)
+    const currentUserId = "Daniel Nguema";
+
+    const sharedDocs = useQuery(api.documents.listSharedWith, {
+        userId: currentUserId,
+    });
+
     const [search, setSearch] = useState("");
     const [permFilter, setPermFilter] = useState<Permission | "all">("all");
 
     const filtered = useMemo(() => {
-        let list = [...SHARED_DOCUMENTS];
+        let list = sharedDocs ?? [];
         if (search) {
             const q = search.toLowerCase();
             list = list.filter(
-                (d) => d.title.toLowerCase().includes(q) || d.sharedBy.toLowerCase().includes(q)
+                (d) =>
+                    d.title.toLowerCase().includes(q) ||
+                    d.createdBy.toLowerCase().includes(q)
             );
         }
         if (permFilter !== "all") {
-            list = list.filter((d) => d.permission === permFilter);
+            list = list.filter((d) => {
+                const shared = d.sharedWith?.find((s) => s.userId === currentUserId);
+                return shared?.permission === permFilter;
+            });
         }
         return list;
-    }, [search, permFilter]);
+    }, [sharedDocs, search, permFilter, currentUserId]);
+
+    // ─── Loading state ────────────────────────
+    if (sharedDocs === undefined) {
+        return (
+            <div className="flex items-center justify-center py-24">
+                <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
+                <span className="ml-2 text-sm text-muted-foreground">Chargement des documents partagés…</span>
+            </div>
+        );
+    }
 
     return (
         <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-5 max-w-[1400px] mx-auto">
@@ -164,16 +141,16 @@ export default function SharedDocumentsPage() {
                             </div>
                             <Separator orientation="vertical" className="h-6 bg-white/10 hidden sm:block" />
                             {/* Permission filter */}
-                            {(["all", "read", "edit"] as const).map((p) => (
+                            {(["all", "read", "edit", "comment"] as const).map((p) => (
                                 <button
                                     key={p}
                                     onClick={() => setPermFilter(p)}
                                     className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${permFilter === p
-                                            ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"
-                                            : "text-muted-foreground hover:bg-white/5"
+                                        ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"
+                                        : "text-muted-foreground hover:bg-white/5"
                                         }`}
                                 >
-                                    {p === "all" ? "Tous" : p === "read" ? "Lecture seule" : "Éditable"}
+                                    {p === "all" ? "Tous" : p === "read" ? "Lecture seule" : p === "edit" ? "Éditable" : "Commentaire"}
                                 </button>
                             ))}
                         </div>
@@ -184,12 +161,19 @@ export default function SharedDocumentsPage() {
             {/* Documents list */}
             <div className="space-y-3">
                 {filtered.map((doc) => {
-                    const st = STATUS_CFG[doc.status];
-                    const perm = PERMISSION_CFG[doc.permission];
+                    const st = STATUS_CFG[doc.status] ?? STATUS_CFG.draft;
+                    const shared = doc.sharedWith?.find((s) => s.userId === currentUserId);
+                    const permission: Permission = (shared?.permission as Permission) ?? "read";
+                    const perm = PERMISSION_CFG[permission];
                     const PermIcon = perm.icon;
+                    const sharedByName = shared?.sharedBy ?? doc.createdBy;
+
                     return (
-                        <motion.div key={doc.id} variants={fadeUp}>
-                            <Card className="glass border-white/5 hover:border-cyan-500/20 transition-colors group cursor-pointer">
+                        <motion.div key={doc._id} variants={fadeUp}>
+                            <Card
+                                className="glass border-white/5 hover:border-cyan-500/20 transition-colors group cursor-pointer"
+                                onClick={() => router.push(`/pro/idocument/edit/${doc._id}`)}
+                            >
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-4">
                                         {/* Icon */}
@@ -205,7 +189,7 @@ export default function SharedDocumentsPage() {
                                                         {doc.title}
                                                     </h3>
                                                     <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                                                        {doc.excerpt}
+                                                        {doc.excerpt || "Aucun extrait disponible"}
                                                     </p>
                                                 </div>
                                                 <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5 group-hover:text-cyan-400 transition-colors" />
@@ -217,18 +201,18 @@ export default function SharedDocumentsPage() {
                                                 <span className="flex items-center gap-1">
                                                     <Avatar className="h-4 w-4">
                                                         <AvatarFallback className="bg-cyan-500/15 text-cyan-300 text-[7px]">
-                                                            {doc.sharedByInitials}
+                                                            {getInitials(sharedByName)}
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    Partagé par {doc.sharedBy}
+                                                    Partagé par {sharedByName}
                                                 </span>
                                                 <span>·</span>
                                                 <span className="flex items-center gap-1">
-                                                    <Clock className="h-2.5 w-2.5" /> {doc.sharedAt}
+                                                    <Clock className="h-2.5 w-2.5" /> {shared?.sharedAt ? formatTimeAgo(shared.sharedAt) : "—"}
                                                 </span>
                                                 <span>·</span>
                                                 <span className="flex items-center gap-1">
-                                                    <Users className="h-2.5 w-2.5" /> {doc.collaborators} collaborateur{doc.collaborators > 1 ? "s" : ""}
+                                                    <Users className="h-2.5 w-2.5" /> {doc.collaborators.length} collaborateur{doc.collaborators.length > 1 ? "s" : ""}
                                                 </span>
                                             </div>
                                         </div>

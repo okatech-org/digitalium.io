@@ -30,10 +30,11 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import Placeholder from "@tiptap/extension-placeholder";
-import Collaboration from "@tiptap/extension-collaboration";
-import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
-import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
+// NOTE: Yjs collaboration disabled — requires a WebSocket provider (PartyKit/Liveblocks)
+// import Collaboration from "@tiptap/extension-collaboration";
+// import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+// import * as Y from "yjs";
+// import { WebrtcProvider } from "y-webrtc";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,11 @@ import WorkflowStatusBar from "./WorkflowStatusBar";
 import type { ApprovalAction } from "./ApprovalModal";
 import ApprovalModal from "./ApprovalModal";
 import ArchiveModal from "./ArchiveModal";
+import type { ArchiveConfirmData } from "./ArchiveModal";
 import ArchiveCertificate from "./ArchiveCertificate";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 import {
     ArrowLeft,
@@ -250,16 +255,128 @@ interface EditorPageProps {
 
 export default function EditorPage({ documentId }: EditorPageProps) {
     const router = useRouter();
-    const [meta, setMeta] = useState<DocMeta>(DEMO_META);
+
+    // ─── Convex data fetch ────────────────────
+    // Try to determine if documentId is a valid Convex ID
+    const isConvexId = documentId && !documentId.startsWith("doc-") && !documentId.startsWith("demo-");
+    const convexDoc = useQuery(
+        api.documents.get,
+        isConvexId ? { id: documentId as Id<"documents"> } : "skip"
+    );
+
+    // Imported file detection: uses fileName presence (not content === null,
+    // because auto-save can overwrite content with metadata HTML)
+    const isImportedFile = !!(convexDoc?.fileName);
+    const convexVersions = useQuery(
+        api.documents.listVersions,
+        isConvexId ? { documentId: documentId as Id<"documents"> } : "skip"
+    );
+    const convexComments = useQuery(
+        api.documents.listComments,
+        isConvexId ? { documentId: documentId as Id<"documents"> } : "skip"
+    );
+
+    // Build meta from Convex doc or fallback to demo
+    const initialMeta = useMemo<DocMeta>(() => {
+        if (convexDoc) {
+            return {
+                id: convexDoc._id,
+                title: convexDoc.title,
+                status: convexDoc.status as DocStatus,
+                version: convexDoc.version,
+                lastSavedAt: convexDoc.updatedAt ?? null,
+                tags: convexDoc.tags ?? [],
+                author: convexDoc.createdBy ?? "Inconnu",
+                collaborators: convexDoc.collaborators ?? [convexDoc.createdBy ?? "Inconnu"],
+                workflowReason: convexDoc.workflowReason,
+            };
+        }
+        return DEMO_META;
+    }, [convexDoc]);
+
+    // Build content from Convex doc or fallback to demo
+    // For imported files, content is irrelevant (preview component handles display)
+    const initialContent = useMemo(() => {
+        if (convexDoc) {
+            if (isImportedFile) return ""; // Imported files use the preview component
+            if (convexDoc.content) return convexDoc.content;
+            return `<h1>${convexDoc.title}</h1><p></p>`;
+        }
+        return INITIAL_CONTENT;
+    }, [convexDoc]);
+
+    const [meta, setMeta] = useState<DocMeta>(initialMeta);
     const [sidePanel, setSidePanel] = useState<"comments" | "history" | "properties" | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<string | null>(null);
-    const [versions] = useState(DEMO_VERSIONS);
-    const [comments, setComments] = useState(DEMO_COMMENTS);
+
+    // Versions & comments from Convex or demo
+    const versionsList = useMemo<VersionEntry[]>(() => {
+        if (convexVersions && convexVersions.length > 0) {
+            return convexVersions.map((v) => ({
+                id: v._id,
+                version: v.version,
+                editedBy: v.editedBy,
+                description: v.changeDescription ?? "",
+                createdAt: v.createdAt,
+            }));
+        }
+        return DEMO_VERSIONS;
+    }, [convexVersions]);
+
+    const [versions] = useState(() => versionsList);
+    const [comments, setComments] = useState(() => {
+        if (convexComments && convexComments.length > 0) {
+            return convexComments.map((c) => ({
+                id: c._id,
+                userName: c.userName,
+                text: c.text,
+                createdAt: c.createdAt,
+                resolved: c.resolved,
+            }));
+        }
+        return DEMO_COMMENTS;
+    });
+
     const [newComment, setNewComment] = useState("");
     const [editingTitle, setEditingTitle] = useState(false);
     const titleInputRef = useRef<HTMLInputElement>(null);
     const autoSaveRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Sync meta when convexDoc loads
+    useEffect(() => {
+        if (convexDoc) {
+            setMeta({
+                id: convexDoc._id,
+                title: convexDoc.title,
+                status: convexDoc.status as DocStatus,
+                version: convexDoc.version,
+                lastSavedAt: convexDoc.updatedAt ?? null,
+                tags: convexDoc.tags ?? [],
+                author: convexDoc.createdBy ?? "Inconnu",
+                collaborators: convexDoc.collaborators ?? [convexDoc.createdBy ?? "Inconnu"],
+                workflowReason: convexDoc.workflowReason,
+            });
+        }
+    }, [convexDoc]);
+
+    // Sync comments when convexComments load
+    useEffect(() => {
+        if (convexComments && convexComments.length > 0) {
+            setComments(convexComments.map((c) => ({
+                id: c._id,
+                userName: c.userName,
+                text: c.text,
+                createdAt: c.createdAt,
+                resolved: c.resolved,
+            })));
+        }
+    }, [convexComments]);
+
+    // ─── Convex mutations ─────────────────────
+    const archiveDocumentMutation = useMutation(api.archiveBridge.archiveDocument);
+    const saveContentMut = useMutation(api.documents.saveContent);
+    const updateDocMut = useMutation(api.documents.update);
 
     // ─── Workflow state ────────────────────────
     const [userLevel] = useState(2); // Demo: admin level
@@ -308,96 +425,99 @@ export default function EditorPage({ documentId }: EditorPageProps) {
         }
     }, [approvalModal.action, showToast]);
 
-    const handleArchiveConfirm = useCallback((data: { category: string; tags: string[]; sha256Hash: string; retentionYears: number }) => {
+    const handleArchiveConfirm = useCallback(async (data: ArchiveConfirmData) => {
         setArchiveModalOpen(false);
-        setMeta((m) => ({ ...m, status: "archived" as DocStatus }));
 
-        const now = Date.now();
-        const certNumber = `CERT-${new Date().getFullYear()}-${Math.floor(Math.random() * 99999).toString().padStart(5, "0")}`;
-        setCertificateData({
-            open: true,
-            data: {
-                certificateNumber: certNumber,
-                documentTitle: meta.title,
-                category: data.category,
-                sha256Hash: data.sha256Hash,
-                retentionYears: data.retentionYears,
-                archivedAt: now,
-                issuedBy: "Daniel Nguema",
-                validUntil: now + data.retentionYears * 365.25 * 24 * 3600 * 1000,
-            },
-        });
-        showToast("Document archivé dans iArchive avec certificat SHA-256", "success");
-    }, [meta.title, showToast]);
+        if (documentId) {
+            try {
+                const result = await archiveDocumentMutation({
+                    documentId: documentId as Id<"documents">,
+                    userId: "Daniel Nguema", // TODO: from auth context
+                    categorySlug: data.categorySlug,
+                    tags: data.tags,
+                    confidentiality: data.confidentiality,
+                    countingStartDate: data.countingStartDate,
+                    frozenContent: data.frozenContent,
+                    contentHash: data.contentHash,
+                    pdfUrl: data.pdfUrl,
+                    pdfHash: data.pdfHash,
+                    pdfFileName: data.pdfFileName,
+                    pdfFileSize: data.pdfFileSize,
+                });
 
-    // ─── Yjs setup ─────────────────────────────
-    // Collaboration disabled by default — enable via NEXT_PUBLIC_ENABLE_COLLAB=true
-    const collabEnabled = typeof window !== "undefined" && process.env.NEXT_PUBLIC_ENABLE_COLLAB === "true";
-    const ydoc = useMemo(() => new Y.Doc(), []);
-    const provider = useMemo(() => {
-        if (!collabEnabled) return null;
-        try {
-            const roomName = `digitalium-doc-${documentId || "demo-1"}`;
-            return new WebrtcProvider(roomName, ydoc, {
-                signaling: ["wss://signaling.yjs.dev"],
+                const now = Date.now();
+                const msPerYear = 365.25 * 24 * 3600 * 1000;
+                const retentionYears = Math.round((result.retentionExpiresAt - now) / msPerYear);
+
+                setMeta((m) => ({ ...m, status: "archived" as DocStatus }));
+                setCertificateData({
+                    open: true,
+                    data: {
+                        certificateNumber: result.certificateNumber,
+                        documentTitle: meta.title,
+                        category: data.categorySlug,
+                        sha256Hash: data.pdfHash,
+                        retentionYears,
+                        archivedAt: now,
+                        issuedBy: "Daniel Nguema",
+                        validUntil: result.retentionExpiresAt,
+                    },
+                });
+                showToast(`Document archivé — Hash JSON: ${data.contentHash.slice(0, 12)}… / Hash PDF: ${data.pdfHash.slice(0, 12)}…`, "success");
+            } catch (err) {
+                showToast(`Erreur d'archivage: ${err instanceof Error ? err.message : "Erreur inconnue"}`, "error");
+            }
+        } else {
+            // Demo mode fallback (no real documentId)
+            setMeta((m) => ({ ...m, status: "archived" as DocStatus }));
+            const now = Date.now();
+            const certNumber = `CERT-${new Date().getFullYear()}-${Math.floor(Math.random() * 99999).toString().padStart(5, "0")}`;
+            setCertificateData({
+                open: true,
+                data: {
+                    certificateNumber: certNumber,
+                    documentTitle: meta.title,
+                    category: data.categorySlug,
+                    sha256Hash: data.pdfHash,
+                    retentionYears: 10,
+                    archivedAt: now,
+                    issuedBy: "Daniel Nguema",
+                    validUntil: now + 10 * 365.25 * 24 * 3600 * 1000,
+                },
             });
-        } catch {
-            return null;
+            showToast(`Document archivé (démo) — Hash JSON: ${data.contentHash.slice(0, 12)}… / Hash PDF: ${data.pdfHash.slice(0, 12)}…`, "success");
         }
-    }, [collabEnabled, ydoc, documentId]);
+    }, [documentId, meta.title, showToast, archiveDocumentMutation]);
 
-    const currentUser = useMemo(
-        () => ({
-            name: "Daniel Nguema",
-            color: userColor("Daniel Nguema"),
+    // ─── Build extensions (stable, no duplicates) ──
+    const extensions = useMemo(() => [
+        StarterKit.configure({
+            // This StarterKit version includes Link & Underline by default.
+            // Disable them here to avoid duplicates — we configure them separately below.
+            link: false,
+            underline: false,
         }),
-        []
-    );
-
-    // ─── Build extensions ─────────────────────
-    const extensions = useMemo(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const exts: any[] = [
-            StarterKit.configure({}),
-            Underline,
-            TextStyle,
-            Color,
-            Highlight.configure({ multicolor: true }),
-            TextAlign.configure({
-                types: ["heading", "paragraph"],
-            }),
-            TaskList,
-            TaskItem.configure({ nested: true }),
-            Link.configure({ openOnClick: false }),
-            Image,
-            TipTapTable.configure({ resizable: true }),
-            TableRow,
-            TableHeader,
-            TableCell,
-            Placeholder.configure({
-                placeholder: "Commencez à rédiger votre document…",
-            }),
-        ];
-
-        // Only add collaboration extensions if provider is available
-        if (provider) {
-            exts.push(
-                Collaboration.configure({ document: ydoc }),
-                CollaborationCursor.configure({
-                    provider,
-                    user: currentUser,
-                })
-            );
-        }
-
-        return exts;
-    }, [ydoc, provider, currentUser]);
+        Underline,
+        TextStyle,
+        Color,
+        Highlight.configure({ multicolor: true }),
+        TextAlign.configure({ types: ["heading", "paragraph"] }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
+        Link.configure({ openOnClick: false }),
+        Image,
+        TipTapTable.configure({ resizable: true }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        Placeholder.configure({ placeholder: "Commencez à rédiger votre document…" }),
+    ], []);
 
     // ─── Tiptap editor ────────────────────────
     const editor = useEditor({
         immediatelyRender: false,
         extensions,
-        content: INITIAL_CONTENT,
+        content: initialContent,
         editorProps: {
             attributes: {
                 class: "prose prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[800px] px-16 py-12",
@@ -405,30 +525,55 @@ export default function EditorPage({ documentId }: EditorPageProps) {
         },
     });
 
-    // ─── Auto-save (every 5s) ─────────────────
+    // Update editor content when convexDoc loads after initial render
+    // Skip for imported files — they use the preview component, not the editor
+    const hasSetContent = useRef(false);
     useEffect(() => {
-        if (!editor) return;
-        autoSaveRef.current = setInterval(() => {
-            setIsSaving(true);
-            // Simulate save to Convex
-            setTimeout(() => {
+        if (editor && convexDoc && !hasSetContent.current && !isImportedFile) {
+            hasSetContent.current = true;
+            let content = INITIAL_CONTENT;
+            if (convexDoc.content) {
+                content = convexDoc.content;
+            } else {
+                content = `<h1>${convexDoc.title}</h1><p></p>`;
+            }
+            editor.commands.setContent(content);
+        }
+    }, [editor, convexDoc, isImportedFile]);
+
+    // ─── Auto-save (every 5s) — skip for imported files ─────────────────
+    useEffect(() => {
+        if (!editor || isImportedFile) return; // Never auto-save imported files
+        autoSaveRef.current = setInterval(async () => {
+            if (isConvexId && documentId) {
+                setIsSaving(true);
+                try {
+                    await saveContentMut({
+                        id: documentId as Id<"documents">,
+                        content: editor.getHTML(),
+                        lastEditedBy: meta.author,
+                    });
+                } catch (err) {
+                    console.error("[iDocument] Auto-save error:", err);
+                }
                 setIsSaving(false);
                 setLastSaved(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
-            }, 400);
+            } else {
+                // Demo mode: simulate save
+                setIsSaving(true);
+                setTimeout(() => {
+                    setIsSaving(false);
+                    setLastSaved(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
+                }, 400);
+            }
         }, 5000);
 
         return () => {
             if (autoSaveRef.current) clearInterval(autoSaveRef.current);
         };
-    }, [editor]);
+    }, [editor, isConvexId, isImportedFile, documentId, saveContentMut, meta.author]);
 
-    // ─── Cleanup Yjs on unmount ───────────────
-    useEffect(() => {
-        return () => {
-            provider?.destroy();
-            ydoc.destroy();
-        };
-    }, [provider, ydoc]);
+    // ─── (Yjs cleanup disabled — no provider) ──
 
     // ─── Title editing ────────────────────────
     useEffect(() => {
@@ -443,18 +588,73 @@ export default function EditorPage({ documentId }: EditorPageProps) {
     }, []);
 
     // ─── Manual save ──────────────────────────
-    const handleSave = useCallback(() => {
-        setIsSaving(true);
-        setTimeout(() => {
+    const handleSave = useCallback(async () => {
+        if (isConvexId && documentId && editor) {
+            setIsSaving(true);
+            try {
+                await saveContentMut({
+                    id: documentId as Id<"documents">,
+                    content: editor.getHTML(),
+                    lastEditedBy: meta.author,
+                });
+                // Also save title if changed
+                await updateDocMut({
+                    id: documentId as Id<"documents">,
+                    title: meta.title,
+                    lastEditedBy: meta.author,
+                });
+            } catch (err) {
+                console.error("[iDocument] Save error:", err);
+            }
             setIsSaving(false);
             setLastSaved(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
-        }, 600);
-    }, []);
+        } else {
+            setIsSaving(true);
+            setTimeout(() => {
+                setIsSaving(false);
+                setLastSaved(new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
+            }, 600);
+        }
+    }, [isConvexId, documentId, editor, saveContentMut, updateDocMut, meta.author, meta.title]);
 
     // ─── Export ───────────────────────────────
     const handleExportPDF = useCallback(() => {
-        window.print();
-    }, []);
+        if (!editor) return;
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) { window.print(); return; }
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>${meta.title}</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1a1a1a; max-width: 800px; margin: 0 auto; }
+                    h1 { font-size: 24px; margin-bottom: 8px; }
+                    h2 { font-size: 20px; margin-top: 24px; }
+                    h3 { font-size: 16px; }
+                    p { line-height: 1.6; }
+                    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background: #f5f5f5; font-weight: 600; }
+                    .meta { color: #666; font-size: 12px; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 16px; }
+                    @media print { body { padding: 20px; } }
+                </style>
+            </head>
+            <body>
+                <div class="meta">
+                    <strong>${meta.title}</strong><br/>
+                    Auteur: ${meta.author} · Version ${meta.version} · ${new Date().toLocaleDateString("fr-FR")}
+                </div>
+                ${editor.getHTML()}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.onload = () => {
+            printWindow.print();
+            printWindow.onafterprint = () => printWindow.close();
+        };
+    }, [editor, meta.title, meta.author, meta.version]);
 
     // ─── Add comment ─────────────────────────
     const handleAddComment = useCallback(() => {
@@ -543,65 +743,102 @@ export default function EditorPage({ documentId }: EditorPageProps) {
 
                 <Separator orientation="vertical" className="h-6 bg-white/10" />
 
-                {/* Action buttons */}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] text-zinc-400 hover:text-white"
-                    onClick={handleSave}
-                >
-                    <Save className="h-3.5 w-3.5 mr-1" />
-                    Sauvegarder
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] text-zinc-400 hover:text-white"
-                >
-                    <Share2 className="h-3.5 w-3.5 mr-1" />
-                    Partager
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] text-zinc-400 hover:text-white"
-                    onClick={() =>
-                        setSidePanel((p) => (p === "history" ? null : "history"))
-                    }
-                >
-                    <History className="h-3.5 w-3.5 mr-1" />
-                    Historique
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] text-zinc-400 hover:text-white"
-                    onClick={handleExportPDF}
-                >
-                    <FileDown className="h-3.5 w-3.5 mr-1" />
-                    PDF
-                </Button>
-
-                <Separator orientation="vertical" className="h-6 bg-white/10" />
-
-                {/* Collaborator avatars */}
-                <div className="flex items-center -space-x-2">
-                    {meta.collaborators.slice(0, 4).map((name) => (
-                        <div
-                            key={name}
-                            className="h-7 w-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-[10px] font-bold text-white"
-                            style={{ backgroundColor: userColor(name) }}
-                            title={name}
+                {/* Action buttons — different for imported vs editable */}
+                {isImportedFile ? (
+                    <>
+                        {convexDoc?.fileUrl && (
+                            <>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-[11px] text-zinc-400 hover:text-white"
+                                    asChild
+                                >
+                                    <a href={convexDoc.fileUrl} download={convexDoc.fileName} target="_blank" rel="noopener noreferrer">
+                                        <FileDown className="h-3.5 w-3.5 mr-1" />
+                                        Télécharger
+                                    </a>
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-[11px] text-zinc-400 hover:text-white"
+                                    asChild
+                                >
+                                    <a href={convexDoc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                        <Eye className="h-3.5 w-3.5 mr-1" />
+                                        Ouvrir
+                                    </a>
+                                </Button>
+                            </>
+                        )}
+                        <Badge variant="outline" className="text-[10px] h-5 border border-blue-500/30 text-blue-400 bg-blue-500/10">
+                            <FileText className="h-3 w-3 mr-1" />
+                            Fichier importé
+                        </Badge>
+                    </>
+                ) : (
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[11px] text-zinc-400 hover:text-white"
+                            onClick={handleSave}
                         >
-                            {name.split(" ").map((n) => n[0]).join("")}
+                            <Save className="h-3.5 w-3.5 mr-1" />
+                            Sauvegarder
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[11px] text-zinc-400 hover:text-white"
+                        >
+                            <Share2 className="h-3.5 w-3.5 mr-1" />
+                            Partager
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[11px] text-zinc-400 hover:text-white"
+                            onClick={() =>
+                                setSidePanel((p) => (p === "history" ? null : "history"))
+                            }
+                        >
+                            <History className="h-3.5 w-3.5 mr-1" />
+                            Historique
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-[11px] text-zinc-400 hover:text-white"
+                            onClick={handleExportPDF}
+                        >
+                            <FileDown className="h-3.5 w-3.5 mr-1" />
+                            PDF
+                        </Button>
+
+                        <Separator orientation="vertical" className="h-6 bg-white/10" />
+
+                        {/* Collaborator avatars */}
+                        <div className="flex items-center -space-x-2">
+                            {meta.collaborators.slice(0, 4).map((name) => (
+                                <div
+                                    key={name}
+                                    className="h-7 w-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-[10px] font-bold text-white"
+                                    style={{ backgroundColor: userColor(name) }}
+                                    title={name}
+                                >
+                                    {name.split(" ").map((n) => n[0]).join("")}
+                                </div>
+                            ))}
+                            {meta.collaborators.length > 4 && (
+                                <div className="h-7 w-7 rounded-full border-2 border-zinc-900 bg-zinc-700 flex items-center justify-center text-[10px] font-bold text-white">
+                                    +{meta.collaborators.length - 4}
+                                </div>
+                            )}
                         </div>
-                    ))}
-                    {meta.collaborators.length > 4 && (
-                        <div className="h-7 w-7 rounded-full border-2 border-zinc-900 bg-zinc-700 flex items-center justify-center text-[10px] font-bold text-white">
-                            +{meta.collaborators.length - 4}
-                        </div>
-                    )}
-                </div>
+                    </>
+                )}
 
                 {/* Overflow menu */}
                 <Button
@@ -613,48 +850,170 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                 </Button>
             </motion.div>
 
-            {/* ═══ WORKFLOW STATUS BAR ═══ */}
-            <WorkflowStatusBar
-                status={meta.status}
-                userLevel={userLevel}
-                isAdmin={isAdmin}
-                onSubmitForReview={() => handleWorkflowAction("submit_review")}
-                onApprove={() => handleWorkflowAction("approve")}
-                onReject={() => handleWorkflowAction("reject")}
-                onRequestChanges={() => handleWorkflowAction("request_changes")}
-                onArchive={() => setArchiveModalOpen(true)}
-            />
+            {/* ═══ WORKFLOW STATUS BAR — only for non-imported documents ═══ */}
+            {!isImportedFile && (
+                <WorkflowStatusBar
+                    status={meta.status}
+                    userLevel={userLevel}
+                    isAdmin={isAdmin}
+                    onSubmitForReview={() => handleWorkflowAction("submit_review")}
+                    onApprove={() => handleWorkflowAction("approve")}
+                    onReject={() => handleWorkflowAction("reject")}
+                    onRequestChanges={() => handleWorkflowAction("request_changes")}
+                    onArchive={() => setArchiveModalOpen(true)}
+                />
+            )}
 
-            {/* ═══ TOOLBAR ═══ */}
-            <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="px-4 py-2 bg-zinc-950/40 border-b border-white/5 shrink-0"
-            >
-                <EditorToolbar editor={editor} />
-            </motion.div>
+            {/* ═══ TOOLBAR — only for editable (non-imported) documents ═══ */}
+            {!isImportedFile && (
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="px-4 py-2 bg-zinc-950/40 border-b border-white/5 shrink-0"
+                >
+                    <EditorToolbar editor={editor} />
+                </motion.div>
+            )}
 
             {/* ═══ MAIN AREA ═══ */}
             <div className="flex flex-1 overflow-hidden">
-                {/* ── A4 editing zone ── */}
+                {/* ── Imported file preview OR Tiptap editor ── */}
                 <div className="flex-1 overflow-auto bg-zinc-800/30 py-8 print:bg-white print:py-0">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.1 }}
-                        className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none"
-                        style={{
-                            width: "210mm",
-                            minHeight: "297mm",
-                            maxWidth: "100%",
-                        }}
-                    >
-                        <EditorContent
-                            editor={editor}
-                            className="editor-a4-content [&_.ProseMirror]:text-zinc-900 [&_.ProseMirror]:min-h-[297mm] [&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h1]:text-zinc-900 [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:text-zinc-800 [&_.ProseMirror_h2]:border-b [&_.ProseMirror_h2]:border-zinc-200 [&_.ProseMirror_h2]:pb-2 [&_.ProseMirror_h3]:text-lg [&_.ProseMirror_h3]:font-medium [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:text-zinc-700 [&_.ProseMirror_p]:text-sm [&_.ProseMirror_p]:leading-relaxed [&_.ProseMirror_p]:mb-3 [&_.ProseMirror_p]:text-zinc-700 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:mb-3 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:mb-3 [&_.ProseMirror_li]:text-sm [&_.ProseMirror_li]:text-zinc-700 [&_.ProseMirror_li]:mb-1 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:mb-4 [&_.ProseMirror_th]:bg-zinc-100 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-zinc-300 [&_.ProseMirror_th]:px-3 [&_.ProseMirror_th]:py-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:text-xs [&_.ProseMirror_th]:font-semibold [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-zinc-300 [&_.ProseMirror_td]:px-3 [&_.ProseMirror_td]:py-2 [&_.ProseMirror_td]:text-xs [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_em]:italic [&_.collaboration-cursor__caret]:relative [&_.collaboration-cursor__caret]:border-l-2 [&_.collaboration-cursor__label]:absolute [&_.collaboration-cursor__label]:top-[-1.4em] [&_.collaboration-cursor__label]:left-[-1px] [&_.collaboration-cursor__label]:text-[10px] [&_.collaboration-cursor__label]:font-medium [&_.collaboration-cursor__label]:px-1 [&_.collaboration-cursor__label]:py-0.5 [&_.collaboration-cursor__label]:rounded [&_.collaboration-cursor__label]:whitespace-nowrap [&_.collaboration-cursor__label]:text-white [&_.ProseMirror_.is-empty]:before:text-zinc-400 [&_.ProseMirror_.is-empty]:before:float-left [&_.ProseMirror_.is-empty]:before:pointer-events-none"
-                        />
-                    </motion.div>
+                    {isImportedFile ? (
+                        /* ══════ IMPORTED FILE PREVIEW ══════ */
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.1 }}
+                            className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none"
+                            style={{ width: "210mm", maxWidth: "100%", minHeight: "297mm" }}
+                        >
+                            <div className="p-8">
+                                {/* File info header */}
+                                <div className="flex items-start gap-4 mb-6 pb-6 border-b border-zinc-200">
+                                    <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 flex items-center justify-center shrink-0">
+                                        {convexDoc.mimeType?.startsWith("image/") ? (
+                                            <svg className="h-7 w-7 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        ) : convexDoc.mimeType === "application/pdf" ? (
+                                            <svg className="h-7 w-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                        ) : (
+                                            <svg className="h-7 w-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h2 className="text-xl font-bold text-zinc-900 mb-1">{convexDoc.title}</h2>
+                                        <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                                            <span className="font-medium text-zinc-700">{convexDoc.fileName}</span>
+                                            <span>·</span>
+                                            <span>{convexDoc.fileSize ? (convexDoc.fileSize / 1024 / 1024).toFixed(2) + " Mo" : "—"}</span>
+                                            <span>·</span>
+                                            <span>{convexDoc.mimeType || "Fichier"}</span>
+                                        </div>
+                                        {convexDoc.excerpt && (
+                                            <p className="text-sm text-zinc-600 mt-2">{convexDoc.excerpt}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Inline preview based on MIME type */}
+                                {convexDoc.fileUrl && convexDoc.mimeType === "application/pdf" && (
+                                    <div className="mb-6">
+                                        <iframe
+                                            src={convexDoc.fileUrl}
+                                            className="w-full rounded-lg border border-zinc-200"
+                                            style={{ height: "800px" }}
+                                            title={convexDoc.fileName || "Aperçu PDF"}
+                                        />
+                                    </div>
+                                )}
+
+                                {convexDoc.fileUrl && convexDoc.mimeType?.startsWith("image/") && (
+                                    <div className="mb-6 flex justify-center">
+                                        <img
+                                            src={convexDoc.fileUrl}
+                                            alt={convexDoc.fileName || "Image importée"}
+                                            className="max-w-full rounded-lg border border-zinc-200 shadow-sm"
+                                            style={{ maxHeight: "700px" }}
+                                        />
+                                    </div>
+                                )}
+
+                                {convexDoc.fileUrl && convexDoc.mimeType?.startsWith("video/") && (
+                                    <div className="mb-6 flex justify-center">
+                                        <video
+                                            src={convexDoc.fileUrl}
+                                            controls
+                                            className="max-w-full rounded-lg border border-zinc-200 shadow-sm"
+                                            style={{ maxHeight: "500px" }}
+                                        />
+                                    </div>
+                                )}
+
+                                {convexDoc.fileUrl && convexDoc.mimeType?.startsWith("audio/") && (
+                                    <div className="mb-6">
+                                        <audio
+                                            src={convexDoc.fileUrl}
+                                            controls
+                                            className="w-full"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* For non-previewable files (Office docs, zip, etc.) */}
+                                {convexDoc.fileUrl && !convexDoc.mimeType?.startsWith("image/") && !convexDoc.mimeType?.startsWith("video/") && !convexDoc.mimeType?.startsWith("audio/") && convexDoc.mimeType !== "application/pdf" && (
+                                    <div className="mb-6 flex flex-col items-center justify-center py-16 bg-zinc-50 rounded-xl border-2 border-dashed border-zinc-200">
+                                        <svg className="h-16 w-16 text-zinc-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        <p className="text-sm text-zinc-500 mb-1">Aperçu non disponible pour ce type de fichier</p>
+                                        <p className="text-xs text-zinc-400">{convexDoc.mimeType}</p>
+                                    </div>
+                                )}
+
+                                {/* Download button */}
+                                {convexDoc.fileUrl && (
+                                    <div className="flex items-center gap-3 mt-4">
+                                        <a
+                                            href={convexDoc.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            download={convexDoc.fileName}
+                                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white rounded-lg text-sm font-medium transition-all shadow-lg shadow-violet-500/20"
+                                        >
+                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                            Télécharger le fichier original
+                                        </a>
+                                        <a
+                                            href={convexDoc.fileUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-sm font-medium transition-all hover:bg-zinc-50"
+                                        >
+                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                            Ouvrir dans un nouvel onglet
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    ) : (
+                        /* ══════ TIPTAP EDITOR (text documents, templates) ══════ */
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.1 }}
+                            className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none"
+                            style={{
+                                width: "210mm",
+                                minHeight: "297mm",
+                                maxWidth: "100%",
+                            }}
+                        >
+                            <EditorContent
+                                editor={editor}
+                                className="editor-a4-content [&_.ProseMirror]:text-zinc-900 [&_.ProseMirror]:min-h-[297mm] [&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h1]:text-zinc-900 [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:text-zinc-800 [&_.ProseMirror_h2]:border-b [&_.ProseMirror_h2]:border-zinc-200 [&_.ProseMirror_h2]:pb-2 [&_.ProseMirror_h3]:text-lg [&_.ProseMirror_h3]:font-medium [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:text-zinc-700 [&_.ProseMirror_p]:text-sm [&_.ProseMirror_p]:leading-relaxed [&_.ProseMirror_p]:mb-3 [&_.ProseMirror_p]:text-zinc-700 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:mb-3 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:mb-3 [&_.ProseMirror_li]:text-sm [&_.ProseMirror_li]:text-zinc-700 [&_.ProseMirror_li]:mb-1 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:mb-4 [&_.ProseMirror_th]:bg-zinc-100 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-zinc-300 [&_.ProseMirror_th]:px-3 [&_.ProseMirror_th]:py-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:text-xs [&_.ProseMirror_th]:font-semibold [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-zinc-300 [&_.ProseMirror_td]:px-3 [&_.ProseMirror_td]:py-2 [&_.ProseMirror_td]:text-xs [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_em]:italic [&_.collaboration-cursor__caret]:relative [&_.collaboration-cursor__caret]:border-l-2 [&_.collaboration-cursor__label]:absolute [&_.collaboration-cursor__label]:top-[-1.4em] [&_.collaboration-cursor__label]:left-[-1px] [&_.collaboration-cursor__label]:text-[10px] [&_.collaboration-cursor__label]:font-medium [&_.collaboration-cursor__label]:px-1 [&_.collaboration-cursor__label]:py-0.5 [&_.collaboration-cursor__label]:rounded [&_.collaboration-cursor__label]:whitespace-nowrap [&_.collaboration-cursor__label]:text-white [&_.ProseMirror_.is-empty]:before:text-zinc-400 [&_.ProseMirror_.is-empty]:before:float-left [&_.ProseMirror_.is-empty]:before:pointer-events-none"
+                            />
+                        </motion.div>
+                    )}
                 </div>
 
                 {/* ── Side panel ── */}
@@ -833,6 +1192,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
             <ArchiveModal
                 open={archiveModalOpen}
                 documentTitle={meta.title}
+                documentContent={editor?.getJSON()}
                 onClose={() => setArchiveModalOpen(false)}
                 onConfirm={handleArchiveConfirm}
             />
@@ -860,7 +1220,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 }
 

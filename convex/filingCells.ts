@@ -122,20 +122,20 @@ export const create = mutation({
         if (args.ordre === undefined) {
             const siblings = args.parentId
                 ? await ctx.db
-                      .query("filing_cells")
-                      .withIndex("by_parentId", (q) => q.eq("parentId", args.parentId!))
-                      .collect()
+                    .query("filing_cells")
+                    .withIndex("by_parentId", (q) => q.eq("parentId", args.parentId!))
+                    .collect()
                 : await ctx.db
-                      .query("filing_cells")
-                      .withIndex("by_filingStructureId", (q) =>
-                          q.eq("filingStructureId", args.filingStructureId)
-                      )
-                      .filter((q) => q.eq(q.field("parentId"), undefined))
-                      .collect();
+                    .query("filing_cells")
+                    .withIndex("by_filingStructureId", (q) =>
+                        q.eq("filingStructureId", args.filingStructureId)
+                    )
+                    .filter((q) => q.eq(q.field("parentId"), undefined))
+                    .collect();
             ordre = siblings.length;
         }
 
-        return await ctx.db.insert("filing_cells", {
+        const cellId = await ctx.db.insert("filing_cells", {
             filingStructureId: args.filingStructureId,
             organizationId: args.organizationId,
             code: args.code,
@@ -153,6 +153,69 @@ export const create = mutation({
             createdAt: now,
             updatedAt: now,
         });
+
+        // Sync: Auto-create corresponding folder in iDocument
+        let parentFolderId = undefined;
+        if (args.parentId) {
+            const parentFolder = await ctx.db
+                .query("folders")
+                .withIndex("by_filingCellId", (q) => q.eq("filingCellId", args.parentId!))
+                .first();
+            if (parentFolder) {
+                parentFolderId = parentFolder._id;
+            }
+        }
+
+        // We use "system" as dummy createdBy since it's an auto-generated systemic folder
+        await ctx.db.insert("folders", {
+            name: args.intitule,
+            description: args.description ?? "",
+            organizationId: args.organizationId,
+            createdBy: "system",
+            parentFolderId,
+            filingCellId: cellId,
+            isSystem: true,
+            tags: args.tags ?? [],
+            permissions: {
+                visibility: args.accessDefaut === "public" ? "team" : "private",
+                sharedWith: [],
+                teamIds: [],
+            },
+            isTemplate: false,
+            status: "active",
+            fileCount: 0,
+            createdAt: now,
+            updatedAt: now,
+        });
+
+        // Phase 12: Auto-seed default access rules for this new cell
+        // Fetch all business_roles for this org
+        const businessRoles = await ctx.db
+            .query("business_roles")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        const GOVERNANCE_TYPES = ["presidence", "direction_generale", "direction"];
+
+        for (const role of businessRoles) {
+            if (!role.estActif) continue;
+            // Gouvernance / direction → admin, others → aucun (no rule created)
+            const isGov = role.orgUnitType && GOVERNANCE_TYPES.includes(role.orgUnitType);
+            if (isGov) {
+                await ctx.db.insert("cell_access_rules", {
+                    organizationId: args.organizationId,
+                    filingCellId: cellId,
+                    businessRoleId: role._id,
+                    acces: "admin",
+                    priorite: 5, // role-level priority
+                    estActif: true,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+            }
+        }
+
+        return cellId;
     },
 });
 
@@ -180,6 +243,23 @@ export const update = mutation({
         );
 
         await ctx.db.patch(id, { ...clean, updatedAt: Date.now() });
+
+        // Sync: Update corresponding folder if name, description, or tags changed
+        if (args.intitule !== undefined || args.description !== undefined || args.tags !== undefined) {
+            const folder = await ctx.db
+                .query("folders")
+                .withIndex("by_filingCellId", (q) => q.eq("filingCellId", id))
+                .first();
+
+            if (folder) {
+                const folderUpdates: any = { updatedAt: Date.now() };
+                if (args.intitule !== undefined) folderUpdates.name = args.intitule;
+                if (args.description !== undefined) folderUpdates.description = args.description;
+                if (args.tags !== undefined) folderUpdates.tags = args.tags;
+                await ctx.db.patch(folder._id, folderUpdates);
+            }
+        }
+
         return id;
     },
 });
@@ -217,6 +297,16 @@ export const remove = mutation({
         for (const o of overrides) await ctx.db.delete(o._id);
 
         await ctx.db.delete(args.id);
+
+        // Sync: Mark corresponding folder as trashed
+        const folder = await ctx.db
+            .query("folders")
+            .withIndex("by_filingCellId", (q) => q.eq("filingCellId", args.id))
+            .first();
+        if (folder) {
+            await ctx.db.patch(folder._id, { status: "trashed", updatedAt: Date.now() });
+        }
+
         return args.id;
     },
 });
@@ -246,6 +336,13 @@ export const bulkCreate = mutation({
         const now = Date.now();
         const tempIdMap = new Map<string, Id<"filing_cells">>();
 
+        // Phase 12: Pre-load business_roles for auto-seed access rules
+        const businessRoles = await ctx.db
+            .query("business_roles")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+        const GOVERNANCE_TYPES = ["presidence", "direction_generale", "direction"];
+
         // Trier par niveau (les parents d'abord)
         const sorted = [...args.cells].sort((a, b) => a.niveau - b.niveau);
 
@@ -274,8 +371,141 @@ export const bulkCreate = mutation({
             });
 
             tempIdMap.set(cell.tempId, result);
+
+            // Sync: create corresponding folder
+            let parentFolderId = undefined;
+            if (parentId) {
+                const parentFolder = await ctx.db
+                    .query("folders")
+                    .withIndex("by_filingCellId", (q) => q.eq("filingCellId", parentId))
+                    .first();
+                if (parentFolder) {
+                    parentFolderId = parentFolder._id;
+                }
+            }
+
+            await ctx.db.insert("folders", {
+                name: cell.intitule,
+                description: cell.description ?? "",
+                organizationId: args.organizationId,
+                createdBy: "system",
+                parentFolderId,
+                filingCellId: result,
+                isSystem: true,
+                tags: cell.tags ?? [],
+                permissions: {
+                    visibility: cell.accessDefaut === "public" ? "team" : "private",
+                    sharedWith: [],
+                    teamIds: [],
+                },
+                isTemplate: false,
+                status: "active",
+                fileCount: 0,
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            // Phase 12: Auto-seed default access rules for this new cell
+            for (const role of businessRoles) {
+                if (!role.estActif) continue;
+                const isGov = role.orgUnitType && GOVERNANCE_TYPES.includes(role.orgUnitType);
+                if (isGov) {
+                    await ctx.db.insert("cell_access_rules", {
+                        organizationId: args.organizationId,
+                        filingCellId: result,
+                        businessRoleId: role._id,
+                        acces: "admin",
+                        priorite: 5,
+                        estActif: true,
+                        createdAt: now,
+                        updatedAt: now,
+                    });
+                }
+            }
         }
 
         return { created: tempIdMap.size };
+    },
+});
+
+/**
+ * syncFoldersFromCells — Backfill missing folders for existing filing_cells.
+ * This handles orgs whose cells were created before folder sync logic was added.
+ * Safe to run multiple times (idempotent).
+ */
+export const syncFoldersFromCells = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+
+        // 1. Get all active filing_cells for this org
+        const cells = await ctx.db
+            .query("filing_cells")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+            .filter((q) => q.eq(q.field("estActif"), true))
+            .collect();
+
+        // 2. Get all existing folders with filingCellId for this org
+        const existingFolders = await ctx.db
+            .query("folders")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        const cellIdsWithFolders = new Set(
+            existingFolders
+                .filter((f) => f.filingCellId)
+                .map((f) => f.filingCellId!.toString())
+        );
+
+        // 3. Find cells without corresponding folders
+        const missingCells = cells.filter((c) => !cellIdsWithFolders.has(c._id.toString()));
+
+        if (missingCells.length === 0) {
+            return { synced: 0, message: "All cells already have folders" };
+        }
+
+        // 4. Sort by niveau (parents first) to ensure parent folders exist before children
+        missingCells.sort((a, b) => a.niveau - b.niveau);
+
+        let synced = 0;
+        for (const cell of missingCells) {
+            // Resolve parent folder
+            let parentFolderId = undefined;
+            if (cell.parentId) {
+                const parentFolder = await ctx.db
+                    .query("folders")
+                    .withIndex("by_filingCellId", (q) => q.eq("filingCellId", cell.parentId!))
+                    .first();
+                if (parentFolder) {
+                    parentFolderId = parentFolder._id;
+                }
+            }
+
+            await ctx.db.insert("folders", {
+                name: cell.intitule,
+                description: cell.description ?? "",
+                organizationId: args.organizationId,
+                createdBy: "system",
+                parentFolderId,
+                filingCellId: cell._id,
+                isSystem: true,
+                tags: cell.tags ?? [],
+                permissions: {
+                    visibility: cell.accessDefaut === "public" ? "team" : "private",
+                    sharedWith: [],
+                    teamIds: [],
+                },
+                isTemplate: false,
+                status: "active",
+                fileCount: 0,
+                createdAt: now,
+                updatedAt: now,
+            });
+            synced++;
+        }
+
+        return { synced, total: cells.length };
     },
 });

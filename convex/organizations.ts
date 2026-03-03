@@ -528,7 +528,7 @@ export const markAsReady = mutation({
 
 /**
  * Activate an organization (transition "prete" → "active").
- * Called from the Client wizard when creating a subscription.
+ * Seeds all default structures on first activation.
  */
 export const activate = mutation({
     args: { id: v.id("organizations") },
@@ -539,10 +539,108 @@ export const activate = mutation({
             throw new Error(`Transition invalide : statut actuel "${org.status}", attendu "prete" ou "trial"`);
         }
 
+        const now = Date.now();
+
         await ctx.db.patch(args.id, {
             status: "active",
-            updatedAt: Date.now(),
+            updatedAt: now,
         });
+
+        // ── Phase 14: Seed defaults on first activation ──
+
+        // 1. Seed archive categories (OHADA) if none exist
+        const existingCategories = await ctx.db
+            .query("archive_categories")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.id))
+            .first();
+
+        if (!existingCategories) {
+            const DEFAULT_CATS = [
+                { name: "Fiscal", slug: "fiscal", description: "Documents comptables et fiscaux — OHADA Art. 24", color: "amber", icon: "Landmark", retentionYears: 10, ohadaReference: "OHADA: 10 ans min. — Acte Uniforme Comptable Art. 24", countingStartEvent: "date_tag", activeDurationYears: 5, semiActiveDurationYears: 3, alertBeforeArchiveMonths: 12, hasSemiActivePhase: true, isPerpetual: false, autoDestroy: false, defaultConfidentiality: "confidential" as const, isFixed: false, sortOrder: 1 },
+                { name: "Social / RH", slug: "social", description: "Contrats de travail, bulletins, déclarations sociales", color: "blue", icon: "Users", retentionYears: 5, ohadaReference: "OHADA: 5 ans — Code du Travail", countingStartEvent: "date_creation", activeDurationYears: 3, semiActiveDurationYears: undefined, alertBeforeArchiveMonths: 6, hasSemiActivePhase: false, isPerpetual: false, autoDestroy: false, defaultConfidentiality: "confidential" as const, isFixed: false, sortOrder: 2 },
+                { name: "Juridique", slug: "juridique", description: "Actes constitutifs, PV AG, contrats majeurs", color: "emerald", icon: "Scale", retentionYears: 30, ohadaReference: "OHADA: 30 ans — Acte Uniforme Sociétés Art. 157", countingStartEvent: "date_creation", activeDurationYears: 10, semiActiveDurationYears: 10, alertBeforeArchiveMonths: 24, hasSemiActivePhase: true, isPerpetual: false, autoDestroy: false, defaultConfidentiality: "confidential" as const, isFixed: false, sortOrder: 3 },
+                { name: "Commercial", slug: "client", description: "Factures, bons de commande, contrats clients", color: "violet", icon: "Briefcase", retentionYears: 5, ohadaReference: "OHADA: 5 ans — Acte Uniforme Commercial Art. 18", countingStartEvent: "date_tag", activeDurationYears: 3, semiActiveDurationYears: undefined, alertBeforeArchiveMonths: 6, hasSemiActivePhase: false, isPerpetual: false, autoDestroy: false, defaultConfidentiality: "internal" as const, isFixed: false, sortOrder: 4 },
+                { name: "Coffre-Fort", slug: "coffre", description: "Conservation perpétuelle — documents stratégiques", color: "rose", icon: "Shield", retentionYears: 99, ohadaReference: "Conservation perpétuelle — décision interne", countingStartEvent: "date_gel", activeDurationYears: 99, semiActiveDurationYears: undefined, alertBeforeArchiveMonths: 0, hasSemiActivePhase: false, isPerpetual: true, autoDestroy: false, defaultConfidentiality: "secret" as const, isFixed: true, sortOrder: 5 },
+            ];
+
+            for (const cat of DEFAULT_CATS) {
+                await ctx.db.insert("archive_categories", {
+                    ...cat,
+                    organizationId: args.id,
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now,
+                });
+            }
+        }
+
+        // 2. Seed default filing structure if none exists
+        const existingStructures = await ctx.db
+            .query("filing_structures")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.id))
+            .first();
+
+        if (!existingStructures) {
+            await ctx.db.insert("filing_structures", {
+                organizationId: args.id,
+                nom: "Structure de classement par défaut",
+                description: "Structure générée automatiquement à l'activation",
+                type: "standard",
+                estActif: true,
+                createdAt: now,
+                updatedAt: now,
+            });
+        }
+
+        // 3. Seed default retention alerts for each category
+        const existingAlerts = await ctx.db
+            .query("retention_alerts")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.id))
+            .first();
+
+        if (!existingAlerts) {
+            // Get all categories we just seeded
+            const categories = await ctx.db
+                .query("archive_categories")
+                .withIndex("by_organizationId", (q) => q.eq("organizationId", args.id))
+                .collect();
+
+            for (const cat of categories) {
+                if (cat.isPerpetual) continue; // No alerts for perpetual
+
+                // Pre-archive alerts
+                for (const alert of [
+                    { value: 3, unit: "months" as const, label: `3 mois avant fin phase active — ${cat.name}` },
+                    { value: 1, unit: "weeks" as const, label: `1 semaine avant fin phase active — ${cat.name}` },
+                ]) {
+                    await ctx.db.insert("retention_alerts", {
+                        categoryId: cat._id,
+                        organizationId: args.id,
+                        alertType: "pre_archive",
+                        value: alert.value,
+                        unit: alert.unit,
+                        label: alert.label,
+                        createdAt: now,
+                    });
+                }
+
+                // Pre-deletion alerts
+                for (const alert of [
+                    { value: 6, unit: "months" as const, label: `6 mois avant expiration rétention — ${cat.name}` },
+                    { value: 1, unit: "months" as const, label: `1 mois avant expiration rétention — ${cat.name}` },
+                ]) {
+                    await ctx.db.insert("retention_alerts", {
+                        categoryId: cat._id,
+                        organizationId: args.id,
+                        alertType: "pre_deletion",
+                        value: alert.value,
+                        unit: alert.unit,
+                        label: alert.label,
+                        createdAt: now,
+                    });
+                }
+            }
+        }
 
         return args.id;
     },

@@ -4,12 +4,13 @@
 // DIGITALIUM.IO — iDocument: Modèles de Documents (Templates)
 // ═══════════════════════════════════════════════════════════════
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
     FileStack, Search, FileText, BarChart3, ClipboardList,
     FileCheck, Receipt, Calculator, Scale, BookOpen, Plus,
-    ArrowRight, Sparkles, CheckCircle2,
+    ArrowRight, Sparkles, CheckCircle2, Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -35,6 +38,7 @@ interface Template {
     gradient: string;
     popularity: number; // 0-100
     fields: string[];
+    content: string; // HTML template content
 }
 
 // ─── Template data ──────────────────────────────────────────────
@@ -49,6 +53,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-blue-600 to-cyan-500",
         popularity: 95,
         fields: ["Période", "Objectifs", "Résultats", "Indicateurs clés", "Prochaines étapes"],
+        content: `<h1>Rapport d'activité</h1><h2>Période</h2><p>[Mois/Trimestre — Année]</p><h2>Objectifs</h2><ul><li>Objectif 1</li><li>Objectif 2</li></ul><h2>Résultats</h2><p>Décrire les résultats obtenus…</p><h2>Indicateurs clés</h2><table><tr><th>Indicateur</th><th>Cible</th><th>Réalisé</th></tr><tr><td>KPI 1</td><td>—</td><td>—</td></tr></table><h2>Prochaines étapes</h2><ul><li>Action 1</li></ul>`,
     },
     {
         id: "tpl-2",
@@ -59,6 +64,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-violet-600 to-purple-500",
         popularity: 92,
         fields: ["Date", "Participants", "Ordre du jour", "Décisions", "Actions"],
+        content: `<h1>Compte-rendu de réunion</h1><h2>Informations</h2><p><strong>Date :</strong> [Date]</p><p><strong>Lieu :</strong> [Lieu]</p><h2>Participants</h2><ul><li>[Nom — Fonction]</li></ul><h2>Ordre du jour</h2><ol><li>Point 1</li></ol><h2>Décisions</h2><ul><li>Décision 1</li></ul><h2>Actions</h2><table><tr><th>Action</th><th>Responsable</th><th>Échéance</th></tr><tr><td>—</td><td>—</td><td>—</td></tr></table>`,
     },
     {
         id: "tpl-3",
@@ -69,6 +75,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-amber-600 to-orange-500",
         popularity: 88,
         fields: ["Destinataire(s)", "Objet", "Référence", "Corps du message"],
+        content: `<h1>Note de service</h1><p><strong>De :</strong> [Expéditeur]</p><p><strong>À :</strong> [Destinataire(s)]</p><p><strong>Objet :</strong> [Objet]</p><p><strong>Référence :</strong> [Réf.]</p><hr/><p>[Corps de la note de service…]</p>`,
     },
     {
         id: "tpl-4",
@@ -79,6 +86,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-emerald-600 to-green-500",
         popularity: 85,
         fields: ["Parties", "Objet", "Durée", "Conditions", "Obligations", "Clause résolutoire"],
+        content: `<h1>Contrat de prestation de services</h1><h2>Entre les parties</h2><p><strong>Le Client :</strong> [Raison sociale, adresse]</p><p><strong>Le Prestataire :</strong> [Raison sociale, adresse]</p><h2>Article 1 — Objet</h2><p>[Objet du contrat]</p><h2>Article 2 — Durée</h2><p>[Durée du contrat]</p><h2>Article 3 — Conditions financières</h2><p>[Montant, modalités de paiement]</p><h2>Article 4 — Obligations</h2><p>[Obligations des parties]</p><h2>Article 5 — Résiliation</h2><p>[Conditions de résiliation]</p>`,
     },
     {
         id: "tpl-5",
@@ -89,6 +97,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-pink-600 to-rose-500",
         popularity: 82,
         fields: ["Client", "Prestations", "Quantité", "Prix unitaire", "Total HT/TTC"],
+        content: `<h1>Devis</h1><p><strong>Client :</strong> [Nom du client]</p><p><strong>Date :</strong> [Date]</p><p><strong>Validité :</strong> 30 jours</p><table><tr><th>Prestation</th><th>Quantité</th><th>Prix unitaire (FCFA)</th><th>Total (FCFA)</th></tr><tr><td>—</td><td>—</td><td>—</td><td>—</td></tr></table><p><strong>Total HT :</strong> — FCFA</p><p><strong>TVA (18%) :</strong> — FCFA</p><p><strong>Total TTC :</strong> — FCFA</p>`,
     },
     {
         id: "tpl-6",
@@ -99,6 +108,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-red-600 to-orange-500",
         popularity: 78,
         fields: ["Numéro", "Client", "Lignes de facturation", "Sous-total", "TVA", "Total"],
+        content: `<h1>Facture</h1><p><strong>N° :</strong> FV-[Année]-[Numéro]</p><p><strong>Date :</strong> [Date]</p><p><strong>Client :</strong> [Nom du client]</p><table><tr><th>Désignation</th><th>Quantité</th><th>PU HT (FCFA)</th><th>Montant (FCFA)</th></tr><tr><td>—</td><td>—</td><td>—</td><td>—</td></tr></table><p><strong>Sous-total HT :</strong> — FCFA</p><p><strong>TVA 18% :</strong> — FCFA</p><p><strong>Total TTC :</strong> — FCFA</p><hr/><p><em>Coordonnées bancaires : BGFI Bank — IBAN Gabon</em></p>`,
     },
     {
         id: "tpl-7",
@@ -109,6 +119,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-indigo-600 to-blue-500",
         popularity: 75,
         fields: ["Instance", "Date", "Quorum", "Résolutions", "Votes", "Signatures"],
+        content: `<h1>Procès-verbal</h1><h2>Informations</h2><p><strong>Instance :</strong> [AG/CA/Comité]</p><p><strong>Date :</strong> [Date]</p><p><strong>Quorum :</strong> [Nombre]</p><h2>Résolutions</h2><h3>Résolution n°1</h3><p>[Description]</p><p><strong>Vote :</strong> Pour: — / Contre: — / Abstention: —</p><h2>Signatures</h2><p>[Signatures des membres]</p>`,
     },
     {
         id: "tpl-8",
@@ -119,6 +130,7 @@ const TEMPLATES: Template[] = [
         gradient: "from-teal-600 to-cyan-500",
         popularity: 70,
         fields: ["Contexte", "Périmètre", "Exigences fonctionnelles", "Contraintes", "Planning"],
+        content: `<h1>Cahier des charges</h1><h2>Contexte</h2><p>[Description du contexte et des enjeux]</p><h2>Périmètre</h2><p>[Périmètre du projet]</p><h2>Exigences fonctionnelles</h2><ul><li>EF-01 : [Description]</li><li>EF-02 : [Description]</li></ul><h2>Contraintes techniques</h2><ul><li>[Contrainte 1]</li></ul><h2>Planning prévisionnel</h2><table><tr><th>Phase</th><th>Début</th><th>Fin</th></tr><tr><td>Phase 1</td><td>—</td><td>—</td></tr></table>`,
     },
 ];
 
@@ -139,9 +151,13 @@ const cardHover = {
 // ═══════════════════════════════════════════════════════════════
 
 export default function DocumentTemplatesPage() {
+    const router = useRouter();
+    const createFromTemplate = useMutation(api.documents.createFromTemplate);
+
     const [search, setSearch] = useState("");
     const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
     const [createdMsg, setCreatedMsg] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
     const filtered = search
         ? TEMPLATES.filter(
@@ -152,11 +168,28 @@ export default function DocumentTemplatesPage() {
         )
         : TEMPLATES;
 
-    const handleUseTemplate = (template: Template) => {
-        setCreatedMsg(`Document « ${template.title} » créé avec succès !`);
-        setPreviewTemplate(null);
-        setTimeout(() => setCreatedMsg(""), 3000);
-    };
+    const handleUseTemplate = useCallback(async (template: Template) => {
+        setIsCreating(true);
+        try {
+            const docId = await createFromTemplate({
+                title: template.title,
+                content: template.content,
+                createdBy: "Daniel Nguema", // TODO: from auth context
+                tags: [template.category],
+                templateId: template.id,
+            });
+            setPreviewTemplate(null);
+            setCreatedMsg(`Document « ${template.title} » créé avec succès !`);
+            setTimeout(() => setCreatedMsg(""), 3000);
+            // Navigate to editor with the new document
+            router.push(`/pro/idocument/edit/${docId}`);
+        } catch (err) {
+            console.error("[Templates] Create error:", err);
+            setCreatedMsg("Erreur lors de la création du document");
+            setTimeout(() => setCreatedMsg(""), 3000);
+        }
+        setIsCreating(false);
+    }, [createFromTemplate, router]);
 
     return (
         <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-5 max-w-[1400px] mx-auto">

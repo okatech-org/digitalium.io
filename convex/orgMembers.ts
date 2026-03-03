@@ -404,3 +404,186 @@ export const setModuleOverrides = mutation({
         return args.id;
     },
 });
+
+// ═══════════════════════════════════════════════
+// Phase 13: Multi-postes & Affectations
+// ═══════════════════════════════════════════════
+
+/** Ajouter une affectation supplémentaire à un membre */
+export const addAssignment = mutation({
+    args: {
+        id: v.id("organization_members"),
+        businessRoleId: v.id("business_roles"),
+        orgUnitId: v.id("org_units"),
+        isPrimary: v.optional(v.boolean()),
+        startDate: v.optional(v.number()),
+        endDate: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const member = await ctx.db.get(args.id);
+        if (!member) throw new Error("Membre introuvable");
+
+        const now = Date.now();
+        const assignments = (member as any).assignments ?? [];
+
+        // Vérifier pas de doublon actif (même role + même unit)
+        const duplicate = assignments.find(
+            (a: any) =>
+                a.businessRoleId === args.businessRoleId &&
+                a.orgUnitId === args.orgUnitId &&
+                (!a.endDate || a.endDate > now)
+        );
+        if (duplicate) {
+            throw new Error("Cette affectation existe déjà pour ce membre");
+        }
+
+        // Si isPrimary, dé-flagguer les autres
+        const newAssignments = args.isPrimary
+            ? assignments.map((a: any) => ({ ...a, isPrimary: false }))
+            : [...assignments];
+
+        newAssignments.push({
+            businessRoleId: args.businessRoleId,
+            orgUnitId: args.orgUnitId,
+            isPrimary: args.isPrimary ?? false,
+            startDate: args.startDate ?? now,
+            endDate: args.endDate,
+        });
+
+        // Recalculer le level = meilleur parmi les affectations actives
+        let bestLevel = 5;
+        for (const a of newAssignments) {
+            if (a.endDate && a.endDate <= now) continue;
+            const lvl = await deriveLevelFromBusinessRole(ctx, a.businessRoleId);
+            if (lvl < bestLevel) bestLevel = lvl;
+        }
+
+        await ctx.db.patch(args.id, {
+            assignments: newAssignments,
+            level: bestLevel,
+        });
+
+        return args.id;
+    },
+});
+
+/** Modifier une affectation existante (dates, isPrimary) */
+export const updateAssignment = mutation({
+    args: {
+        id: v.id("organization_members"),
+        index: v.number(), // index de l'affectation dans le tableau
+        isPrimary: v.optional(v.boolean()),
+        startDate: v.optional(v.number()),
+        endDate: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const member = await ctx.db.get(args.id);
+        if (!member) throw new Error("Membre introuvable");
+
+        const assignments = [...((member as any).assignments ?? [])];
+        if (args.index < 0 || args.index >= assignments.length) {
+            throw new Error("Index d'affectation invalide");
+        }
+
+        // Si isPrimary, dé-flagguer les autres
+        if (args.isPrimary) {
+            for (let i = 0; i < assignments.length; i++) {
+                assignments[i] = { ...assignments[i], isPrimary: false };
+            }
+        }
+
+        const updated = { ...assignments[args.index] };
+        if (args.isPrimary !== undefined) updated.isPrimary = args.isPrimary;
+        if (args.startDate !== undefined) updated.startDate = args.startDate;
+        if (args.endDate !== undefined) updated.endDate = args.endDate;
+        assignments[args.index] = updated;
+
+        // Recalculer le level
+        const now = Date.now();
+        let bestLevel = 5;
+        for (const a of assignments) {
+            if (a.endDate && a.endDate <= now) continue;
+            const lvl = await deriveLevelFromBusinessRole(ctx, a.businessRoleId);
+            if (lvl < bestLevel) bestLevel = lvl;
+        }
+
+        await ctx.db.patch(args.id, {
+            assignments,
+            level: bestLevel,
+        });
+
+        return args.id;
+    },
+});
+
+/** Retirer une affectation (par index) */
+export const removeAssignment = mutation({
+    args: {
+        id: v.id("organization_members"),
+        index: v.number(),
+    },
+    handler: async (ctx, args) => {
+        const member = await ctx.db.get(args.id);
+        if (!member) throw new Error("Membre introuvable");
+
+        const assignments = [...((member as any).assignments ?? [])];
+        if (args.index < 0 || args.index >= assignments.length) {
+            throw new Error("Index d'affectation invalide");
+        }
+
+        assignments.splice(args.index, 1);
+
+        // Recalculer le level
+        const now = Date.now();
+        let bestLevel = 5;
+        for (const a of assignments) {
+            if (a.endDate && a.endDate <= now) continue;
+            const lvl = await deriveLevelFromBusinessRole(ctx, a.businessRoleId);
+            if (lvl < bestLevel) bestLevel = lvl;
+        }
+        // Inclure aussi le legacy role si présent
+        if (member.businessRoleId) {
+            const legacyLevel = await deriveLevelFromBusinessRole(ctx, member.businessRoleId);
+            if (legacyLevel < bestLevel) bestLevel = legacyLevel;
+        }
+
+        await ctx.db.patch(args.id, {
+            assignments,
+            level: bestLevel,
+        });
+
+        return args.id;
+    },
+});
+
+/** Lister toutes les affectations actives d'un membre */
+export const listAssignments = query({
+    args: { id: v.id("organization_members") },
+    handler: async (ctx, args) => {
+        const member = await ctx.db.get(args.id);
+        if (!member) return [];
+
+        const now = Date.now();
+        const assignments = (member as any).assignments ?? [];
+
+        // Enrichir chaque affectation avec les détails du rôle et de l'unité
+        const enriched = [];
+        for (const a of assignments) {
+            const role = a.businessRoleId
+                ? await ctx.db.get(a.businessRoleId) as any
+                : null;
+            const unit = a.orgUnitId
+                ? await ctx.db.get(a.orgUnitId) as any
+                : null;
+            enriched.push({
+                ...a,
+                roleName: role?.intitule ?? "—",
+                roleCategorie: role?.categorie ?? "—",
+                unitName: unit?.nom ?? "—",
+                isActive: !a.endDate || a.endDate > now,
+            });
+        }
+
+        return enriched;
+    },
+});

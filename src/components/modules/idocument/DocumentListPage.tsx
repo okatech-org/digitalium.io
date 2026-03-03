@@ -5,20 +5,23 @@
 // 3 modes (grille/liste/colonnes) · DnD · Dossiers · Mes Documents par défaut
 // ═══════════════════════════════════════════════════════════════
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAuth } from "@/hooks/useAuth";
-import { useFilingStructures, useFilingCells, useUserFilingAccess, useAccessRules } from "@/hooks/useFilingAccess";
+import { useFilingStructures, useUserFilingAccess, useAccessRules } from "@/hooks/useFilingAccess";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     FileText, Search, Plus, Filter, MoreHorizontal,
-    Edit3, Share2, Archive, Trash2, CheckSquare, Clock, Eye,
+    Edit3, Share2, Archive, Trash2, CheckSquare, Clock, Eye, RotateCcw,
     Tag, User, X, Sparkles, PenTool, FolderPlus,
-    FolderOpen, Folder, Lock, Upload, FileUp, Brain,
+    FolderOpen, Folder, FolderTree, Lock, Upload, FileUp, Brain,
     Loader2, Check, ChevronRight, FileSpreadsheet, Image as ImageIcon,
+    FolderUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,10 +63,15 @@ import type {
     DragMoveEvent,
     ListColumn,
 } from "@/components/modules/file-manager";
+import FolderDocumentContextMenu, {
+    RetentionCategoryBadge,
+    type ArchivePolicyData,
+    type ArchiveCategoryOption,
+} from "./FolderDocumentContextMenu";
 
 // ─── Types ──────────────────────────────────────────────────────
 
-type DocStatus = "draft" | "review" | "approved" | "archived";
+type DocStatus = "draft" | "review" | "approved" | "archived" | "trashed";
 type ImportStep = "select" | "analyzing" | "review" | "done";
 
 interface DocItem {
@@ -100,6 +108,7 @@ const STATUS_CFG: Record<DocStatus, { label: string; icon: React.ElementType; cl
     review: { label: "En révision", icon: Eye, class: "bg-blue-500/15 text-blue-400 border-blue-500/20", dot: "bg-blue-400" },
     approved: { label: "Approuvé", icon: CheckSquare, class: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20", dot: "bg-emerald-400" },
     archived: { label: "Archivé", icon: Archive, class: "bg-violet-500/15 text-violet-400 border-violet-500/20", dot: "bg-violet-400" },
+    trashed: { label: "Corbeille", icon: Trash2, class: "bg-red-500/15 text-red-400 border-red-500/20", dot: "bg-red-400" },
 };
 
 const STATUS_FILTERS: { value: DocStatus | "all"; label: string }[] = [
@@ -119,94 +128,7 @@ const DEFAULT_SYSTEM_FOLDERS: FileManagerFolder[] = [
     { id: "__poubelle", name: "Poubelle", parentFolderId: null, tags: [], fileCount: 0, updatedAt: "", createdBy: "Système", isSystem: true },
 ];
 
-// ─── Mock Documents (as FileManagerFile with DocItem metadata) ──
-
-const INITIAL_DOCUMENTS: DocItem[] = [
-    {
-        id: "doc-1", title: "Contrat de prestation de services — SOGARA",
-        excerpt: "Contrat cadre pour la fourniture de services numériques à la Société Gabonaise de Raffinage…",
-        author: "Daniel Nguema", authorInitials: "DN",
-        updatedAt: "Il y a 10 min", updatedAtTs: Date.now() - 600_000,
-        status: "review", tags: ["Contrat", "SOGARA"], version: 3, folderId: "contrats",
-    },
-    {
-        id: "doc-2", title: "Rapport financier T4-2025 — ASCOMA Gabon",
-        excerpt: "Synthèse des performances financières pour le quatrième trimestre 2025…",
-        author: "Aimée Gondjout", authorInitials: "AG",
-        updatedAt: "Il y a 35 min", updatedAtTs: Date.now() - 2_100_000,
-        status: "approved", tags: ["Finance", "Rapport"], version: 5, folderId: "fiscal",
-    },
-    {
-        id: "doc-3", title: "Note de service — Politique de télétravail 2026",
-        excerpt: "Mise à jour de la politique de télétravail pour l'ensemble des collaborateurs…",
-        author: "Claude Mboumba", authorInitials: "CM",
-        updatedAt: "Il y a 2h", updatedAtTs: Date.now() - 7_200_000,
-        status: "draft", tags: ["RH", "Note"], version: 1, folderId: "__mes-documents",
-    },
-    {
-        id: "doc-4", title: "PV du Conseil d'Administration — Janvier 2026",
-        excerpt: "Procès-verbal de la réunion du conseil tenue le 28 janvier 2026…",
-        author: "Daniel Nguema", authorInitials: "DN",
-        updatedAt: "Il y a 2h", updatedAtTs: Date.now() - 7_200_000,
-        status: "approved", tags: ["PV", "Direction"], version: 2, folderId: "pv",
-    },
-    {
-        id: "doc-5", title: "Cahier des charges — Migration Cloud SEEG",
-        excerpt: "Spécifications techniques pour la migration des systèmes legacy…",
-        author: "Patrick Obiang", authorInitials: "PO",
-        updatedAt: "Il y a 3h", updatedAtTs: Date.now() - 10_800_000,
-        status: "review", tags: ["Technique", "Cloud"], version: 4, folderId: "contrats",
-    },
-    {
-        id: "doc-6", title: "Devis prestation audit IT — Ministère de la Pêche",
-        excerpt: "Proposition commerciale pour l'audit complet de l'infrastructure IT…",
-        author: "Marie Nzé", authorInitials: "MN",
-        updatedAt: "Il y a 3j", updatedAtTs: Date.now() - 259_200_000,
-        status: "draft", tags: ["Devis", "Ministère"], version: 1, folderId: "__mes-documents",
-    },
-    {
-        id: "doc-7", title: "Facture FV-2026-0847 — Gabon Télécom",
-        excerpt: "Facture pour la prestation de connectivité réseau et maintenance technique…",
-        author: "Aimée Gondjout", authorInitials: "AG",
-        updatedAt: "Il y a 1j", updatedAtTs: Date.now() - 86_400_000,
-        status: "approved", tags: ["Facture", "Télécom"], version: 1, folderId: "fiscal",
-    },
-    {
-        id: "doc-8", title: "Plan stratégique numérique 2026-2028",
-        excerpt: "Feuille de route pour la transformation digitale de l'organisation…",
-        author: "Claude Mboumba", authorInitials: "CM",
-        updatedAt: "Il y a 5j", updatedAtTs: Date.now() - 432_000_000,
-        status: "draft", tags: ["Stratégie", "Direction"], version: 2, folderId: "__mes-documents",
-    },
-    {
-        id: "doc-9", title: "Contrat CDI — Recrutement IT Senior",
-        excerpt: "Contrat à durée indéterminée pour le poste d'ingénieur IT Senior…",
-        author: "Aimée Gondjout", authorInitials: "AG",
-        updatedAt: "Il y a 3j", updatedAtTs: Date.now() - 259_200_000,
-        status: "approved", tags: ["RH", "Contrat"], version: 2, folderId: "rh",
-    },
-    {
-        id: "doc-10", title: "Convention de stage — 2026-S1",
-        excerpt: "Convention tripartite pour le stage de perfectionnement…",
-        author: "Aimée Gondjout", authorInitials: "AG",
-        updatedAt: "Il y a 5j", updatedAtTs: Date.now() - 432_000_000,
-        status: "review", tags: ["RH", "Stage"], version: 1, folderId: "rh",
-    },
-    {
-        id: "doc-11", title: "Avenant contrat maintenance — COMILOG",
-        excerpt: "Avenant n°2 au contrat de maintenance des systèmes numériques…",
-        author: "Patrick Obiang", authorInitials: "PO",
-        updatedAt: "Il y a 7j", updatedAtTs: Date.now() - 604_800_000,
-        status: "approved", tags: ["Contrat", "Mines"], version: 2, folderId: "contrats",
-    },
-    {
-        id: "doc-12", title: "Déclaration fiscale annuelle 2025",
-        excerpt: "Déclaration des résultats de l'exercice fiscal 2025…",
-        author: "Claude Mboumba", authorInitials: "CM",
-        updatedAt: "Il y a 10j", updatedAtTs: Date.now() - 864_000_000,
-        status: "archived", tags: ["Fiscal", "Déclaration"], version: 3, folderId: "fiscal",
-    },
-];
+// ─── (Demo data removed — documents now fetched from Convex) ──────
 
 // ─── AI Classification rules ────────────────────────────────────
 
@@ -233,19 +155,35 @@ function classifyFileName(name: string): { tags: string[]; folderId: string; fol
 }
 
 const ACCEPTED_DOC_TYPES = [
+    // Documents
     "application/pdf",
-    "image/jpeg",
-    "image/png",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",       // .xlsx
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+    "text/plain",       // .txt
+    "text/csv",          // .csv
+    // Images
+    "image/jpeg",        // .jpg
+    "image/png",         // .png
+    "image/svg+xml",     // .svg
+    "image/webp",        // .webp
+    "image/gif",         // .gif
+    // Vidéo
+    "video/mp4",         // .mp4
+    "video/webm",        // .webm
+    "video/quicktime",   // .mov
+    "video/x-msvideo",   // .avi
 ];
+const ACCEPTED_EXTENSIONS = ".pdf,.docx,.xlsx,.pptx,.txt,.csv,.jpg,.jpeg,.png,.svg,.webp,.gif,.mp4,.webm,.mov,.avi";
 const MAX_IMPORT_SIZE = 50 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 2000 * 1024 * 1024; // 2 Go for videos
 
 function getImportFileIcon(type: string) {
     if (type.includes("pdf")) return <FileText className="h-4 w-4 text-red-400" />;
-    if (type.includes("spreadsheet") || type.includes("excel")) return <FileSpreadsheet className="h-4 w-4 text-emerald-400" />;
+    if (type.includes("spreadsheet") || type.includes("excel") || type.includes("csv")) return <FileSpreadsheet className="h-4 w-4 text-emerald-400" />;
     if (type.includes("image")) return <ImageIcon className="h-4 w-4 text-blue-400" />;
+    if (type.includes("video")) return <FileText className="h-4 w-4 text-purple-400" />;
+    if (type.includes("presentation") || type.includes("pptx")) return <FileText className="h-4 w-4 text-orange-400" />;
     if (type.includes("word") || type.includes("document")) return <FileText className="h-4 w-4 text-blue-400" />;
     return <FileText className="h-4 w-4 text-zinc-400" />;
 }
@@ -325,7 +263,7 @@ const DOC_COLUMNS: ListColumn[] = [
             const meta = item.metadata as Record<string, unknown> | undefined;
             const status = meta?.status as DocStatus | undefined;
             if (status && STATUS_CFG[status]) {
-                const st = STATUS_CFG[status];
+                const st = STATUS_CFG[status] ?? STATUS_CFG.draft;
                 return (
                     <Badge className={`text-[10px] h-5 border ${st.class}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${st.dot} mr-1`} />
@@ -372,15 +310,81 @@ const DOC_COLUMNS: ListColumn[] = [
 export default function DocumentListPage({ basePath = "/pro/idocument" }: { basePath?: string }) {
     const router = useRouter();
     const { orgId } = useOrganization();
-    const { user } = useAuth();
-    const isAdmin = (user?.level ?? 99) <= 2; // Admin = level 1 or 2
+    const { user, isAdmin } = useAuth();
 
     // ─── Convex: fetch filing structure ─────────────────────────
     // Resolve the org display name to a real Convex document ID
     const { convexOrgId } = useConvexOrgId();
     const { activeStructure } = useFilingStructures(convexOrgId);
-    const { cells, isLoading: cellsLoading, createCell } = useFilingCells(activeStructure?._id);
+
+    // Instead of raw cells, we now fetch actual folders that are synced from cells
+    const convexFolders = useQuery(api.folders.listByOrg, convexOrgId ? { organizationId: convexOrgId } : "skip");
+    const createFolderMut = useMutation(api.folders.create);
+    const syncFoldersMut = useMutation(api.filingCells.syncFoldersFromCells);
     const { setRule } = useAccessRules(convexOrgId);
+
+    // ─── Convex: import mutations ────────────────────────────────
+    const generateUploadUrlMut = useMutation(api.documents.generateUploadUrl);
+    const createFromImportMut = useMutation(api.documents.createFromImport);
+    const getOrCreateFolderMut = useMutation(api.folders.getOrCreateByName);
+    const removeDocMut = useMutation(api.documents.remove);
+
+    // ─── Convex: fetch existing documents ────────────────────────
+    const convexDocuments = useQuery(
+        api.documents.list,
+        convexOrgId ? { organizationId: convexOrgId } : {}
+    );
+
+    // ─── Convex: fetch trashed documents (for Poubelle) ─────────
+    const convexTrashedDocs = useQuery(
+        api.documents.listTrashed,
+        convexOrgId ? { organizationId: convexOrgId } : {}
+    );
+    const restoreDocMut = useMutation(api.documents.restore);
+    const permanentDeleteDocMut = useMutation(api.documents.permanentDelete);
+
+    // ─── Convex: archive categories + metadata ───────────────────
+    const archiveCategories = useQuery(
+        api.archiveConfig.listCategories,
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
+    );
+    const setFolderArchiveMetaMut = useMutation(api.folderArchiveMetadata.setMetadata);
+    const updateFolderMut = useMutation(api.folders.update);
+    const removeFolderMut = useMutation(api.folders.remove);
+
+    // Map archive categories to the shape expected by the context menu
+    const categoryOptions: ArchiveCategoryOption[] = useMemo(() => {
+        if (!archiveCategories) return [];
+        return archiveCategories.map((c: any) => ({
+            _id: c._id,
+            name: c.name,
+            slug: c.slug,
+            color: c.color ?? "violet",
+            icon: c.icon ?? "Archive",
+            retentionYears: c.retentionYears ?? 5,
+            description: c.description,
+        }));
+    }, [archiveCategories]);
+
+    // ─── Auto-sync: backfill folders from filing_cells if missing ─
+    const syncAttemptedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (syncAttemptedRef.current) return;
+        if (!convexOrgId || !activeStructure) return;
+        if (convexFolders === undefined) return; // still loading
+        // If we have a structure but no synced folders, trigger backfill
+        const hasSyncedFolders = convexFolders.some((f: any) => f.filingCellId);
+        if (!hasSyncedFolders) {
+            syncAttemptedRef.current = true;
+            syncFoldersMut({ organizationId: convexOrgId })
+                .then((r) => {
+                    if (r.synced > 0) {
+                        console.log(`[iDocument] Auto-synced ${r.synced} folders from filing cells`);
+                    }
+                })
+                .catch((err) => console.error("[iDocument] Folder sync error:", err));
+        }
+    }, [convexOrgId, activeStructure, convexFolders, syncFoldersMut]);
 
     // ─── Résolution d'accès utilisateur ─────────────────────────
     // NOTE: organization_members stores email as userId, not Firebase UID
@@ -388,34 +392,38 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         user?.email, convexOrgId
     );
 
-    // ─── Map filing_cells → FileManagerFolder (filtré par accès) ─
+    // ─── Map convex folders → FileManagerFolder (filtré par accès) ─
     const dynamicFolders = useMemo<FileManagerFolder[]>(() => {
-        if (!cells || cells.length === 0) return [];
+        if (!convexFolders || convexFolders.length === 0) return [];
 
-        return cells
-            .filter((c) => c.estActif)
-            // Strict access: only show cells the user has access to
-            .filter((c) => visibleCellIds.includes(c._id))
-            .map((cell) => ({
-                id: cell._id,
-                name: cell.intitule,
-                description: cell.description,
-                parentFolderId: cell.parentId ?? null,
-                tags: cell.tags ?? [],
-                fileCount: 0,
-                updatedAt: cell.updatedAt
-                    ? new Date(cell.updatedAt).toLocaleDateString("fr-FR")
-                    : "",
-                createdBy: "",
+        return convexFolders
+            // Strict access: if it's a system folder (synced from filing_cells), check access matrix
+            // Admin bypass: admins (level ≤ 2) see all org folders
+            // Loading fallback: while access is resolving, show all folders
+            .filter((f: any) => {
+                if (isAdmin) return true;
+                if (accessLoading) return true;
+                if (f.isSystem && f.filingCellId) {
+                    return visibleCellIds.includes(f.filingCellId);
+                }
+                return true; // regular user folders
+            })
+            .map((f: any) => ({
+                id: f._id,
+                name: f.name,
+                description: f.description,
+                parentFolderId: f.parentFolderId ?? null,
+                tags: f.tags ?? [],
+                fileCount: f.fileCount ?? 0,
+                updatedAt: new Date(f.updatedAt).toLocaleDateString("fr-FR"),
+                createdBy: f.createdBy === "system" ? "Système" : f.createdBy,
+                isSystem: false, // Only __mes-documents and __poubelle are true system folders
                 metadata: {
-                    code: cell.code,
-                    icon: cell.icone,
-                    color: cell.couleur,
-                    accessDefaut: cell.accessDefaut,
-                    moduleId: cell.moduleId,
+                    filingCellId: f.filingCellId,
+                    isArborescence: !!f.filingCellId, // Synced from filing structure
                 },
             }));
-    }, [cells, visibleCellIds]);
+    }, [convexFolders, visibleCellIds, isAdmin, accessLoading]);
 
     // ─── Merge: system folders + dynamic filing cells ───────────
     // No useEffect-based sync — compute directly to avoid loops
@@ -431,8 +439,32 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [statusFilter, setStatusFilter] = useState<DocStatus | "all">("all");
     const [sortBy, setSortBy] = useState("date");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-    const [documents, setDocuments] = useState<DocItem[]>(INITIAL_DOCUMENTS);
+    const [documents, setDocuments] = useState<DocItem[]>([]);
     const [localFolders, setLocalFolders] = useState<FileManagerFolder[]>([]);
+
+    // ─── Sync Convex documents into local state ──────────────
+    useEffect(() => {
+        if (!convexDocuments) return;
+        const convexDocItems: DocItem[] = convexDocuments.map((d) => ({
+            id: d._id,
+            title: d.title,
+            excerpt: d.excerpt ?? "",
+            author: d.createdBy,
+            authorInitials: d.createdBy.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2),
+            updatedAt: new Date(d.updatedAt).toLocaleDateString("fr-FR"),
+            updatedAtTs: d.updatedAt,
+            status: d.status as DocStatus,
+            tags: d.tags,
+            version: d.version,
+            folderId: (d.folderId ?? d.parentFolderId ?? "__mes-documents") as string,
+        }));
+        // Merge: Convex docs + any locally-added docs not yet in Convex
+        setDocuments((prev) => {
+            const convexIds = new Set(convexDocItems.map((d) => d.id));
+            const localOnly = prev.filter((d) => !convexIds.has(d.id) && !d.id.startsWith("doc-"));
+            return [...convexDocItems, ...localOnly];
+        });
+    }, [convexDocuments]);
 
     // Computed folders: base from Convex + locally created ones
     const folders = useMemo<FileManagerFolder[]>(
@@ -442,11 +474,62 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [showNewDocDialog, setShowNewDocDialog] = useState(false);
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
     const [showImportDialog, setShowImportDialog] = useState(false);
+    const [showTagDialog, setShowTagDialog] = useState(false);
+    const [tagEditDocId, setTagEditDocId] = useState<string | null>(null);
+    const [tagInput, setTagInput] = useState("");
     const [newDocTitle, setNewDocTitle] = useState("");
     const [newFolderName, setNewFolderName] = useState("");
     const [importFiles, setImportFiles] = useState<ImportFileItem[]>([]);
     const [importStep, setImportStep] = useState<ImportStep>("select");
     const [isDragOver, setIsDragOver] = useState(false);
+
+    // ─── Tag Suggestions by archive category ────────────────────
+    const TAG_SUGGESTIONS: Record<string, string[]> = {
+        fiscal: ["Bilan", "Déclaration", "TVA", "Impôt", "Comptabilité", "Facture"],
+        social: ["Contrat", "RH", "Paie", "Convention", "Stage", "Formation"],
+        legal: ["PV", "Délibération", "Statuts", "Juridique", "Conformité"],
+        client: ["Devis", "Proposition", "Commande", "Livraison", "Commercial"],
+        general: ["Rapport", "Note", "Stratégie", "Direction", "Technique", "Cloud", "Audit"],
+    };
+
+    const tagEditDoc = useMemo(() => documents.find((d) => d.id === tagEditDocId), [documents, tagEditDocId]);
+
+    const tagSuggestions = useMemo(() => {
+        if (!tagEditDoc) return TAG_SUGGESTIONS.general;
+        // Determine category from folder
+        const folder = folders.find((f) => f.id === tagEditDoc.folderId);
+        const slug = folder?.metadata?.code?.toString()?.toLowerCase() || "";
+        return TAG_SUGGESTIONS[slug] || TAG_SUGGESTIONS.general;
+    }, [tagEditDoc, folders]);
+
+    const handleOpenTagDialog = useCallback((docId: string) => {
+        setTagEditDocId(docId);
+        setTagInput("");
+        setShowTagDialog(true);
+    }, []);
+
+    const handleAddTag = useCallback((tag: string) => {
+        if (!tagEditDocId || !tag.trim()) return;
+        setDocuments((prev) =>
+            prev.map((d) =>
+                d.id === tagEditDocId && !d.tags.includes(tag.trim())
+                    ? { ...d, tags: [...d.tags, tag.trim()] }
+                    : d
+            )
+        );
+        setTagInput("");
+    }, [tagEditDocId]);
+
+    const handleRemoveTag = useCallback((tag: string) => {
+        if (!tagEditDocId) return;
+        setDocuments((prev) =>
+            prev.map((d) =>
+                d.id === tagEditDocId
+                    ? { ...d, tags: d.tags.filter((t) => t !== tag) }
+                    : d
+            )
+        );
+    }, [tagEditDocId]);
 
     // ─── Breadcrumb path ────────────────────────────────────────
     const breadcrumbPath = useMemo(() => {
@@ -471,6 +554,27 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     }, [folders, currentFolderId]);
 
     const currentFiles = useMemo(() => {
+        // POUBELLE: show trashed documents
+        if (currentFolderId === "__poubelle") {
+            if (!convexTrashedDocs) return [];
+            return convexTrashedDocs.map((d) => ({
+                id: d._id,
+                name: d.title,
+                type: "file" as const,
+                size: d.fileSize ?? 0,
+                date: new Date(d.trashedAt ?? d.updatedAt).toLocaleDateString("fr-FR"),
+                metadata: {
+                    status: "trashed" as DocStatus,
+                    tags: d.tags ?? [],
+                    authorInitials: d.createdBy?.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) ?? "??",
+                    author: d.createdBy ?? "Inconnu",
+                    trashedAt: d.trashedAt,
+                    trashedBy: d.trashedBy,
+                    previousStatus: d.previousStatus,
+                },
+            }));
+        }
+
         let docs = documents.filter((d) => d.folderId === (currentFolderId ?? "__mes-documents"));
 
         // If at root, show docs without folder match OR in any root-level context
@@ -510,18 +614,26 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         });
 
         return docs;
-    }, [documents, currentFolderId, search, statusFilter, sortBy, sortDir]);
+    }, [documents, currentFolderId, search, statusFilter, sortBy, sortDir, convexTrashedDocs]);
 
-    const filesAsManagerFiles = useMemo(() => currentFiles.map(docToFile), [currentFiles]);
+    const filesAsManagerFiles = useMemo(() => {
+        if (currentFolderId === "__poubelle") {
+            // Poubelle mode: currentFiles already in FileManagerFile shape
+            return currentFiles as unknown as FileManagerFile[];
+        }
+        return (currentFiles as DocItem[]).map(docToFile);
+    }, [currentFiles, currentFolderId]);
 
     // ─── Update folder file counts ──────────────────────────────
     const foldersWithCounts = useMemo(() => {
         return currentFolders.map((f) => ({
             ...f,
-            fileCount: documents.filter((d) => d.folderId === f.id).length +
+            fileCount: f.id === "__poubelle"
+                ? (convexTrashedDocs?.length ?? 0)
+                : documents.filter((d) => d.folderId === f.id).length +
                 folders.filter((sf) => sf.parentFolderId === f.id).length,
         }));
-    }, [currentFolders, documents, folders]);
+    }, [currentFolders, documents, folders, convexTrashedDocs]);
 
     // ─── Handlers ───────────────────────────────────────────────
 
@@ -564,6 +676,121 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         }
     }, [sortBy]);
 
+    // ─── Context menu handlers ──────────────────────────────────
+
+    const handleRenameItem = useCallback(async (id: string, newName: string) => {
+        // Try Convex update for real folders
+        if (convexOrgId) {
+            try {
+                await updateFolderMut({ id: id as Id<"folders">, name: newName });
+                toast.success(`Renommé en "${newName}"`);
+            } catch {
+                // Fallback: update local
+                setLocalFolders((prev) =>
+                    prev.map((f) => f.id === id ? { ...f, name: newName } : f)
+                );
+                toast.success(`Renommé en "${newName}" (local)`);
+            }
+        } else {
+            setLocalFolders((prev) =>
+                prev.map((f) => f.id === id ? { ...f, name: newName } : f)
+            );
+            setDocuments((prev) =>
+                prev.map((d) => d.id === id ? { ...d, title: newName } : d)
+            );
+            toast.success(`Renommé en "${newName}"`);
+        }
+    }, [convexOrgId, updateFolderMut]);
+
+    const handleDeleteItem = useCallback(async (id: string) => {
+        // Determine if this is a folder or a document.
+        const isFolder = folders.some((f) => f.id === id) || localFolders.some((f) => f.id === id);
+        // Convex IDs don't start with "doc-" (local-only prefix)
+        const isConvexId = !id.startsWith("doc-");
+
+        console.log("[iDocument DELETE]", { id, isFolder, isConvexId, currentFolderId });
+
+        if (!isFolder) {
+            // It's a document
+            if (currentFolderId === "__poubelle" && isConvexId) {
+                // In Poubelle: permanent delete
+                try {
+                    await permanentDeleteDocMut({ id: id as Id<"documents"> });
+                    toast.success("Document supprimé définitivement");
+                } catch (err) {
+                    console.error("[iDocument DELETE] Permanent delete failed:", err);
+                    toast.error("Erreur lors de la suppression");
+                }
+            } else if (isConvexId) {
+                // Normal view: soft-delete to trash via Convex mutation
+                try {
+                    await removeDocMut({ id: id as Id<"documents">, trashedBy: user?.displayName ?? "Utilisateur" });
+                    // Optimistic local update: remove from documents list immediately
+                    setDocuments((prev) => prev.filter((d) => d.id !== id));
+                    toast.success("Document déplacé dans la corbeille");
+                } catch (err) {
+                    console.error("[iDocument DELETE] removeDocMut FAILED:", err);
+                    setDocuments((prev) => prev.filter((d) => d.id !== id));
+                    toast.error("Erreur lors de la suppression");
+                }
+            } else {
+                // Local-only document (no Convex ID yet)
+                setDocuments((prev) => prev.filter((d) => d.id !== id));
+                toast.success("Document supprimé");
+            }
+            return; // Never fall through to folder delete
+        }
+
+        // It's a folder
+        if (isConvexId) {
+            try {
+                await removeFolderMut({ id: id as Id<"folders"> });
+                toast.success("Dossier supprimé avec succès");
+            } catch {
+                setLocalFolders((prev) => prev.filter((f) => f.id !== id));
+                toast.success("Dossier supprimé (local)");
+            }
+        } else {
+            setLocalFolders((prev) => prev.filter((f) => f.id !== id));
+            toast.success("Dossier supprimé");
+        }
+    }, [removeFolderMut, removeDocMut, permanentDeleteDocMut, folders, localFolders, currentFolderId, user?.displayName]);
+
+    // ─── Restore from trash ─────────────────────────────────────
+    const handleRestoreItem = useCallback(async (id: string) => {
+        try {
+            await restoreDocMut({ id: id as Id<"documents"> });
+            toast.success("Document restauré");
+        } catch (err) {
+            console.warn("[iDocument] Restore failed:", err);
+            toast.error("Erreur lors de la restauration");
+        }
+    }, [restoreDocMut]);
+
+    const handleSavePolicy = useCallback(async (id: string, policy: ArchivePolicyData) => {
+        if (!convexOrgId) {
+            toast.info("Politique d'archivage enregistrée (mode local)");
+            return;
+        }
+        try {
+            await setFolderArchiveMetaMut({
+                userId: user?.email || "unknown",
+                folderId: id as Id<"folders">,
+                organizationId: convexOrgId,
+                archiveCategoryId: policy.categoryId as Id<"archive_categories">,
+                archiveCategorySlug: policy.categorySlug,
+                countingStartEvent: policy.countingStartEvent,
+                confidentiality: policy.confidentiality,
+                inheritToChildren: policy.inheritToChildren,
+                inheritToDocuments: policy.inheritToDocuments,
+            });
+            toast.success(`Politique "${policy.categorySlug}" appliquée`);
+        } catch (err) {
+            console.error("Erreur save policy:", err);
+            toast.error("Erreur lors de l'enregistrement de la politique");
+        }
+    }, [convexOrgId, user, setFolderArchiveMetaMut]);
+
     const handleCreateDocument = useCallback(() => {
         if (!newDocTitle.trim()) return;
         const newDoc: DocItem = {
@@ -584,38 +811,56 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         setShowNewDocDialog(false);
     }, [newDocTitle, currentFolderId]);
 
+    const createCellMut = useMutation(api.filingCells.create);
+
     const handleCreateFolder = useCallback(async () => {
         if (!newFolderName.trim()) return;
 
         const name = newFolderName.trim();
-        const code = name.toUpperCase().replace(/[^A-Z0-9]/g, "_").slice(0, 20);
 
         // ─── Persist to Convex if connected ─────────────────────
-        if (convexOrgId && activeStructure?._id) {
+        if (convexOrgId && user) {
             try {
-                // 1. Create the filing cell
-                const cellId = await createCell({
-                    filingStructureId: activeStructure._id,
-                    organizationId: convexOrgId,
-                    code,
-                    intitule: name,
-                    parentId: currentFolderId && !currentFolderId.startsWith("__")
-                        ? currentFolderId as Id<"filing_cells">
-                        : undefined,
-                    accessDefaut: "restreint",
-                });
+                // Admin + active filing structure? Create via filing_cells (syncs folder automatically)
+                if (isAdmin && activeStructure?._id) {
+                    // Generate a code from the name (slug-like)
+                    const code = name
+                        .toLowerCase()
+                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/(^-|-$)/g, "")
+                        .slice(0, 30);
 
-                // 2. Auto-create admin access rule for this cell
-                await setRule({
-                    organizationId: convexOrgId,
-                    filingCellId: cellId,
-                    acces: "admin",
-                });
+                    await createCellMut({
+                        filingStructureId: activeStructure._id,
+                        organizationId: convexOrgId,
+                        code,
+                        intitule: name,
+                        description: "",
+                        tags: [],
+                    });
 
-                toast.success(`Dossier "${name}" créé et synchronisé`);
+                    toast.success(`Dossier "${name}" créé et ajouté à la Structure de classement`, {
+                        description: "Le dossier est visible dans iDocument et dans la Structure de classement.",
+                    });
+                } else {
+                    // Regular user folder (no filing_cell sync)
+                    await createFolderMut({
+                        name,
+                        description: "",
+                        organizationId: convexOrgId,
+                        createdBy: user.email || "user",
+                        parentFolderId: currentFolderId && !currentFolderId.startsWith("__")
+                            ? currentFolderId as Id<"folders">
+                            : undefined,
+                        tags: [],
+                    });
+
+                    toast.success(`Dossier "${name}" créé avec succès`);
+                }
             } catch (err) {
                 console.error("Erreur création dossier Convex:", err);
-                toast.error("Erreur lors de la synchronisation du dossier");
+                toast.error("Erreur lors de la création du dossier");
             }
         } else {
             // Fallback: local-only folder
@@ -634,7 +879,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
         setNewFolderName("");
         setShowNewFolderDialog(false);
-    }, [newFolderName, currentFolderId, convexOrgId, activeStructure, createCell, setRule]);
+    }, [newFolderName, currentFolderId, convexOrgId, user, isAdmin, activeStructure, createFolderMut, createCellMut]);
 
     // ─── Import handlers ────────────────────────────────────────
 
@@ -643,8 +888,9 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         const newFiles: ImportFileItem[] = [];
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
-            if (file.size > MAX_IMPORT_SIZE) {
-                toast.error(`"${file.name}" dépasse la taille maximum (50 Mo)`);
+            const maxSize = file.type.startsWith("video/") ? MAX_VIDEO_SIZE : MAX_IMPORT_SIZE;
+            if (file.size > maxSize) {
+                toast.error(`"${file.name}" dépasse la taille maximum (${file.type.startsWith("video/") ? "2 Go" : "50 Mo"})`);
                 continue;
             }
             newFiles.push({
@@ -661,6 +907,72 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             });
         }
         setImportFiles((prev) => [...prev, ...newFiles]);
+    }, []);
+
+    // ─── Folder import: traverse directory entries ───────────────
+    const handleImportFolderSelected = useCallback(async (items: DataTransferItemList) => {
+        const collectFiles = async (
+            entry: FileSystemEntry,
+            path: string = ""
+        ): Promise<{ file: File; path: string }[]> => {
+            if (entry.isFile) {
+                return new Promise((resolve) => {
+                    (entry as FileSystemFileEntry).file((file) => {
+                        resolve([{ file, path }]);
+                    });
+                });
+            }
+            if (entry.isDirectory) {
+                const dirReader = (entry as FileSystemDirectoryEntry).createReader();
+                return new Promise((resolve) => {
+                    dirReader.readEntries(async (entries) => {
+                        const allFiles: { file: File; path: string }[] = [];
+                        for (const child of entries) {
+                            const subPath = path ? `${path}/${entry.name}` : entry.name;
+                            const childFiles = await collectFiles(child, subPath);
+                            allFiles.push(...childFiles);
+                        }
+                        resolve(allFiles);
+                    });
+                });
+            }
+            return [];
+        };
+
+        const allFiles: { file: File; path: string }[] = [];
+        for (let i = 0; i < items.length; i++) {
+            const entry = items[i].webkitGetAsEntry?.();
+            if (entry) {
+                const files = await collectFiles(entry);
+                allFiles.push(...files);
+            }
+        }
+
+        const newFiles: ImportFileItem[] = allFiles
+            .filter((f) => {
+                const maxSize = f.file.type.startsWith("video/") ? MAX_VIDEO_SIZE : MAX_IMPORT_SIZE;
+                return f.file.size <= maxSize;
+            })
+            .map((f, i) => ({
+                id: `import-${Date.now()}-${i}`,
+                file: f.file,
+                name: f.path ? `${f.path}/${f.file.name}` : f.file.name,
+                size: f.file.size,
+                type: f.file.type || "application/octet-stream",
+                suggestedTags: [],
+                suggestedFolderId: "__mes-documents",
+                suggestedFolderName: "Mes Documents",
+                confidence: 0,
+                analyzed: false,
+            }));
+
+        if (newFiles.length === 0) {
+            toast.error("Aucun fichier trouvé dans le dossier (ou tous dépassent 50 Mo)");
+            return;
+        }
+
+        setImportFiles((prev) => [...prev, ...newFiles]);
+        toast.success(`${newFiles.length} fichier${newFiles.length > 1 ? "s" : ""} trouvé${newFiles.length > 1 ? "s" : ""} dans le dossier`);
     }, []);
 
     const handleRemoveImportFile = useCallback((fileId: string) => {
@@ -706,28 +1018,118 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         );
     }, [folders]);
 
-    const handleConfirmImport = useCallback(() => {
-        const newDocs: DocItem[] = importFiles.map((f) => ({
-            id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            title: f.name.replace(/\.[^.]+$/, ""),
-            excerpt: `Document importé — Classé automatiquement par l'IA avec ${f.confidence}% de confiance.`,
-            author: "Vous",
-            authorInitials: "V",
-            updatedAt: "À l'instant",
-            updatedAtTs: Date.now(),
-            status: "draft" as DocStatus,
-            tags: f.suggestedTags,
-            version: 1,
-            folderId: f.suggestedFolderId,
-        }));
-        setDocuments((prev) => [...newDocs, ...prev]);
-        toast.success(`${importFiles.length} document${importFiles.length > 1 ? "s" : ""} importé${importFiles.length > 1 ? "s" : ""} avec succès`, {
-            description: "Les tags IA ont été appliqués automatiquement.",
-        });
-        setImportFiles([]);
-        setImportStep("select");
-        setShowImportDialog(false);
-    }, [importFiles]);
+    const [importLoading, setImportLoading] = useState(false);
+
+    const handleConfirmImport = useCallback(async () => {
+        if (!convexOrgId || !user) {
+            // Fallback local-only (pas de Convex)
+            const newDocs: DocItem[] = importFiles.map((f) => ({
+                id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                title: f.name.replace(/\.[^.]+$/, ""),
+                excerpt: `Document importé — Classé automatiquement par l'IA avec ${f.confidence}% de confiance.`,
+                author: "Vous",
+                authorInitials: "V",
+                updatedAt: "À l'instant",
+                updatedAtTs: Date.now(),
+                status: "draft" as DocStatus,
+                tags: f.suggestedTags,
+                version: 1,
+                folderId: f.suggestedFolderId,
+            }));
+            setDocuments((prev) => [...newDocs, ...prev]);
+            toast.success(`${importFiles.length} document${importFiles.length > 1 ? "s" : ""} importé${importFiles.length > 1 ? "s" : ""} (local)`);
+            setImportFiles([]);
+            setImportStep("select");
+            setShowImportDialog(false);
+            return;
+        }
+
+        setImportLoading(true);
+        const createdBy = user.email || "import";
+        let successCount = 0;
+        let foldersCreated = 0;
+
+        try {
+            for (const importFile of importFiles) {
+                // 1. Resolve destination folder
+                let targetFolderId: Id<"folders"> | undefined;
+                const suggestedId = importFile.suggestedFolderId;
+
+                // Check if the suggested folder is a Convex ID (not a system pseudo-ID like __mes-documents)
+                if (suggestedId && !suggestedId.startsWith("__")) {
+                    targetFolderId = suggestedId as Id<"folders">;
+                } else {
+                    // For folder paths in imported filenames (folder import), create hierarchy
+                    const pathParts = importFile.name.split("/");
+                    if (pathParts.length > 1) {
+                        // Has folder path — create each level
+                        let parentId: Id<"folders"> | undefined;
+                        for (let i = 0; i < pathParts.length - 1; i++) {
+                            const folderResult = await getOrCreateFolderMut({
+                                name: pathParts[i],
+                                organizationId: convexOrgId,
+                                createdBy,
+                                parentFolderId: parentId,
+                            });
+                            parentId = folderResult.id;
+                            if (folderResult.created) foldersCreated++;
+                        }
+                        targetFolderId = parentId;
+                    }
+                }
+
+                // 2. Upload file to Convex Storage
+                const uploadUrl = await generateUploadUrlMut();
+                const uploadResult = await fetch(uploadUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": importFile.file.type || "application/octet-stream" },
+                    body: importFile.file,
+                });
+
+                if (!uploadResult.ok) {
+                    toast.error(`Erreur lors de l'upload de "${importFile.name.split("/").pop()}"`);
+                    continue;
+                }
+
+                const { storageId } = await uploadResult.json();
+
+                // 3. Create document record in Convex
+                const fileName = importFile.name.split("/").pop() || importFile.name;
+                await createFromImportMut({
+                    title: fileName.replace(/\.[^.]+$/, ""),
+                    organizationId: convexOrgId,
+                    createdBy,
+                    tags: importFile.suggestedTags,
+                    folderId: targetFolderId,
+                    parentFolderId: targetFolderId ? undefined : undefined,
+                    storageId: storageId as Id<"_storage">,
+                    fileName,
+                    fileSize: importFile.size,
+                    mimeType: importFile.type || "application/octet-stream",
+                    excerpt: `Document importé — Classé automatiquement par l'IA avec ${importFile.confidence}% de confiance.`,
+                });
+
+                successCount++;
+            }
+
+            const parts = [`${successCount} document${successCount > 1 ? "s" : ""} importé${successCount > 1 ? "s" : ""} avec succès`];
+            if (foldersCreated > 0) parts.push(`${foldersCreated} dossier${foldersCreated > 1 ? "s" : ""} créé${foldersCreated > 1 ? "s" : ""}`);
+
+            toast.success(parts.join(" · "), {
+                description: "Les fichiers sont persistés et synchronisés dans l'arborescence.",
+            });
+        } catch (err) {
+            console.error("[iDocument] Import error:", err);
+            toast.error("Erreur lors de l'import", {
+                description: `${successCount} fichier${successCount > 1 ? "s" : ""} importé${successCount > 1 ? "s" : ""} avant l'erreur.`,
+            });
+        } finally {
+            setImportLoading(false);
+            setImportFiles([]);
+            setImportStep("select");
+            setShowImportDialog(false);
+        }
+    }, [importFiles, convexOrgId, user, generateUploadUrlMut, createFromImportMut, getOrCreateFolderMut]);
 
     const handleCloseImport = useCallback(() => {
         setImportFiles([]);
@@ -754,47 +1156,72 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     // ─── Render callbacks ───────────────────────────────────────
 
     const renderFolderCard = useCallback(
-        (folder: FileManagerFolder, isDragOver: boolean) => (
-            <Card className={`glass border-white/5 overflow-hidden transition-all ${isDragOver ? "ring-2 ring-violet-500/50 bg-violet-500/5 scale-[1.02]" : "hover:border-white/10"}`}>
-                <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${folder.isSystem ? "bg-gradient-to-br from-amber-600 to-orange-500" : "bg-gradient-to-br from-violet-600 to-indigo-500"}`}>
-                            {folder.isSystem ? (
-                                <Lock className="h-4.5 w-4.5 text-white" />
-                            ) : (
-                                <Folder className="h-4.5 w-4.5 text-white" />
-                            )}
+        (folder: FileManagerFolder, isDragOver: boolean) => {
+            const isArborescence = !!(folder.metadata as any)?.isArborescence;
+            return (
+                <Card className={`glass border-white/5 overflow-hidden transition-all group ${isDragOver ? "ring-2 ring-violet-500/50 bg-violet-500/5 scale-[1.02]" : "hover:border-white/10"}`}>
+                    <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${folder.isSystem ? "bg-gradient-to-br from-amber-600 to-orange-500" : isArborescence ? "bg-gradient-to-br from-cyan-600 to-blue-500" : "bg-gradient-to-br from-violet-600 to-indigo-500"}`}>
+                                {folder.isSystem ? (
+                                    <Lock className="h-4.5 w-4.5 text-white" />
+                                ) : isArborescence ? (
+                                    <FolderTree className="h-4.5 w-4.5 text-white" />
+                                ) : (
+                                    <Folder className="h-4.5 w-4.5 text-white" />
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {folder.isSystem && (
+                                    <Badge variant="outline" className="text-[9px] h-4 border-amber-500/20 text-amber-400">
+                                        Système
+                                    </Badge>
+                                )}
+                                {isArborescence && (
+                                    <Badge variant="outline" className="text-[9px] h-4 border-cyan-500/20 text-cyan-400">
+                                        Arborescence
+                                    </Badge>
+                                )}
+                                <FolderDocumentContextMenu
+                                    itemId={folder.id}
+                                    itemType="folder"
+                                    itemName={folder.name}
+                                    isSystem={folder.isSystem}
+                                    isAdmin={isAdmin}
+                                    categories={categoryOptions}
+                                    itemUpdatedAt={folder.updatedAt}
+                                    itemCreatedBy={folder.createdBy}
+                                    onRename={handleRenameItem}
+                                    onDelete={handleDeleteItem}
+                                    onSavePolicy={handleSavePolicy}
+                                />
+                            </div>
                         </div>
-                        {folder.isSystem && (
-                            <Badge variant="outline" className="text-[9px] h-4 border-amber-500/20 text-amber-400">
-                                Système
-                            </Badge>
+                        <h3 className="text-sm font-semibold mb-0.5">{folder.name}</h3>
+                        <p className="text-[11px] text-muted-foreground">
+                            {folder.fileCount} élément{folder.fileCount > 1 ? "s" : ""} · {folder.updatedAt}
+                        </p>
+                        {folder.tags.length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                                {folder.tags.map((t) => (
+                                    <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-muted-foreground">
+                                        {t}
+                                    </span>
+                                ))}
+                            </div>
                         )}
-                    </div>
-                    <h3 className="text-sm font-semibold mb-0.5">{folder.name}</h3>
-                    <p className="text-[11px] text-muted-foreground">
-                        {folder.fileCount} élément{folder.fileCount > 1 ? "s" : ""} · {folder.updatedAt}
-                    </p>
-                    {folder.tags.length > 0 && (
-                        <div className="flex gap-1 mt-2">
-                            {folder.tags.map((t) => (
-                                <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-muted-foreground">
-                                    {t}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        ),
-        []
+                    </CardContent>
+                </Card>
+            );
+        },
+        [isAdmin, categoryOptions, handleRenameItem, handleDeleteItem, handleSavePolicy]
     );
 
     const renderFileCard = useCallback(
         (file: FileManagerFile) => {
             const meta = file.metadata as Record<string, unknown>;
             const status = meta.status as DocStatus;
-            const st = STATUS_CFG[status];
+            const st = STATUS_CFG[status] ?? STATUS_CFG.draft;
             const tags = meta.tags as string[];
             return (
                 <Card
@@ -826,6 +1253,48 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                 ))}
                             </div>
                         )}
+                        <div className="flex items-center gap-1.5 -mt-1">
+                            {currentFolderId === "__poubelle" ? (
+                                /* ── Poubelle mode: restore + permanent delete ── */
+                                <div className="flex items-center gap-2 w-full">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleRestoreItem(file.id); }}
+                                        className="text-[9px] text-emerald-400/80 hover:text-emerald-400 transition-colors flex items-center gap-0.5"
+                                    >
+                                        <RotateCcw className="h-2.5 w-2.5" /> Restaurer
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteItem(file.id); }}
+                                        className="text-[9px] text-red-400/80 hover:text-red-400 transition-colors flex items-center gap-0.5"
+                                    >
+                                        <Trash2 className="h-2.5 w-2.5" /> Supprimer définitivement
+                                    </button>
+                                </div>
+                            ) : (
+                                /* ── Normal mode: tags + context menu ── */
+                                <>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleOpenTagDialog(file.id); }}
+                                        className="text-[9px] text-violet-400/60 hover:text-violet-400 transition-colors flex items-center gap-0.5"
+                                    >
+                                        <Tag className="h-2.5 w-2.5" /> Gérer les tags
+                                    </button>
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                        <FolderDocumentContextMenu
+                                            itemId={file.id}
+                                            itemType="document"
+                                            itemName={file.name}
+                                            isAdmin={isAdmin}
+                                            categories={categoryOptions}
+                                            itemUpdatedAt={file.date}
+                                            onRename={handleRenameItem}
+                                            onDelete={handleDeleteItem}
+                                            onSavePolicy={handleSavePolicy}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
                         <div className="flex items-center justify-between pt-1 border-t border-white/5">
                             <div className="flex items-center gap-1.5">
                                 <Avatar className="h-5 w-5">
@@ -844,14 +1313,14 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 </Card>
             );
         },
-        [router, basePath]
+        [router, basePath, currentFolderId, handleDeleteItem, handleRestoreItem, handleOpenTagDialog, isAdmin, categoryOptions, handleRenameItem, handleSavePolicy]
     );
 
     const renderFilePreview = useCallback(
         (file: FileManagerFile) => {
             const meta = file.metadata as Record<string, unknown>;
             const status = meta.status as DocStatus;
-            const st = STATUS_CFG[status];
+            const st = STATUS_CFG[status] ?? STATUS_CFG.draft;
             const tags = meta.tags as string[];
             return (
                 <div className="p-4 space-y-4">
@@ -1260,6 +1729,18 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                 onDrop={(e) => {
                                     e.preventDefault();
                                     setIsDragOver(false);
+                                    // Check if dropped items contain folders
+                                    const items = e.dataTransfer.items;
+                                    if (items && items.length > 0) {
+                                        const hasFolder = Array.from(items).some((item) => {
+                                            const entry = item.webkitGetAsEntry?.();
+                                            return entry?.isDirectory;
+                                        });
+                                        if (hasFolder) {
+                                            handleImportFolderSelected(items);
+                                            return;
+                                        }
+                                    }
                                     handleImportFilesSelected(e.dataTransfer.files);
                                 }}
                                 className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${isDragOver
@@ -1270,7 +1751,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                     const input = document.createElement("input");
                                     input.type = "file";
                                     input.multiple = true;
-                                    input.accept = ACCEPTED_DOC_TYPES.join(",");
+                                    input.accept = ACCEPTED_EXTENSIONS;
                                     input.onchange = (e) => handleImportFilesSelected((e.target as HTMLInputElement).files);
                                     input.click();
                                 }}
@@ -1282,14 +1763,33 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">
-                                            {isDragOver ? "Déposez vos fichiers ici" : "Glissez-déposez ou cliquez pour sélectionner"}
+                                            {isDragOver ? "Déposez vos fichiers ou dossiers ici" : "Glissez-déposez ou cliquez pour sélectionner"}
                                         </p>
                                         <p className="text-[11px] text-muted-foreground mt-1">
-                                            PDF, Word, Excel, Images — 50 Mo max par fichier
+                                            PDF, Word, Excel, PowerPoint, Images, Vidéos — 50 Mo max (2 Go vidéos)
                                         </p>
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Folder import button */}
+                            <button
+                                onClick={() => {
+                                    const input = document.createElement("input");
+                                    input.type = "file";
+                                    input.webkitdirectory = true;
+                                    input.multiple = true;
+                                    input.onchange = (e) => {
+                                        const files = (e.target as HTMLInputElement).files;
+                                        if (files) handleImportFilesSelected(files);
+                                    };
+                                    input.click();
+                                }}
+                                className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border border-dashed border-white/10 hover:border-violet-500/30 hover:bg-violet-500/5 transition-all text-sm text-muted-foreground hover:text-violet-300"
+                            >
+                                <FolderUp className="h-4 w-4" />
+                                Importer un dossier complet
+                            </button>
 
                             {/* Selected files list */}
                             {importFiles.length > 0 && (
@@ -1411,18 +1911,28 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                     <Folder className="h-3 w-3" /> Dossier de destination
                                                 </p>
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {folders.filter((fl) => !fl.parentFolderId || fl.parentFolderId === null).map((fl) => (
-                                                        <button
-                                                            key={fl.id}
-                                                            onClick={() => handleUpdateImportFolder(f.id, fl.id)}
-                                                            className={`text-[10px] px-2 py-1 rounded-md transition-all ${f.suggestedFolderId === fl.id
-                                                                ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"
-                                                                : "bg-white/5 text-muted-foreground hover:bg-white/10"
-                                                                }`}
-                                                        >
-                                                            {fl.name}
-                                                        </button>
-                                                    ))}
+                                                    {folders.map((fl) => {
+                                                        // Calculate depth for indent
+                                                        let depth = 0;
+                                                        let pid = fl.parentFolderId;
+                                                        while (pid) {
+                                                            depth++;
+                                                            const parent = folders.find((p) => p.id === pid);
+                                                            pid = parent?.parentFolderId ?? null;
+                                                        }
+                                                        return (
+                                                            <button
+                                                                key={fl.id}
+                                                                onClick={() => handleUpdateImportFolder(f.id, fl.id)}
+                                                                className={`text-[10px] px-2 py-1 rounded-md transition-all ${f.suggestedFolderId === fl.id
+                                                                    ? "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"
+                                                                    : "bg-white/5 text-muted-foreground hover:bg-white/10"
+                                                                    }`}
+                                                            >
+                                                                {depth > 0 ? "└ ".repeat(depth) : ""}{fl.name}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -1449,12 +1959,104 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                         {importStep === "review" && (
                             <Button
                                 onClick={handleConfirmImport}
+                                disabled={importLoading}
                                 className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white border-0 gap-2"
                             >
-                                <Check className="h-4 w-4" />
-                                Importer {importFiles.length} document{importFiles.length > 1 ? "s" : ""}
+                                {importLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Check className="h-4 w-4" />
+                                )}
+                                {importLoading
+                                    ? "Import en cours…"
+                                    : `Importer ${importFiles.length} document${importFiles.length > 1 ? "s" : ""}`
+                                }
                             </Button>
                         )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ═══ TAG MANAGEMENT DIALOG ═══ */}
+            <Dialog open={showTagDialog} onOpenChange={setShowTagDialog}>
+                <DialogContent className="glass border-white/10 max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Tag className="h-4 w-4 text-violet-400" />
+                            Gérer les tags
+                        </DialogTitle>
+                        <DialogDescription>
+                            {tagEditDoc?.title ?? "Document"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        {/* Current tags */}
+                        <div>
+                            <Label className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 block">Tags actuels</Label>
+                            <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                                {tagEditDoc?.tags.length === 0 && (
+                                    <span className="text-[10px] text-zinc-500 italic">Aucun tag</span>
+                                )}
+                                {tagEditDoc?.tags.map((t) => (
+                                    <span
+                                        key={t}
+                                        className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/20 flex items-center gap-1"
+                                    >
+                                        {t}
+                                        <button
+                                            onClick={() => handleRemoveTag(t)}
+                                            className="ml-0.5 hover:text-red-400 transition-colors"
+                                        >
+                                            <X className="h-2.5 w-2.5" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        {/* Add tag input */}
+                        <div>
+                            <Label className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 block">Ajouter un tag</Label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={tagInput}
+                                    onChange={(e) => setTagInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(tagInput); } }}
+                                    placeholder="Saisir un tag…"
+                                    className="h-8 text-xs bg-white/5 border-white/10"
+                                />
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAddTag(tagInput)}
+                                    disabled={!tagInput.trim()}
+                                    className="h-8 text-xs border-white/10"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        </div>
+                        {/* Suggestions */}
+                        <div>
+                            <Label className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 block">Suggestions</Label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {tagSuggestions
+                                    .filter((s) => !tagEditDoc?.tags.includes(s))
+                                    .map((suggestion) => (
+                                        <button
+                                            key={suggestion}
+                                            onClick={() => handleAddTag(suggestion)}
+                                            className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10 hover:bg-violet-500/10 hover:text-violet-300 hover:border-violet-500/20 transition-all"
+                                        >
+                                            + {suggestion}
+                                        </button>
+                                    ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowTagDialog(false)} className="border-white/10">
+                            Fermer
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

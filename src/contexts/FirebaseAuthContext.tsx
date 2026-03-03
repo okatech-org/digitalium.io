@@ -83,6 +83,7 @@ const DEV_EMAIL_ROLES: Record<string, { role: PlatformRole; level: number }> = {
     "demo-sysadmin@digitalium.ga": { role: "system_admin", level: 0 },
     "demo-admin@digitalium.ga": { role: "platform_admin", level: 1 },
     "ornella.doumba@digitalium.ga": { role: "platform_admin", level: 1 },
+    "gueylord.pellen-lakoumba@digitalium.io": { role: "platform_admin", level: 1 },
     "rodrigues.ntoutoum@digitalium.ga": { role: "admin", level: 2 },
     "dg@ascoma.ga": { role: "admin", level: 2 },
     "commercial@ascoma.ga": { role: "membre", level: 3 },

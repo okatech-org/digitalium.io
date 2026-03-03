@@ -167,11 +167,7 @@ export default function CertificatesPage() {
                 </motion.div>
 
                 <CertificateViewer
-                    certificate={selectedCert}
-                    onVerifyIntegrity={async () => {
-                        await new Promise((r) => setTimeout(r, 1500));
-                        return { isValid: selectedCert.status === "valid" };
-                    }}
+                    archiveId={selectedCert.id as any}
                     onDownloadPDF={() => {
                         // Placeholder for PDF download
                     }}
@@ -231,8 +227,8 @@ export default function CertificatesPage() {
                             key={s.key}
                             onClick={() => setStatusFilter(s.key)}
                             className={`px-2.5 py-1 rounded-md text-[10px] transition-all ${statusFilter === s.key
-                                    ? "bg-violet-500/10 text-violet-300 border border-violet-500/30"
-                                    : "bg-white/5 text-zinc-400 border border-white/5 hover:bg-white/10"
+                                ? "bg-violet-500/10 text-violet-300 border border-violet-500/30"
+                                : "bg-white/5 text-zinc-400 border border-white/5 hover:bg-white/10"
                                 }`}
                         >
                             {s.label}
@@ -285,8 +281,8 @@ export default function CertificatesPage() {
                                     <Badge
                                         variant="outline"
                                         className={`text-[9px] font-mono ${isValid
-                                                ? "border-emerald-500/20 text-emerald-400"
-                                                : "border-red-500/20 text-red-400"
+                                            ? "border-emerald-500/20 text-emerald-400"
+                                            : "border-red-500/20 text-red-400"
                                             }`}
                                     >
                                         {isValid ? (
@@ -328,8 +324,8 @@ export default function CertificatesPage() {
                                     <Badge
                                         variant="outline"
                                         className={`text-[9px] h-5 ${isValid
-                                                ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                                : "text-red-400 bg-red-500/10 border-red-500/20"
+                                            ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                            : "text-red-400 bg-red-500/10 border-red-500/20"
                                             }`}
                                     >
                                         {isValid ? "Valide" : "Révoqué"}

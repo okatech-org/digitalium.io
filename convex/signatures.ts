@@ -204,6 +204,43 @@ export const signDocument = mutation({
             createdAt: now,
         });
 
+        // ── Phase 16 : Trigger auto-archive on signature completion ──
+        if (overallStatus === "completed" && sig.documentId) {
+            const doc = await ctx.db.get(sig.documentId);
+            if (doc && doc.parentFolderId) {
+                // Check if folder has archive metadata with inheritToDocuments
+                const folderMeta = await ctx.db
+                    .query("folder_archive_metadata")
+                    .withIndex("by_folderId", (q) =>
+                        q.eq("folderId", doc.parentFolderId as any)
+                    )
+                    .first();
+
+                if (folderMeta && folderMeta.inheritToDocuments) {
+                    // Flag document for auto-archive
+                    await ctx.db.patch(sig.documentId, {
+                        archiveCategorySlug: folderMeta.archiveCategorySlug,
+                        workflowReason: `Auto-archivage post-signature — Catégorie: ${folderMeta.archiveCategorySlug}`,
+                        updatedAt: now,
+                    });
+
+                    await ctx.db.insert("audit_logs", {
+                        organizationId: sig.organizationId,
+                        userId: "system",
+                        action: "document.auto_archive_triggered",
+                        resourceType: "document",
+                        resourceId: sig.documentId,
+                        details: {
+                            triggeredBy: "signature",
+                            signatureId: args.id,
+                            categorySlug: folderMeta.archiveCategorySlug,
+                        },
+                        createdAt: now,
+                    });
+                }
+            }
+        }
+
         return { status: overallStatus };
     },
 });

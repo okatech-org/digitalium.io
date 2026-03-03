@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════
 
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import {
     ThumbsDown,
     RotateCcw,
     ArrowRightToLine,
+    Shield,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────
@@ -31,6 +33,8 @@ interface WorkflowStatusBarProps {
     status: DocStatus;
     userLevel: number;
     isAdmin?: boolean;
+    archiveId?: string;
+    certificateNumber?: string;
     onSubmitForReview?: () => void;
     onApprove?: () => void;
     onReject?: () => void;
@@ -53,6 +57,8 @@ export default function WorkflowStatusBar({
     status,
     userLevel,
     isAdmin = false,
+    archiveId,
+    certificateNumber,
     onSubmitForReview,
     onApprove,
     onReject,
@@ -197,13 +203,24 @@ export default function WorkflowStatusBar({
 
                 {/* ARCHIVED → Info */}
                 {status === "archived" && (
-                    <Badge
-                        variant="outline"
-                        className="text-[10px] h-6 border-violet-500/20 text-violet-400 bg-violet-500/10"
-                    >
-                        <Archive className="h-3 w-3 mr-1" />
-                        Document archivé — Lecture seule
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Badge
+                            variant="outline"
+                            className="text-[10px] h-6 border-violet-500/20 text-violet-400 bg-violet-500/10"
+                        >
+                            <Archive className="h-3 w-3 mr-1" />
+                            Document archivé — Lecture seule
+                        </Badge>
+                        {certificateNumber && (
+                            <Badge
+                                variant="outline"
+                                className="text-[10px] h-6 border-emerald-500/20 text-emerald-400 bg-emerald-500/10 font-mono"
+                            >
+                                <Shield className="h-3 w-3 mr-1" />
+                                {certificateNumber}
+                            </Badge>
+                        )}
+                    </div>
                 )}
             </div>
         </motion.div>

@@ -16,13 +16,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Inject production env vars for NEXT_PUBLIC_* inlining at build time
+# ── Build-time environment variables ──────────────────────────
+# NEXT_PUBLIC_* vars are read from .env.production at build time
+# for Next.js static inlining. Server-only vars (GEMINI_API_KEY,
+# CONVEX_DEPLOY_KEY) are injected at runtime via Cloud Run env vars.
 COPY .env.production .env.production
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
-ENV NEXT_TELEMETRY_DISABLED 1
+# Next.js telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
@@ -30,9 +31,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -52,6 +52,8 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
+# Hostname 0.0.0.0 is required for Cloud Run
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]

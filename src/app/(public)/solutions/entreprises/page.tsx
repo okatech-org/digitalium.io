@@ -112,7 +112,7 @@ const data: SolutionPageData = {
                 "Support prioritaire (< 4h)",
                 "Stockage 20 Go/user",
             ],
-            cta: "Configurer mon Écosystème",
+            cta: "Configurer ma Structure",
             ctaHref: "/register",
         },
         {

@@ -324,20 +324,59 @@ export const resolveUserAccess = query({
             .filter((q) => q.eq(q.field("estActif"), true))
             .collect();
 
-        // Filtrer les règles applicables à ce membre.
-        // IMPORTANT : seules les règles avec un businessRoleId explicite sont
-        // considérées. Les règles sans businessRoleId sont des « globales orphelines »
-        // qui ne figurent pas dans la Matrice d'Accès et ne doivent accorder d'accès
-        // à personne individuellement.
+        // Phase 12/13: Build list of (businessRoleId, orgUnitId) tuples for this member
+        // Supports both single assignment (legacy) and multi-assignments
+        const now = Date.now();
+        type Assignment = { businessRoleId?: Id<"business_roles">; orgUnitId?: Id<"org_units"> };
+        const assignments: Assignment[] = [];
+
+        // Check for multi-assignments (Phase 13 schema: assignments[])
+        const memberAny = member as any;
+        if (Array.isArray(memberAny.assignments) && memberAny.assignments.length > 0) {
+            for (const a of memberAny.assignments) {
+                // Only active assignments (no endDate or endDate > now)
+                if (a.endDate && a.endDate <= now) continue;
+                assignments.push({
+                    businessRoleId: a.businessRoleId,
+                    orgUnitId: a.orgUnitId,
+                });
+            }
+        }
+
+        // Always include the primary (legacy) assignment if present
+        if (member.businessRoleId || member.orgUnitId) {
+            const alreadyIncluded = assignments.some(
+                (a) => a.businessRoleId === member.businessRoleId && a.orgUnitId === member.orgUnitId
+            );
+            if (!alreadyIncluded) {
+                assignments.push({
+                    businessRoleId: member.businessRoleId ?? undefined,
+                    orgUnitId: member.orgUnitId ?? undefined,
+                });
+            }
+        }
+
+        // If no assignments at all, no access
+        if (assignments.length === 0) {
+            return cells.map((cell) => ({
+                cellId: cell._id,
+                code: cell.code,
+                intitule: cell.intitule,
+                effectiveAccess: "aucun" as AccessLevel,
+                source: "none" as const,
+            }));
+        }
+
+        // Filter rules applicable to any of this member's assignments
         const memberRules = allRules.filter((rule) => {
-            // Exiger un businessRoleId correspondant
-            if (!rule.businessRoleId || rule.businessRoleId !== member.businessRoleId) return false;
-            // orgUnitId : match si (a) règle sans orgUnitId (globale),
-            //   (b) orgUnitId identique, ou (c) membre sans orgUnitId (accepter toute règle pour son rôle)
-            const unitMatch = !rule.orgUnitId
-                || rule.orgUnitId === member.orgUnitId
-                || !member.orgUnitId;
-            return unitMatch;
+            if (!rule.businessRoleId) return false;
+            return assignments.some((a) => {
+                if (rule.businessRoleId !== a.businessRoleId) return false;
+                const unitMatch = !rule.orgUnitId
+                    || rule.orgUnitId === a.orgUnitId
+                    || !a.orgUnitId;
+                return unitMatch;
+            });
         });
 
         // 4. Récupérer les overrides
@@ -353,7 +392,6 @@ export const resolveUserAccess = query({
             .collect();
 
         // Filtrer les overrides expirés
-        const now = Date.now();
         const validOverrides = overrides.filter(
             (o) => !o.dateExpiration || o.dateExpiration > now
         );

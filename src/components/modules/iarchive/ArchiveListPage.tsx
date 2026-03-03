@@ -8,6 +8,9 @@
 import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import {
     Archive, Search, Filter, Upload, Shield,
     Clock, Lock, Landmark, Users2, Scale,
@@ -37,6 +40,7 @@ import {
     FinderGridView,
     FinderListView,
     FinderColumnView,
+    getInitialViewMode,
 } from "@/components/modules/file-manager";
 import type {
     ViewMode,
@@ -87,76 +91,36 @@ const STATUS_FILTERS: { value: ArchiveStatus | "all"; label: string }[] = [
 const FOLDER_ICONS: Record<string, React.ElementType> = {
     fiscal: Landmark,
     social: Users2,
-    legal: Scale,
+    juridique: Scale,
     client: Building2,
-    vault: Lock,
+    coffre: Lock,
 };
 
 const FOLDER_GRADIENTS: Record<string, string> = {
     fiscal: "from-amber-600 to-orange-500",
     social: "from-blue-600 to-cyan-500",
-    legal: "from-emerald-600 to-teal-500",
+    juridique: "from-emerald-600 to-teal-500",
     client: "from-violet-600 to-purple-500",
-    vault: "from-rose-600 to-pink-500",
+    coffre: "from-rose-600 to-pink-500",
 };
 
 const FOLDER_COLORS: Record<string, string> = {
     fiscal: "text-amber-400",
     social: "text-blue-400",
-    legal: "text-emerald-400",
+    juridique: "text-emerald-400",
     client: "text-violet-400",
-    vault: "text-rose-400",
+    coffre: "text-rose-400",
 };
 
 const FOLDER_BGS: Record<string, string> = {
     fiscal: "bg-amber-500/15",
     social: "bg-blue-500/15",
-    legal: "bg-emerald-500/15",
+    juridique: "bg-emerald-500/15",
     client: "bg-violet-500/15",
-    vault: "bg-rose-500/15",
+    coffre: "bg-rose-500/15",
 };
 
-// ─── Mock Folders ───────────────────────────────────────────────
-
-const INITIAL_FOLDERS: FileManagerFolder[] = [
-    { id: "fiscal", name: "Archives Fiscales", parentFolderId: null, tags: ["fiscal", "10 ans"], fileCount: 5, updatedAt: "Il y a 2h", createdBy: "Daniel Nguema" },
-    { id: "social", name: "Archives Sociales", parentFolderId: null, tags: ["social", "5 ans"], fileCount: 3, updatedAt: "Il y a 5h", createdBy: "Aimée Gondjout" },
-    { id: "legal", name: "Archives Juridiques", parentFolderId: null, tags: ["juridique", "10 ans"], fileCount: 4, updatedAt: "Il y a 1j", createdBy: "Claude Mboumba" },
-    { id: "client", name: "Archives Clients", parentFolderId: null, tags: ["client", "5 ans"], fileCount: 2, updatedAt: "Il y a 3j", createdBy: "Marie Obame" },
-    { id: "vault", name: "Coffre-Fort Numérique", parentFolderId: null, tags: ["confidentiel"], fileCount: 2, updatedAt: "Il y a 1j", createdBy: "Daniel Nguema", isSystem: true },
-    // Sub-folders
-    { id: "fiscal-bilans", name: "Bilans & Comptes", parentFolderId: "fiscal", tags: ["comptable"], fileCount: 2, updatedAt: "Il y a 2h", createdBy: "Daniel Nguema" },
-    { id: "fiscal-declarations", name: "Déclarations", parentFolderId: "fiscal", tags: ["TVA", "IS"], fileCount: 2, updatedAt: "Il y a 5j", createdBy: "Marie Obame" },
-    { id: "legal-contrats", name: "Contrats & Baux", parentFolderId: "legal", tags: ["contrat"], fileCount: 2, updatedAt: "Il y a 1j", createdBy: "Claude Mboumba" },
-];
-
-// ─── Mock Archive documents ─────────────────────────────────────
-
-const INITIAL_ARCHIVES: ArchiveItem[] = [
-    // Fiscal - Bilans
-    { id: "a1", title: "Bilan comptable 2025", archivedAt: "15/01/2026", archivedAtTs: Date.now() - 2_592_000_000, expiresAt: "15/01/2036", size: "2.4 Mo", hash: "5854a1eb…47a5", status: "active", certId: "CERT-2026-07997", archivedBy: "Daniel Nguema", archivedByInitials: "DN", folderId: "fiscal-bilans" },
-    { id: "a2", title: "Amortissements immobiliers 2025", archivedAt: "20/12/2025", archivedAtTs: Date.now() - 4_838_400_000, expiresAt: "20/12/2035", size: "5.1 Mo", hash: "c5a0d34e…3b45", status: "active", certId: "CERT-2025-07899", archivedBy: "Daniel Nguema", archivedByInitials: "DN", folderId: "fiscal-bilans" },
-    // Fiscal - Declarations
-    { id: "a3", title: "Déclaration TVA — T4 2025", archivedAt: "10/01/2026", archivedAtTs: Date.now() - 3_024_000_000, expiresAt: "10/01/2036", size: "1.8 Mo", hash: "a3e8b12c…9f01", status: "active", certId: "CERT-2026-07985", archivedBy: "Marie Obame", archivedByInitials: "MO", folderId: "fiscal-declarations" },
-    { id: "a4", title: "Déclaration IS 2024", archivedAt: "31/03/2025", archivedAtTs: Date.now() - 27_648_000_000, expiresAt: "31/03/2035", size: "1.2 Mo", hash: "e7c2f56a…5d67", status: "active", certId: "CERT-2025-06540", archivedBy: "Marie Obame", archivedByInitials: "MO", folderId: "fiscal-declarations" },
-    // Fiscal root
-    { id: "a5", title: "Contrat prestation SOGARA", archivedAt: "12/02/2026", archivedAtTs: Date.now() - 172_800_000, expiresAt: "12/02/2036", size: "890 Ko", hash: "d6b1e45f…4c56", status: "active", certId: "CERT-2026-07997", archivedBy: "Daniel Nguema", archivedByInitials: "DN", folderId: "fiscal" },
-    // Social
-    { id: "a6", title: "Convention collective 2026", archivedAt: "05/01/2026", archivedAtTs: Date.now() - 3_456_000_000, expiresAt: "05/01/2031", size: "1.1 Mo", hash: "b2f3c4d5…7890", status: "active", certId: "CERT-2026-07996", archivedBy: "Aimée Gondjout", archivedByInitials: "AG", folderId: "social" },
-    { id: "a7", title: "Contrat CDI — Recrutement IT Senior", archivedAt: "15/12/2025", archivedAtTs: Date.now() - 5_184_000_000, expiresAt: "15/12/2030", size: "320 Ko", hash: "f8d3a67b…6e78", status: "active", certId: "CERT-2025-07920", archivedBy: "Aimée Gondjout", archivedByInitials: "AG", folderId: "social" },
-    { id: "a8", title: "Convention syndicale 2021", archivedAt: "12/06/2021", archivedAtTs: Date.now() - 145_000_000_000, expiresAt: "12/06/2026", size: "280 Ko", hash: "09e4b78c…7f89", status: "expiring", certId: "CERT-2021-03451", archivedBy: "Pierre Ndong", archivedByInitials: "PN", folderId: "social" },
-    // Legal
-    { id: "a9", title: "Bail commercial — Immeuble Triomphal", archivedAt: "01/03/2025", archivedAtTs: Date.now() - 29_808_000_000, expiresAt: "01/03/2035", size: "540 Ko", hash: "7c6f2d8e…5b43", status: "active", certId: "CERT-2025-07995", archivedBy: "Claude Mboumba", archivedByInitials: "CM", folderId: "legal-contrats" },
-    { id: "a10", title: "Contrat SHO — Bail commercial 2016", archivedAt: "15/06/2016", archivedAtTs: Date.now() - 272_000_000_000, expiresAt: "15/06/2026", size: "480 Ko", hash: "f8d3a67b…6e78", status: "expiring", certId: "CERT-2016-00234", archivedBy: "Pierre Ndong", archivedByInitials: "PN", folderId: "legal-contrats" },
-    { id: "a11", title: "PV du Conseil d'Administration — Jan 2026", archivedAt: "30/01/2026", archivedAtTs: Date.now() - 1_296_000_000, expiresAt: "30/01/2036", size: "2.1 Mo", hash: "a1b2c3d4…ef56", status: "active", certId: "CERT-2026-07990", archivedBy: "Daniel Nguema", archivedByInitials: "DN", folderId: "legal" },
-    { id: "a12", title: "PV Assemblée 2024 — Intégrité à vérifier", archivedAt: "15/06/2024", archivedAtTs: Date.now() - 51_000_000_000, expiresAt: "15/06/2034", size: "1.6 Mo", hash: "calcul…", status: "pending", certId: "—", archivedBy: "Système", archivedByInitials: "SY", folderId: "legal" },
-    // Client
-    { id: "a13", title: "Dossier client SEEG — Contrat maintenance", archivedAt: "20/11/2025", archivedAtTs: Date.now() - 7_344_000_000, expiresAt: "20/11/2030", size: "3.2 Mo", hash: "4e5f6a7b…cd89", status: "active", certId: "CERT-2025-07850", archivedBy: "Patrick Obiang", archivedByInitials: "PO", folderId: "client" },
-    { id: "a14", title: "Facture télécom 2015-Q2", archivedAt: "01/07/2015", archivedAtTs: Date.now() - 334_000_000_000, expiresAt: "01/07/2025", size: "156 Ko", hash: "09e4b78c…7f89", status: "expired", certId: "CERT-2015-02876", archivedBy: "Claude Mboumba", archivedByInitials: "CM", folderId: "client" },
-    // Vault
-    { id: "a15", title: "Brevet logiciel — iDETUDE v3", archivedAt: "08/02/2026", archivedAtTs: Date.now() - 518_400_000, expiresAt: "Illimité", size: "1.4 Mo", hash: "92b5c8d1…1a4e", status: "active", certId: "CERT-2026-07993", archivedBy: "Daniel Nguema", archivedByInitials: "DN", folderId: "vault" },
-    { id: "a16", title: "Clés de chiffrement — Certificats SSL 2026", archivedAt: "01/01/2026", archivedAtTs: Date.now() - 3_801_600_000, expiresAt: "Illimité", size: "48 Ko", hash: "ff01ab23…9e00", status: "active", certId: "CERT-2026-07980", archivedBy: "Daniel Nguema", archivedByInitials: "DN", folderId: "vault" },
-];
+// ─── (Mock data removed — categories are loaded from Convex) ───
 
 // ─── Animations ─────────────────────────────────────────────────
 
@@ -279,15 +243,95 @@ const ARCHIVE_COLUMNS: ListColumn[] = [
 // ═══════════════════════════════════════════════════════════════
 
 export default function ArchiveListPage() {
+    const { convexOrgId } = useConvexOrgId();
+
+    // ─── Convex Queries ────────────────────────────────────────
+    const rawArchives = useQuery(
+        api.archives.list,
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
+    );
+    const categories = useQuery(
+        api.archiveConfig.listCategories,
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
+    );
+    const stats = useQuery(
+        api.archives.getStats,
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
+    );
+
+    const createFolderMutation = useMutation(api.folders.create);
+
+    // ─── Map Convex archives → ArchiveItem ──────────────────────
+    const archives: ArchiveItem[] = useMemo(() => {
+        if (!rawArchives) return [];
+        return rawArchives.map((a) => {
+            const statusMap: Record<string, ArchiveStatus> = {
+                active: "active",
+                semi_active: "active",
+                archived: "active",
+                expired: "expired",
+                destroyed: "expired",
+            };
+            const threeMonths = 90 * 24 * 3600 * 1000;
+            let mappedStatus: ArchiveStatus = statusMap[a.status] ?? "pending";
+            if (a.retentionExpiresAt && a.retentionExpiresAt - Date.now() < threeMonths && a.retentionExpiresAt > Date.now()) {
+                mappedStatus = "expiring";
+            }
+
+            const fmt = (ts: number) => new Date(ts).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+            const formatSize = (bytes: number) => {
+                if (bytes < 1024) return `${bytes} o`;
+                if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} Ko`;
+                return `${(bytes / 1048576).toFixed(1)} Mo`;
+            };
+            const initials = (a.uploadedBy ?? "SY")
+                .split(" ")
+                .map((n: string) => n[0] ?? "")
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+            return {
+                id: a._id,
+                title: a.title,
+                archivedAt: fmt(a.createdAt),
+                archivedAtTs: a.createdAt,
+                expiresAt: a.isVault ? "Illimité" : (a.retentionExpiresAt ? fmt(a.retentionExpiresAt) : "—"),
+                size: formatSize(a.fileSize),
+                hash: a.sha256Hash ? `${a.sha256Hash.slice(0, 8)}…${a.sha256Hash.slice(-4)}` : "—",
+                status: mappedStatus,
+                certId: a.certificateId ? "CERT" : "—",
+                archivedBy: a.uploadedBy ?? "Système",
+                archivedByInitials: initials,
+                folderId: a.categorySlug, // Use category slug as folder id
+            };
+        });
+    }, [rawArchives]);
+
+    // ─── Build folders from categories ──────────────────────────
+    const folders: FileManagerFolder[] = useMemo(() => {
+        if (!categories) return [];
+        return categories.map((cat) => ({
+            id: cat.slug,
+            name: cat.name,
+            parentFolderId: null,
+            tags: [cat.slug, cat.isPerpetual ? "perpétuel" : `${cat.retentionYears} ans`],
+            fileCount: archives.filter((a) => a.folderId === cat.slug).length,
+            updatedAt: cat.ohadaReference ? `OHADA` : "—",
+            createdBy: "Système",
+            isSystem: cat.isPerpetual,
+        }));
+    }, [categories, archives]);
+
     // ─── State ──────────────────────────────────────────────────
-    const [viewMode, setViewMode] = useState<ViewMode>("grid");
+    const [viewMode, setViewMode] = useState<ViewMode>(() =>
+        getInitialViewMode("digitalium-iarchive-view")
+    );
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<ArchiveStatus | "all">("all");
     const [sortBy, setSortBy] = useState("date");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-    const [archives, setArchives] = useState<ArchiveItem[]>(INITIAL_ARCHIVES);
-    const [folders, setFolders] = useState<FileManagerFolder[]>(INITIAL_FOLDERS);
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
 
@@ -373,25 +417,8 @@ export default function ArchiveListPage() {
         setCurrentFolderId(folderId);
     }, []);
 
-    const handleMoveItem = useCallback((event: DragMoveEvent) => {
-        const { itemId, itemType, targetFolderId } = event;
-        if (itemType === "file") {
-            setArchives((prev) =>
-                prev.map((a) => (a.id === itemId ? { ...a, folderId: targetFolderId } : a))
-            );
-        } else {
-            setFolders((prev) => {
-                const isDescendant = (parentId: string, childId: string): boolean => {
-                    if (parentId === childId) return true;
-                    const children = prev.filter((f) => f.parentFolderId === parentId);
-                    return children.some((c) => isDescendant(c.id, childId));
-                };
-                if (isDescendant(itemId, targetFolderId)) return prev;
-                return prev.map((f) =>
-                    f.id === itemId ? { ...f, parentFolderId: targetFolderId } : f
-                );
-            });
-        }
+    const handleMoveItem = useCallback((_event: DragMoveEvent) => {
+        // DnD disabled with live data — folders are categories
     }, []);
 
     const handleSort = useCallback((column: string) => {
@@ -403,21 +430,20 @@ export default function ArchiveListPage() {
         }
     }, [sortBy]);
 
-    const handleCreateFolder = useCallback(() => {
-        if (!newFolderName.trim()) return;
-        const newFolder: FileManagerFolder = {
-            id: `folder-${Date.now()}`,
-            name: newFolderName.trim(),
-            parentFolderId: currentFolderId,
-            tags: [],
-            fileCount: 0,
-            updatedAt: "À l'instant",
-            createdBy: "Vous",
-        };
-        setFolders((prev) => [...prev, newFolder]);
+    const handleCreateFolder = useCallback(async () => {
+        if (!newFolderName.trim() || !convexOrgId) return;
+        try {
+            await createFolderMutation({
+                name: newFolderName.trim(),
+                organizationId: convexOrgId,
+                createdBy: "admin", // TODO: from auth context
+            });
+        } catch (err) {
+            console.error("Folder creation error:", err);
+        }
         setNewFolderName("");
         setShowNewFolderDialog(false);
-    }, [newFolderName, currentFolderId]);
+    }, [newFolderName, convexOrgId, createFolderMutation]);
 
     // ─── Folder contents for column view ────────────────────────
     const getFolderContents = useCallback(
@@ -589,9 +615,9 @@ export default function ArchiveListPage() {
     );
 
     const hasActiveFilters = statusFilter !== "all" || search;
-    const totalArchives = archives.length;
-    const activeCount = archives.filter((a) => a.status === "active").length;
-    const alertCount = archives.filter((a) => a.status === "expiring" || a.status === "expired").length;
+    const totalArchives = stats?.totalArchives ?? archives.length;
+    const activeCount = stats?.byStatus?.active ?? archives.filter((a) => a.status === "active").length;
+    const alertCount = (stats?.byStatus?.expired ?? 0) + (stats?.expiringSoon ?? 0);
 
     // ═══════════════════════════════════════════════════════════
     // RENDER
@@ -675,8 +701,8 @@ export default function ArchiveListPage() {
                                         key={f.value}
                                         onClick={() => setStatusFilter(f.value)}
                                         className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${statusFilter === f.value
-                                                ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
-                                                : "text-muted-foreground hover:bg-white/5"
+                                            ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
+                                            : "text-muted-foreground hover:bg-white/5"
                                             }`}
                                     >
                                         {f.label}

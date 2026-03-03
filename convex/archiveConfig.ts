@@ -22,6 +22,7 @@ const DEFAULT_CATEGORIES: Array<{
     alertBeforeArchiveMonths: number;
     hasSemiActivePhase: boolean;
     isPerpetual: boolean;
+    autoDestroy: boolean;
     defaultConfidentiality: "public" | "internal" | "confidential" | "secret";
     isFixed: boolean;
     sortOrder: number;
@@ -45,6 +46,7 @@ const DEFAULT_CATEGORIES: Array<{
             alertBeforeArchiveMonths: 12,
             hasSemiActivePhase: true,
             isPerpetual: false,
+            autoDestroy: false,
             defaultConfidentiality: "confidential",
             isFixed: false,
             sortOrder: 0,
@@ -75,6 +77,7 @@ const DEFAULT_CATEGORIES: Array<{
             alertBeforeArchiveMonths: 6,
             hasSemiActivePhase: true,
             isPerpetual: false,
+            autoDestroy: false,
             defaultConfidentiality: "confidential",
             isFixed: false,
             sortOrder: 1,
@@ -103,6 +106,7 @@ const DEFAULT_CATEGORIES: Array<{
             alertBeforeArchiveMonths: 12,
             hasSemiActivePhase: true,
             isPerpetual: false,
+            autoDestroy: false,
             defaultConfidentiality: "confidential",
             isFixed: false,
             sortOrder: 2,
@@ -131,6 +135,7 @@ const DEFAULT_CATEGORIES: Array<{
             alertBeforeArchiveMonths: 6,
             hasSemiActivePhase: true,
             isPerpetual: false,
+            autoDestroy: false,
             defaultConfidentiality: "internal",
             isFixed: false,
             sortOrder: 3,
@@ -159,6 +164,7 @@ const DEFAULT_CATEGORIES: Array<{
             alertBeforeArchiveMonths: 60,
             hasSemiActivePhase: true,
             isPerpetual: true,
+            autoDestroy: false,
             defaultConfidentiality: "secret",
             isFixed: true,
             sortOrder: 4,

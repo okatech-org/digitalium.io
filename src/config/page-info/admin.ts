@@ -97,12 +97,12 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
         pageId: "admin-organizations-new",
         titre: "Nouvelle Organisation",
         but: "Créer une nouvelle organisation avec configuration complète en 8 étapes modulables.",
-        description: "Wizard guidé : 1. Profil → 2. Modules → 3. Écosystème (bureaux, départements) → 4. Personnel (rôles RBAC) → 5. Dossiers par défaut (templates métier) → 6. Configuration modules (rétention OHADA, chaînes signature, classement) → 7. Automatisation (workflows triggers/actions) → 8. Déploiement (hébergement + portail). Les étapes 6-7 n'apparaissent que si au moins un module est activé.",
+        description: "Wizard guidé : 1. Profil → 2. Modules → 3. Structure de Classement (bureaux, départements) → 4. Personnel (rôles RBAC) → 5. Dossiers par défaut (templates métier) → 6. Configuration modules (rétention OHADA, chaînes signature, classement) → 7. Automatisation (workflows triggers/actions) → 8. Déploiement (hébergement + portail). Les étapes 6-7 n'apparaissent que si au moins un module est activé.",
         elements: [
             { nom: "Stepper dynamique", type: "autre", description: "Navigation 8 étapes, adaptatif selon les modules activés" },
             { nom: "Formulaire Profil", type: "champ", description: "Raison sociale, secteur, type, RCCM, NIF, contact, email, téléphone, adresse, ville" },
             { nom: "Sélection Modules", type: "carte", description: "3 cartes toggle pour iDocument, iArchive, iSignature" },
-            { nom: "Écosystème", type: "autre", description: "Bureaux (liste) + Départements (grille avec sous-services)" },
+            { nom: "Structure de Classement", type: "autre", description: "Bureaux (liste) + Départements (grille avec sous-services)" },
             { nom: "Personnel", type: "tableau", description: "Membres avec rôles RBAC et affectation départementale" },
             { nom: "Dossiers par défaut", type: "carte", description: "Templates métier (Entreprise/Gouvernement/ONG) avec arborescence personnalisable" },
             { nom: "Configuration modules", type: "autre", description: "Sub-tabs par module : rétention OHADA, cycle de vie archives (8 statuts), chaînes de signature, règles de classement" },
@@ -112,7 +112,7 @@ export const ADMIN_PAGE_INFO: PageInfoMap = injectArchitecture({
         tachesDisponibles: [
             "Renseigner le profil de l'organisation",
             "Choisir les modules à activer",
-            "Configurer l'écosystème (bureaux, départements)",
+            "Configurer la structure de classement (bureaux, départements)",
             "Définir le personnel et les rôles",
             "Sélectionner et personnaliser les dossiers par défaut",
             "Configurer les politiques de rétention OHADA",

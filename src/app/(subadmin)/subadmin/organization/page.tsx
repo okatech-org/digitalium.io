@@ -313,12 +313,12 @@ function ClassementTab({ orgId }: { orgId: Id<"organizations"> | undefined }) {
                       </Badge>
                       {cell.accessDefaut && (
                         <Badge className="bg-indigo-500/10 text-indigo-400 border-0 text-[10px] gap-1">
-                          {cell.accessDefaut === "admin" ? (
+                          {cell.accessDefaut === "confidentiel" ? (
                             <Lock className="h-2.5 w-2.5" />
-                          ) : cell.accessDefaut === "lecture" ? (
+                          ) : cell.accessDefaut === "public" ? (
                             <Eye className="h-2.5 w-2.5" />
                           ) : (
-                            <Edit3 className="h-2.5 w-2.5" />
+                            <Shield className="h-2.5 w-2.5" />
                           )}
                           {cell.accessDefaut}
                         </Badge>

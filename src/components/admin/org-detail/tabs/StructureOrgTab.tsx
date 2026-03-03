@@ -987,6 +987,8 @@ function PersonnelPanel({
   const bulkAddMembers = useMutation(api.orgMembers.bulkAdd);
   const removeMember = useMutation(api.orgMembers.remove);
   const updateMember = useMutation(api.orgMembers.update);
+  const addAssignment = useMutation(api.orgMembers.addAssignment);
+  const removeAssignment = useMutation(api.orgMembers.removeAssignment);
   const setModuleOverridesMutation = useMutation(api.orgMembers.setModuleOverrides);
 
   const { units } = useOrgUnits(orgId);
@@ -998,6 +1000,7 @@ function PersonnelPanel({
 
   // ── Edit state ──
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [openAssignmentsMemberId, setOpenAssignmentsMemberId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     nom: "",
     email: "",
@@ -1070,9 +1073,17 @@ function PersonnelPanel({
         telephone: editForm.telephone.trim() || undefined,
         poste: editForm.poste.trim() || undefined,
         estAdmin: editForm.estAdmin,
-        orgUnitId: editForm.orgUnitId ? (editForm.orgUnitId as any) : undefined,
-        businessRoleId: editForm.businessRoleId ? (editForm.businessRoleId as any) : undefined,
       });
+      // Handle the first assignment change for simplicity in this inline form
+      try {
+        await addAssignment({
+          id: editingId as any,
+          orgUnitId: editForm.orgUnitId as any,
+          businessRoleId: editForm.businessRoleId as any,
+          isPrimary: true,
+        });
+      } catch (e) { /* ignore if already exists */ }
+
       toast.success("Membre mis à jour");
       cancelEdit();
     } catch (err: any) {
@@ -1080,7 +1091,7 @@ function PersonnelPanel({
     } finally {
       setSaving(false);
     }
-  }, [editingId, editForm, updateMember, cancelEdit]);
+  }, [editingId, editForm, updateMember, addAssignment, cancelEdit]);
 
   const handleAdd = useCallback(async () => {
     if (!form.nom.trim()) {
@@ -1800,7 +1811,22 @@ function PersonnelPanel({
                         {m.poste ?? "—"}
                       </td>
                       <td className="py-2.5 px-3 hidden lg:table-cell">
-                        {unitName ? (
+                        {m.assignments && m.assignments.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {m.assignments.map((a: any, idx: number) => {
+                              const uName = getUnitName(a.orgUnitId);
+                              return (
+                                <Badge
+                                  key={idx}
+                                  variant={a.isPrimary ? "default" : "outline"}
+                                  className={`text-[9px] ${a.isPrimary ? "bg-violet-500 hover:bg-violet-600 text-white" : "border-white/10 bg-white/[0.04] text-white/50"}`}
+                                >
+                                  {uName || "—"} {a.isPrimary && "(Principal)"}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : unitName ? (
                           <Badge
                             variant="outline"
                             className="border-white/10 bg-white/[0.04] text-[10px] text-white/50"
@@ -1812,7 +1838,22 @@ function PersonnelPanel({
                         )}
                       </td>
                       <td className="py-2.5 px-3 hidden lg:table-cell">
-                        {roleName ? (
+                        {m.assignments && m.assignments.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {m.assignments.map((a: any, idx: number) => {
+                              const rName = getRoleName(a.businessRoleId);
+                              return (
+                                <Badge
+                                  key={idx}
+                                  variant={a.isPrimary ? "default" : "outline"}
+                                  className={`text-[9px] ${a.isPrimary ? "bg-violet-500 hover:bg-violet-600 text-white" : "border-white/10 bg-violet-500/10 text-violet-300"}`}
+                                >
+                                  {rName || "—"}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : roleName ? (
                           <Badge
                             variant="outline"
                             className="border-white/10 bg-violet-500/10 text-[10px] text-violet-300"
@@ -1860,9 +1901,20 @@ function PersonnelPanel({
                             size="icon"
                             className="h-6 w-6 text-white/30 hover:bg-violet-500/10 hover:text-violet-400"
                             onClick={() => startEdit(m)}
-                            title="Modifier"
+                            title="Modifier infos"
                           >
                             <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-white/30 hover:bg-cyan-500/10 hover:text-cyan-400"
+                            onClick={() => {
+                              setOpenAssignmentsMemberId(m._id);
+                            }}
+                            title="Gérer les affectations multiples"
+                          >
+                            <Network className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -1887,7 +1939,245 @@ function PersonnelPanel({
           </div>
         )
       }
+      {/* Gérer les affectations multiples */}
+      {openAssignmentsMemberId && (
+        <MultiAssignmentsModal
+          memberId={openAssignmentsMemberId}
+          orgId={orgId}
+          onClose={() => setOpenAssignmentsMemberId(null)}
+          units={units}
+          roles={roles}
+        />
+      )}
     </div >
+  );
+}
+
+function MultiAssignmentsModal({
+  memberId,
+  orgId,
+  onClose,
+  units,
+  roles,
+}: {
+  memberId: any;
+  orgId: any;
+  onClose: () => void;
+  units: any[];
+  roles: any[];
+}) {
+  const assignments = useQuery(api.orgMembers.listAssignments, { id: memberId });
+  const addAssignment = useMutation(api.orgMembers.addAssignment);
+  const removeAssignment = useMutation(api.orgMembers.removeAssignment);
+  const updateAssignment = useMutation(api.orgMembers.updateAssignment);
+
+  const [form, setForm] = useState({
+    orgUnitId: "",
+    businessRoleId: "",
+    isPrimary: false,
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleAdd = async () => {
+    if (!form.orgUnitId || !form.businessRoleId) {
+      toast.error("Veuillez sélectionner une unité et un poste");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await addAssignment({
+        id: memberId,
+        orgUnitId: form.orgUnitId as any,
+        businessRoleId: form.businessRoleId as any,
+        isPrimary: form.isPrimary,
+      });
+      toast.success("Affectation ajoutée");
+      setForm({ orgUnitId: "", businessRoleId: "", isPrimary: false });
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur lors de l'ajout");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRemove = async (index: number) => {
+    try {
+      await removeAssignment({ id: memberId, index });
+      toast.success("Affectation retirée");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur lors du retrait");
+    }
+  };
+
+  const handleSetPrimary = async (index: number) => {
+    try {
+      await updateAssignment({ id: memberId, index, isPrimary: true });
+      toast.success("Affectation principale définie");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erreur lors de la mise à jour");
+    }
+  };
+
+  const getUnitName = (id: string) => units.find(u => u._id === id)?.nom ?? "—";
+  const getRoleName = (id: string) => roles.find(r => r._id === id)?.nom ?? "—";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0A0A0A] shadow-2xl flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-500/20 text-violet-400">
+              <Network className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">Affectations Multiples</h3>
+              <p className="text-xs text-white/50">Gérez les différents postes et unités de ce membre</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="text-white/40 hover:text-white" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* List of assignments */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-white/80">Affectations actuelles</h4>
+            {assignments === undefined ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+              </div>
+            ) : assignments.length === 0 ? (
+              <div className="rounded-xl border border-white/5 bg-white/[0.02] p-6 text-center">
+                <p className="text-sm text-white/40">Aucune affectation configurée pour ce membre.</p>
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                {assignments.map((assignment: any, index: number) => (
+                  <div key={index} className={`flex items-center justify-between rounded-xl border p-3 ${assignment.isPrimary
+                    ? 'border-violet-500/30 bg-violet-500/5'
+                    : 'border-white/10 bg-white/[0.02]'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`h-2 w-2 rounded-full ${assignment.isPrimary ? 'bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.5)]' : 'bg-white/20'}`} />
+                      <div>
+                        <p className="text-sm font-medium text-white/90">
+                          {getRoleName(assignment.businessRoleId)}
+                        </p>
+                        <p className="text-xs text-white/50">
+                          {getUnitName(assignment.orgUnitId)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {assignment.isPrimary ? (
+                        <Badge className="bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 border-0">
+                          Principale
+                        </Badge>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSetPrimary(index)}
+                          className="h-7 text-[10px] border-white/10 bg-transparent text-white/50 hover:text-white"
+                        >
+                          Définir Principale
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemove(index)}
+                        className="h-7 w-7 text-white/30 hover:bg-red-500/10 hover:text-red-400"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add new assignment form */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
+            <h4 className="text-sm font-medium text-white/80">Nouvelle affectation</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select
+                value={form.orgUnitId}
+                onValueChange={(v) => setForm({ ...form, orgUnitId: v, businessRoleId: "" })}
+              >
+                <SelectTrigger className="border-white/10 bg-white/[0.03] text-sm text-white/80">
+                  <SelectValue placeholder="Sélectionner une unité..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((u: any) => (
+                    <SelectItem key={u._id} value={u._id}>{u.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {(() => {
+                const selectedUnit = form.orgUnitId ? units.find(u => u._id === form.orgUnitId) : null;
+                const filteredRoles = selectedUnit
+                  ? roles.filter((r: any) => r.orgUnitType === selectedUnit.type || !r.orgUnitType)
+                  : roles;
+
+                return (
+                  <Select
+                    value={form.businessRoleId}
+                    onValueChange={(v) => setForm({ ...form, businessRoleId: v })}
+                    disabled={!form.orgUnitId}
+                  >
+                    <SelectTrigger className="border-white/10 bg-white/[0.03] text-sm text-white/80 disabled:opacity-50">
+                      <SelectValue placeholder={!form.orgUnitId ? "Sélectionnez l'unité d'abord" : "Poste ou rôle métier..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredRoles.map((r: any) => (
+                        <SelectItem key={r._id} value={r._id}>{r.nom}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              })()}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="target-primary"
+                  checked={form.isPrimary}
+                  onChange={(e) => setForm({ ...form, isPrimary: e.target.checked })}
+                  className="h-3.5 w-3.5 rounded border-white/30 text-violet-500 focus:ring-violet-500/30"
+                />
+                <label htmlFor="target-primary" className="text-xs text-white/70 cursor-pointer">
+                  Définir comme affectation principale
+                </label>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleAdd}
+                disabled={submitting || !form.orgUnitId || !form.businessRoleId}
+                className="gap-2 bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-400"
+              >
+                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Ajouter
+              </Button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
   );
 }
 

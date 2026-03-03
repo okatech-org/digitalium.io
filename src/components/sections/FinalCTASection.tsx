@@ -74,7 +74,7 @@ export default function FinalCTASection() {
                                     size="lg"
                                     className="bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90 transition-opacity text-lg px-10 h-14 shadow-lg shadow-digitalium-blue/20"
                                 >
-                                    🚀 Configurer Mon Écosystème
+                                    🚀 Configurer Ma Structure de Classement
                                     <ArrowRight className="ml-2 h-5 w-5" />
                                 </Button>
                             </Link>
