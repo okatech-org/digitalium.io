@@ -14,6 +14,7 @@ RUN npm ci --legacy-peer-deps
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+# Cache-bust: 2026-03-04T08:15
 COPY . .
 
 # ── Build-time environment variables ──────────────────────────
