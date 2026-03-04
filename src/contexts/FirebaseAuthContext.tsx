@@ -185,8 +185,11 @@ function buildDevFallback(
 ): Omit<AdminRoleResponse, "organizations"> {
     const lower = email.toLowerCase();
 
+    // Native role from the hardcoded mapping (ground truth for the user's real level)
+    const nativeMapping = DEV_EMAIL_ROLES[lower] ?? DEFAULT_DEV_ROLE;
+
     // Check for dynamic demo role override (set by DemoAccountSwitcher)
-    let mapping = DEV_EMAIL_ROLES[lower] ?? DEFAULT_DEV_ROLE;
+    let mapping = { ...nativeMapping };
     try {
         const override = localStorage.getItem("demo_role_override");
         if (override) {
@@ -198,6 +201,13 @@ function buildDevFallback(
     } catch {
         // Ignore parse errors
     }
+
+    // ── Super-admin guarantee ──
+    // If the user's NATIVE role is admin-level (level ≤ 2), they always retain
+    // isAdmin=true, even if DemoAccountSwitcher overrides to a lower-privilege
+    // persona (e.g., viewing as a regular member of "BTP Conseil").
+    const isNativeAdmin = nativeMapping.level <= 2;
+    const isCurrentAdmin = mapping.level <= 2;
 
     // Resolve persona: explicit mapping → localStorage override → global admins undefined → default "business"
     let personaType: PersonaType | undefined = DEV_EMAIL_PERSONAS[lower];
@@ -215,18 +225,18 @@ function buildDevFallback(
             // Ignore
         }
     }
-    if (!personaType && mapping.level <= 1) {
+    if (!personaType && nativeMapping.level <= 1) {
         personaType = undefined; // global admins bypass persona checks
     } else if (!personaType) {
         personaType = "business"; // default for unrecognized org-level emails
     }
 
     return {
-        isAdmin: mapping.level <= 2,
+        isAdmin: isNativeAdmin || isCurrentAdmin,
         role: mapping.role,
         level: mapping.level,
-        isSystemAdmin: mapping.level === 0,
-        isPlatformAdmin: mapping.level === 1,
+        isSystemAdmin: nativeMapping.level === 0,
+        isPlatformAdmin: nativeMapping.level <= 1,
         roles: [{ role: mapping.role, level: mapping.level }],
         personaType,
     };

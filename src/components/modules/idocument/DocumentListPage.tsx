@@ -1410,17 +1410,15 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isAdmin && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowNewFolderDialog(true)}
-                            className="border-white/10 text-xs gap-1.5"
-                        >
-                            <FolderPlus className="h-3.5 w-3.5" />
-                            Nouveau dossier
-                        </Button>
-                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNewFolderDialog(true)}
+                        className="border-white/10 text-xs gap-1.5"
+                    >
+                        <FolderPlus className="h-3.5 w-3.5" />
+                        Nouveau dossier
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"
@@ -1659,50 +1657,48 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 </DialogContent>
             </Dialog>
 
-            {/* ── New Folder Dialog (Admin only) ─────────────── */}
-            {isAdmin && (
-                <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
-                    <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <FolderPlus className="h-5 w-5 text-violet-400" />
-                                Nouveau Dossier
-                            </DialogTitle>
-                            <DialogDescription>
-                                Créez un nouveau dossier{currentFolderId ? ` dans "${folders.find((f) => f.id === currentFolderId)?.name || "ce dossier"}"` : " à la racine"}.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="folder-name" className="text-xs">Nom du dossier *</Label>
-                                <Input
-                                    id="folder-name"
-                                    placeholder="Ex: Rapports financiers"
-                                    value={newFolderName}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFolderName(e.target.value)}
-                                    className="bg-white/5 border-white/10"
-                                    onKeyDown={(e: React.KeyboardEvent) => {
-                                        if (e.key === "Enter") handleCreateFolder();
-                                    }}
-                                />
-                            </div>
+            {/* ── New Folder Dialog ─────────────────── */}
+            <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <FolderPlus className="h-5 w-5 text-violet-400" />
+                            Nouveau Dossier
+                        </DialogTitle>
+                        <DialogDescription>
+                            Créez un nouveau dossier{currentFolderId ? ` dans "${folders.find((f) => f.id === currentFolderId)?.name || "ce dossier"}"` : " à la racine"}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="folder-name" className="text-xs">Nom du dossier *</Label>
+                            <Input
+                                id="folder-name"
+                                placeholder="Ex: Rapports financiers"
+                                value={newFolderName}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewFolderName(e.target.value)}
+                                className="bg-white/5 border-white/10"
+                                onKeyDown={(e: React.KeyboardEvent) => {
+                                    if (e.key === "Enter") handleCreateFolder();
+                                }}
+                            />
                         </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowNewFolderDialog(false)} className="border-white/10">
-                                Annuler
-                            </Button>
-                            <Button
-                                onClick={handleCreateFolder}
-                                disabled={!newFolderName.trim()}
-                                className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white border-0"
-                            >
-                                <FolderPlus className="h-4 w-4 mr-1.5" />
-                                Créer
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowNewFolderDialog(false)} className="border-white/10">
+                            Annuler
+                        </Button>
+                        <Button
+                            onClick={handleCreateFolder}
+                            disabled={!newFolderName.trim()}
+                            className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white border-0"
+                        >
+                            <FolderPlus className="h-4 w-4 mr-1.5" />
+                            Créer
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* ── Import Dialog ────────────────────────────────── */}
             <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) handleCloseImport(); }}>

@@ -263,15 +263,13 @@ export default function FolderDocumentContextMenu({
                     )}
 
                     {/* ── Archive Policy ── */}
-                    {isAdmin && (
-                        <DropdownMenuItem onClick={handleOpenPolicy} className="text-xs gap-2">
-                            <Archive className="h-3.5 w-3.5 text-cyan-400" />
-                            Politique d'archivage
-                        </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem onClick={handleOpenPolicy} className="text-xs gap-2">
+                        <Archive className="h-3.5 w-3.5 text-cyan-400" />
+                        Politique d'archivage
+                    </DropdownMenuItem>
 
                     {/* ── Quick Category Sub-menu ── */}
-                    {isAdmin && categories.length > 0 && (
+                    {categories.length > 0 && (
                         <DropdownMenuSub>
                             <DropdownMenuSubTrigger className="text-xs gap-2">
                                 <Tag className="h-3.5 w-3.5 text-violet-400" />
@@ -416,8 +414,8 @@ export default function FolderDocumentContextMenu({
                                                     key={cat._id}
                                                     onClick={() => handleSelectCategory(cat)}
                                                     className={`flex items-center gap-2 p-2 rounded-lg border transition-all text-left ${isSelected
-                                                            ? "border-violet-500/40 bg-violet-500/10 ring-1 ring-violet-500/20"
-                                                            : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                                                        ? "border-violet-500/40 bg-violet-500/10 ring-1 ring-violet-500/20"
+                                                        : "border-white/5 bg-white/[0.02] hover:border-white/10"
                                                         }`}
                                                 >
                                                     <div className={`h-6 w-6 rounded flex items-center justify-center shrink-0 ${colorClasses.split(" ")[1]}`}>
@@ -450,8 +448,8 @@ export default function FolderDocumentContextMenu({
                                                 key={opt.value}
                                                 onClick={() => setCountingStart(opt.value)}
                                                 className={`w-full flex items-center gap-2 p-2 rounded-lg border transition-all text-left ${countingStart === opt.value
-                                                        ? "border-amber-500/40 bg-amber-500/10"
-                                                        : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                                                    ? "border-amber-500/40 bg-amber-500/10"
+                                                    : "border-white/5 bg-white/[0.02] hover:border-white/10"
                                                     }`}
                                             >
                                                 <div className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${countingStart === opt.value ? "border-amber-400" : "border-white/20"
@@ -495,8 +493,8 @@ export default function FolderDocumentContextMenu({
                                                 key={opt.value}
                                                 onClick={() => setConfidentiality(opt.value)}
                                                 className={`py-2 px-3 rounded-lg border text-[11px] font-medium transition-all ${confidentiality === opt.value
-                                                        ? `border-white/20 bg-white/10 ${opt.color}`
-                                                        : "border-white/5 bg-white/[0.02] text-muted-foreground hover:border-white/10"
+                                                    ? `border-white/20 bg-white/10 ${opt.color}`
+                                                    : "border-white/5 bg-white/[0.02] text-muted-foreground hover:border-white/10"
                                                     }`}
                                             >
                                                 {opt.label}
