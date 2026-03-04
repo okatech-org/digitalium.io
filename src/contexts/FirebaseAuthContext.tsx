@@ -80,21 +80,40 @@ interface AdminRoleResponse {
 // ─────────────────────────────────────────────────────────────
 
 const DEV_EMAIL_ROLES: Record<string, { role: PlatformRole; level: number }> = {
+    // ── System / Platform admins ──
     "demo-sysadmin@digitalium.ga": { role: "system_admin", level: 0 },
+    "iasted@me.com": { role: "system_admin", level: 0 },                      // OKA TECH owner (iCloud login)
     "demo-admin@digitalium.ga": { role: "platform_admin", level: 1 },
     "ornella.doumba@digitalium.ga": { role: "platform_admin", level: 1 },
     "gueylord.pellen-lakoumba@digitalium.io": { role: "platform_admin", level: 1 },
+    "yoann.eteno@digitalium.io": { role: "platform_admin", level: 1 },         // Admin
+
+    // ── Organisation admins ──
     "rodrigues.ntoutoum@digitalium.ga": { role: "admin", level: 2 },
+    "berny.itoutou@digitalium.io": { role: "admin", level: 2 },                // Directeur Technique
     "dg@ascoma.ga": { role: "admin", level: 2 },
+    "ministre-peche@digitalium.io": { role: "admin", level: 2 },
+    "admin-peche@digitalium.io": { role: "admin", level: 2 },
+
+    // ── Members ──
+    "ornella.wora@digitalium.io": { role: "membre", level: 3 },                // Responsable
+    "yannick.koumba@digitalium.io": { role: "membre", level: 3 },              // Responsable
+    "annabelle.scala@digitalium.io": { role: "membre", level: 3 },             // Responsable
+    "sylvain.akwa@digitalium.io": { role: "membre", level: 3 },                // Membre
+    "omar.diop@digitalium.io": { role: "membre", level: 4 },                   // Collaborateur
     "commercial@ascoma.ga": { role: "membre", level: 3 },
     "sinistres@ascoma.ga": { role: "membre", level: 3 },
     "agent@ascoma.ga": { role: "membre", level: 4 },
     "juridique@ascoma.ga": { role: "membre", level: 5 },
-    "ministre-peche@digitalium.io": { role: "admin", level: 2 },
-    "admin-peche@digitalium.io": { role: "admin", level: 2 },
     "dgpa@digitalium.io": { role: "membre", level: 3 },
     "anpa@digitalium.io": { role: "membre", level: 3 },
     "inspecteur-peche@digitalium.io": { role: "membre", level: 4 },
+
+    // ── Demo / test ──
+    "demo-entreprise@digitalium.ga": { role: "membre", level: 3 },
+    "demo-citoyen@digitalium.ga": { role: "membre", level: 4 },
+    "test-sub@digitalium.ga": { role: "membre", level: 4 },
+    "testuser@example.com": { role: "membre", level: 4 },
 };
 
 /** Persona type per demo email — required for PersonaProtectedRoute guard. */
