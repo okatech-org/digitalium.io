@@ -671,67 +671,67 @@ export default function DemoAccountSwitcher() {
                             🔐 Ces comptes sont réservés à la démonstration
                         </p>
                     </div>
+
+                    {/* ── Confirm Switch Dialog (INSIDE SheetContent for mobile pointer-events) ── */}
+                    <AnimatePresence>
+                        {confirmSwitch && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+                                onClick={() => setConfirmSwitch(null)}
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.9, opacity: 0 }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="glass-card p-6 max-w-sm w-full"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold">Changer de compte</h3>
+                                        <button
+                                            onClick={() => setConfirmSwitch(null)}
+                                            className="text-muted-foreground hover:text-foreground"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Se déconnecter de{" "}
+                                        <span className="text-foreground font-medium">
+                                            {currentEmail}
+                                        </span>{" "}
+                                        et se connecter en tant que{" "}
+                                        <span className="text-foreground font-medium">
+                                            {confirmSwitch.role}
+                                        </span>{" "}
+                                        ?
+                                    </p>
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1"
+                                            onClick={() => setConfirmSwitch(null)}
+                                        >
+                                            Annuler
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            className="flex-1 bg-gradient-to-r from-digitalium-blue to-digitalium-violet"
+                                            onClick={() => handleConfirmSwitch(confirmSwitch)}
+                                        >
+                                            Confirmer
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </SheetContent>
             </Sheet>
-
-            {/* ── Confirm Switch Dialog ── */}
-            <AnimatePresence>
-                {confirmSwitch && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
-                        onClick={() => setConfirmSwitch(null)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="glass-card p-6 max-w-sm w-full"
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold">Changer de compte</h3>
-                                <button
-                                    onClick={() => setConfirmSwitch(null)}
-                                    className="text-muted-foreground hover:text-foreground"
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-4">
-                                Se déconnecter de{" "}
-                                <span className="text-foreground font-medium">
-                                    {currentEmail}
-                                </span>{" "}
-                                et se connecter en tant que{" "}
-                                <span className="text-foreground font-medium">
-                                    {confirmSwitch.role}
-                                </span>{" "}
-                                ?
-                            </p>
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="flex-1"
-                                    onClick={() => setConfirmSwitch(null)}
-                                >
-                                    Annuler
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    className="flex-1 bg-gradient-to-r from-digitalium-blue to-digitalium-violet"
-                                    onClick={() => handleConfirmSwitch(confirmSwitch)}
-                                >
-                                    Confirmer
-                                </Button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </>
     );
 }
