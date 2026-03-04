@@ -289,7 +289,6 @@ function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
    ═══════════════════════════════════════════════ */
 
 export default function LandingPage() {
-    const [demoOpen, setDemoOpen] = useState(false);
     const [loginOpen, setLoginOpen] = useState(false);
     const [registerOpen, setRegisterOpen] = useState(false);
 
@@ -304,6 +303,11 @@ export default function LandingPage() {
         setTimeout(() => setLoginOpen(true), 150);
     }, []);
 
+    const handleOpenDemo = useCallback(() => {
+        // Dispatch a global event that DemoAccountSwitcher listens to
+        window.dispatchEvent(new CustomEvent("open-demo-switcher"));
+    }, []);
+
     return (
         <div className="min-h-screen">
             <Navbar
@@ -312,7 +316,7 @@ export default function LandingPage() {
             />
 
             {/* Above the fold — loaded immediately */}
-            <HeroSection onOpenDemo={() => setDemoOpen(true)} />
+            <HeroSection onOpenDemo={handleOpenDemo} />
 
             {/* Below the fold — lazy loaded */}
             <Suspense fallback={<SectionSkeleton />}>

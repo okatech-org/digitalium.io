@@ -215,6 +215,14 @@ export default function DemoAccountSwitcher() {
     const [firebaseReady, setFirebaseReady] = useState(false);
     const router = useRouter();
 
+    // ── Listen for global "open-demo-switcher" events ──
+    // Allows any component (e.g. HeroSection) to open this panel
+    useEffect(() => {
+        const handler = () => setOpen(true);
+        window.addEventListener("open-demo-switcher", handler);
+        return () => window.removeEventListener("open-demo-switcher", handler);
+    }, []);
+
     // ── Dynamic organizations from Convex ──
     const dynamicOrgs = useQuery(api.demoAccounts.listDemoOrganizations);
 
@@ -413,7 +421,8 @@ export default function DemoAccountSwitcher() {
                     <TooltipTrigger asChild>
                         <motion.button
                             onClick={() => setOpen(true)}
-                            className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-digitalium-blue to-digitalium-violet flex items-center justify-center shadow-lg shadow-digitalium-blue/20 cursor-pointer"
+                            className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-digitalium-blue to-digitalium-violet flex items-center justify-center shadow-lg shadow-digitalium-blue/20 cursor-pointer"
+                            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
                             initial={{ opacity: 0, y: 40, scale: 0.8 }}
                             animate={{
                                 opacity: 1,

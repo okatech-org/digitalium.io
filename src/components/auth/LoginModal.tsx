@@ -160,7 +160,7 @@ export default function LoginModal({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
                     onClick={handleClose}
                 >
                     {/* Backdrop */}
@@ -172,7 +172,7 @@ export default function LoginModal({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
-                        className="relative w-full max-w-md"
+                        className="relative w-full max-w-md my-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close button */}

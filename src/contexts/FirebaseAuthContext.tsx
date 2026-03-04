@@ -20,6 +20,8 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     signOut as firebaseSignOut,
     sendPasswordResetEmail,
     updateProfile,
@@ -178,6 +180,14 @@ function isDev(): boolean {
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1"
     );
+}
+
+/** Detect mobile browsers where signInWithPopup is blocked (Safari iOS, etc.) */
+function isMobileBrowser(): boolean {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+        || (window.innerWidth <= 768);
 }
 
 function buildDevFallback(
@@ -372,6 +382,13 @@ export function FirebaseAuthProvider({
         []
     );
 
+    // ── Handle Google redirect result on mount (mobile flow) ──
+    useEffect(() => {
+        getRedirectResult(auth).catch(() => {
+            // Redirect result errors are non-critical (e.g. no redirect pending)
+        });
+    }, []);
+
     // ── Listen to auth state changes ──
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -417,11 +434,18 @@ export function FirebaseAuthProvider({
     );
 
     // ── signInWithGoogle ──
+    // Uses redirect flow on mobile (popup is blocked by Safari/WebView)
     const signInWithGoogleFn = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            await signInWithPopup(auth, googleProvider);
+            if (isMobileBrowser()) {
+                // Redirect flow — result handled by getRedirectResult on mount
+                await signInWithRedirect(auth, googleProvider);
+                // Execution stops here; page redirects to Google
+            } else {
+                await signInWithPopup(auth, googleProvider);
+            }
         } catch (err: unknown) {
             const code = (err as { code?: string }).code ?? "unknown";
             setError(translateFirebaseError(code));

@@ -171,20 +171,22 @@ export default function HeroSection({
                     <Link href="/register">
                         <Button
                             size="lg"
-                            className="relative bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90 transition-all text-lg px-8 h-14 shadow-lg shadow-digitalium-blue/20 animate-pulse-glow"
+                            className="relative bg-gradient-to-r from-digitalium-blue to-digitalium-violet hover:opacity-90 transition-all text-base sm:text-lg px-6 sm:px-8 h-12 sm:h-14 shadow-lg shadow-digitalium-blue/20 animate-pulse-glow"
                         >
-                            Configurer Ma Structure de Classement
+                            <span className="hidden sm:inline">Configurer Ma Structure de Classement</span>
+                            <span className="sm:hidden">Commencer Maintenant</span>
                             <ArrowRight className="ml-2 h-5 w-5" />
                         </Button>
                     </Link>
                     <Button
                         size="lg"
                         variant="outline"
-                        className="text-lg px-8 h-14 border-white/10 hover:bg-white/5 bg-background/20 backdrop-blur-sm"
+                        className="text-base sm:text-lg px-6 sm:px-8 h-12 sm:h-14 border-white/10 hover:bg-white/5 bg-background/20 backdrop-blur-sm"
                         onClick={onOpenDemo}
                     >
                         <Play className="mr-2 h-5 w-5" />
-                        Explorer la Démo Gratuite
+                        <span className="hidden sm:inline">Explorer la Démo Gratuite</span>
+                        <span className="sm:hidden">Démo Gratuite</span>
                     </Button>
                 </motion.div>
 
@@ -231,8 +233,8 @@ export default function HeroSection({
                     {securityPillars.map((p) => {
                         const Icon = p.icon;
                         return (
-                            <div key={p.title} className="glass-card overflow-hidden hover:glow transition-all duration-300 bg-background/40 backdrop-blur-md flex flex-row group">
-                                <div className="relative w-2/5 min-h-[200px]">
+                            <div key={p.title} className="glass-card overflow-hidden hover:glow transition-all duration-300 bg-background/40 backdrop-blur-md flex flex-col sm:flex-row group">
+                                <div className="relative w-full sm:w-2/5 min-h-[160px] sm:min-h-[200px]">
                                     <Image
                                         src={p.image}
                                         alt={p.title}
