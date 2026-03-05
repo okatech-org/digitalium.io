@@ -6,6 +6,8 @@ import { CheckCircle2, Circle, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ConfigProgress } from "@/types/org-structure";
+import InfoButton from "./InfoButton";
+import { HELP_PROGRESSION } from "@/config/org-config-help";
 
 // ─── Types ────────────────────────────────────
 
@@ -20,8 +22,7 @@ interface ProgressBannerProps {
     status: string;
     isReadyForActivation: boolean;
     progressPercent: number;
-    requiredItems: ProgressItem[];
-    optionalItems: ProgressItem[];
+    allItems: ProgressItem[];
     onMarkAsReady: () => void;
     onTabChange: (tab: string) => void;
 }
@@ -155,16 +156,14 @@ export default function ProgressBanner({
     status,
     isReadyForActivation,
     progressPercent,
-    requiredItems,
-    optionalItems,
+    allItems,
     onMarkAsReady,
     onTabChange,
 }: ProgressBannerProps) {
     // Only render for draft or ready statuses
     if (status !== "brouillon" && status !== "prete") return null;
 
-    const allItems = [...requiredItems, ...optionalItems];
-    const onglets = getUniqueOnglets(requiredItems, optionalItems);
+    const onglets = getUniqueOnglets(allItems, []);
     const completedCount = allItems.filter(
         (i) => progress?.[i.key as keyof ConfigProgress]
     ).length;
@@ -184,6 +183,7 @@ export default function ProgressBanner({
                     <span className="text-sm font-semibold text-white/80">
                         Progression de la configuration
                     </span>
+                    <InfoButton {...HELP_PROGRESSION.banner} side="bottom" />
                 </div>
 
                 <div className="flex items-center gap-3">

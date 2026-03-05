@@ -31,6 +31,8 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import InfoButton from "../InfoButton";
+import { HELP_DEPLOY } from "@/config/org-config-help";
 
 // ─── Types ────────────────────────────────────
 
@@ -376,6 +378,7 @@ export default function DeployTab({
                     <h3 className="text-sm font-semibold text-white/70">
                         Type d&apos;hébergement
                     </h3>
+                    <InfoButton {...HELP_DEPLOY.hosting} />
                 </div>
                 <p className="text-xs text-white/35 mb-4">
                     Sélectionnez un ou plusieurs types d&apos;hébergement
@@ -457,6 +460,7 @@ export default function DeployTab({
                     <h3 className="text-sm font-semibold text-white/70">
                         Domaine personnalisé
                     </h3>
+                    <InfoButton {...HELP_DEPLOY.domain} />
                 </div>
 
                 <div className="space-y-4">
@@ -552,6 +556,7 @@ export default function DeployTab({
                             <h3 className="text-lg font-semibold text-white/90">
                                 Personnalisation visuelle
                             </h3>
+                            <InfoButton {...HELP_DEPLOY.publicPage} />
                         </div>
                         <p className="text-sm text-white/40 mb-6">
                             Personnalisez l&apos;apparence de votre page publique

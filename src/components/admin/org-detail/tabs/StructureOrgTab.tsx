@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { MODULE_GROUPS } from "@/config/modules";
+import InfoButton from "../InfoButton";
+import { HELP_STRUCTURE_ORG } from "@/config/org-config-help";
 
 import { useOrgUnits, useBusinessRoles } from "@/hooks/useOrgStructure";
 import {
@@ -246,6 +248,7 @@ export default function StructureOrgTab({
           >
             <Network className="h-3.5 w-3.5" />
             Organigramme
+            <InfoButton {...HELP_STRUCTURE_ORG.organigramme} />
           </TabsTrigger>
           <TabsTrigger
             value="roles"
@@ -253,6 +256,7 @@ export default function StructureOrgTab({
           >
             <Briefcase className="h-3.5 w-3.5" />
             R&ocirc;les M&eacute;tier
+            <InfoButton {...HELP_STRUCTURE_ORG.roles} />
           </TabsTrigger>
           <TabsTrigger
             value="personnel"
@@ -260,6 +264,7 @@ export default function StructureOrgTab({
           >
             <Users className="h-3.5 w-3.5" />
             Personnel
+            <InfoButton {...HELP_STRUCTURE_ORG.personnel} />
           </TabsTrigger>
         </TabsList>
 

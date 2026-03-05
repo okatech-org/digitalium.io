@@ -13,6 +13,7 @@ import {
   FolderTree,
   Grid3X3,
   Shield,
+  Archive,
   Plus,
   Trash2,
   ChevronRight,
@@ -30,10 +31,23 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 import { useFilingStructures, useFilingCells } from "@/hooks/useFilingAccess";
 import { getFilingTemplate } from "@/config/filing-presets";
 import { CONFIDENTIALITY_LABELS } from "@/types/filing";
 import type { ConfidentialityLevel, FilingCellNode } from "@/types/filing";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import RetentionCategoryTable from "./iarchive/RetentionCategoryTable";
+import InfoButton from "../InfoButton";
+import { HELP_CLASSEMENT } from "@/config/org-config-help";
 
 /* ─── Animations ───────────────────────────────── */
 
@@ -1187,26 +1201,189 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
   );
 }
 
+/* ─── Sub-tab D: Archivage (Politique + Catégories de rétention) ── */
+
+function ArchivagePolicyPanel({ orgId }: { orgId: Id<"organizations"> }) {
+  // ─── Convex data ───
+  const savedConfig = useQuery(api.archiveConfig.getConfig, { organizationId: orgId });
+  const categories = useQuery(api.archiveConfig.listCategories, { organizationId: orgId });
+  const saveConfigMut = useMutation(api.archiveConfig.saveConfig);
+  const upsertCategoryMut = useMutation(api.archiveConfig.upsertCategory);
+  const deleteCategoryMut = useMutation(api.archiveConfig.deleteCategory);
+  const seedDefaultsMut = useMutation(api.archiveConfig.seedDefaultCategories);
+
+  // ─── Local state ───
+  const [retentionPeriod, setRetentionPeriod] = React.useState("10");
+  const [archivageAuto, setArchivageAuto] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  // Sync from server
+  React.useEffect(() => {
+    if (savedConfig) {
+      setRetentionPeriod((savedConfig as any).retentionPeriod ?? "10");
+      setArchivageAuto((savedConfig as any).archivageAutomatique ?? true);
+    }
+  }, [savedConfig]);
+
+  // ─── Save handler ───
+  const handleSave = React.useCallback(async () => {
+    setSaving(true);
+    try {
+      await saveConfigMut({
+        organizationId: orgId,
+        iArchiveConfig: {
+          ...(savedConfig as any ?? {}),
+          retentionPeriod,
+          archivageAutomatique: archivageAuto,
+        },
+      });
+      toast.success("Politique d'archivage enregistrée");
+    } catch {
+      toast.error("Erreur lors de la sauvegarde");
+    } finally {
+      setSaving(false);
+    }
+  }, [orgId, retentionPeriod, archivageAuto, savedConfig, saveConfigMut]);
+
+  // ─── Category handlers ───
+  const handleUpsertCategory = React.useCallback(
+    async (data: {
+      id?: string;
+      name: string;
+      slug: string;
+      description?: string;
+      color: string;
+      icon: string;
+      retentionYears: number;
+      defaultConfidentiality: "public" | "internal" | "confidential" | "secret";
+      sortOrder?: number;
+    }) => {
+      await upsertCategoryMut({
+        ...data,
+        id: data.id ? (data.id as Id<"archive_categories">) : undefined,
+        organizationId: orgId,
+      });
+    },
+    [orgId, upsertCategoryMut]
+  );
+
+  const handleDeleteCategory = React.useCallback(
+    async (id: string) => {
+      await deleteCategoryMut({ id: id as Id<"archive_categories"> });
+    },
+    [deleteCategoryMut]
+  );
+
+  const handleSeedDefaults = React.useCallback(async () => {
+    try {
+      const result = await seedDefaultsMut({ organizationId: orgId });
+      if (result.seeded) {
+        toast.success(`${result.count} catégories OHADA créées`);
+      } else {
+        toast.info("Des catégories existent déjà");
+      }
+    } catch {
+      toast.error("Erreur lors de l'initialisation");
+    }
+  }, [orgId, seedDefaultsMut]);
+
+  return (
+    <motion.div variants={stagger} className="space-y-4">
+      {/* ── Politique d'archivage par défaut ── */}
+      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Archive className="h-4 w-4 text-violet-400" />
+          <h3 className="text-sm font-semibold text-white/70">Politique d&apos;archivage</h3>
+        </div>
+        <p className="text-xs text-white/40">
+          Définissez les règles de conservation par défaut pour l&apos;ensemble de l&apos;organisation.
+          Ces paramètres s&apos;appliquent lorsqu&apos;aucune catégorie spécifique n&apos;est définie.
+        </p>
+
+        <div className="py-3 px-4 rounded-lg bg-white/[0.02] border border-white/5">
+          <Label className="text-sm font-medium text-white/80">
+            Durée de rétention globale (par défaut)
+          </Label>
+          <p className="text-xs text-white/40 mt-0.5 mb-2">
+            Période de conservation appliquée si aucune catégorie spécifique n&apos;est définie
+          </p>
+          <Select value={retentionPeriod} onValueChange={setRetentionPeriod}>
+            <SelectTrigger className="w-56 bg-white/[0.04] border-white/10 text-white/90">
+              <SelectValue placeholder="Choisir une durée" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5 ans</SelectItem>
+              <SelectItem value="10">10 ans (recommandé)</SelectItem>
+              <SelectItem value="15">15 ans</SelectItem>
+              <SelectItem value="30">30 ans</SelectItem>
+              <SelectItem value="99">Perpétuel</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-white/[0.02] border border-white/5">
+          <div>
+            <p className="text-sm font-medium text-white/80">Archivage automatique</p>
+            <p className="text-xs text-white/40 mt-0.5">
+              Archiver automatiquement les documents à leur date d&apos;échéance
+            </p>
+          </div>
+          <Switch checked={archivageAuto} onCheckedChange={setArchivageAuto} />
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            size="sm"
+            className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-500 hover:to-indigo-400 text-white border-0 shadow-lg shadow-violet-500/20"
+          >
+            {saving ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Enregistrer la politique
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Catégories de rétention ── */}
+      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
+        <RetentionCategoryTable
+          categories={(categories ?? []) as any[]}
+          onUpsert={handleUpsertCategory}
+          onDelete={handleDeleteCategory}
+          onSeedDefaults={handleSeedDefaults}
+          organizationId={orgId}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
 /* ─── Main Component ───────────────────────────── */
 
 export default function ClassementTab({ orgId, orgType }: ClassementTabProps) {
   return (
     <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-4">
       <Tabs defaultValue="arborescence" className="w-full">
-        <TabsList className="bg-white/[0.02] border border-white/5 p-1 rounded-lg h-auto">
+        <TabsList className="bg-white/[0.02] border border-white/5 p-1 rounded-lg h-auto flex-wrap">
           <TabsTrigger
             value="arborescence"
             className="text-xs data-[state=active]:bg-white/[0.06] data-[state=active]:text-white gap-1.5"
           >
             <FolderTree className="h-3.5 w-3.5" />
             Arborescence
+            <InfoButton {...HELP_CLASSEMENT.arborescence} />
           </TabsTrigger>
           <TabsTrigger
             value="matrice"
             className="text-xs data-[state=active]:bg-white/[0.06] data-[state=active]:text-white gap-1.5"
           >
             <Grid3X3 className="h-3.5 w-3.5" />
-            Matrice d&apos;Acces
+            Matrice d&apos;Accès
+            <InfoButton {...HELP_CLASSEMENT.matrice} />
           </TabsTrigger>
           <TabsTrigger
             value="habilitations"
@@ -1214,6 +1391,15 @@ export default function ClassementTab({ orgId, orgType }: ClassementTabProps) {
           >
             <Shield className="h-3.5 w-3.5" />
             Habilitations
+            <InfoButton {...HELP_CLASSEMENT.habilitations} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="archivage"
+            className="text-xs data-[state=active]:bg-white/[0.06] data-[state=active]:text-white gap-1.5"
+          >
+            <Archive className="h-3.5 w-3.5" />
+            Archivage
+            <InfoButton {...HELP_CLASSEMENT.archivage} />
           </TabsTrigger>
         </TabsList>
 
@@ -1227,6 +1413,10 @@ export default function ClassementTab({ orgId, orgType }: ClassementTabProps) {
 
         <TabsContent value="habilitations" className="mt-4">
           <HabilitationsPanel orgId={orgId} />
+        </TabsContent>
+
+        <TabsContent value="archivage" className="mt-4">
+          <ArchivagePolicyPanel orgId={orgId} />
         </TabsContent>
       </Tabs>
     </motion.div>

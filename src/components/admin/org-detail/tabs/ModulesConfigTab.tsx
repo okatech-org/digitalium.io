@@ -22,6 +22,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import IArchiveConfigPanel from "./iarchive/IArchiveConfigPanel";
+import InfoButton from "../InfoButton";
+import { HELP_MODULES } from "@/config/org-config-help";
 
 // ─── Types ────────────────────────────────────
 
@@ -587,8 +589,9 @@ export default function ModulesConfigTab({
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-lg font-semibold text-white/90">
+                <h2 className="text-lg font-semibold text-white/90 flex items-center gap-2">
                     Configuration des modules
+                    <InfoButton {...HELP_MODULES.general} side="bottom" />
                 </h2>
                 <p className="text-sm text-white/40 mt-1">
                     Parametrez chaque module actif selon les besoins de l&apos;organisation
@@ -609,6 +612,7 @@ export default function ModulesConfigTab({
                             >
                                 <Icon className="w-4 h-4" />
                                 {meta.label}
+                                {HELP_MODULES[moduleKey] && <InfoButton {...HELP_MODULES[moduleKey]} />}
                             </TabsTrigger>
                         );
                     })}

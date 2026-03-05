@@ -380,8 +380,7 @@ function OrganizationDetailInner() {
                 status={status}
                 isReadyForActivation={lifecycle.isReadyForActivation}
                 progressPercent={lifecycle.progressPercent}
-                requiredItems={lifecycle.requiredItems}
-                optionalItems={lifecycle.optionalItems}
+                allItems={lifecycle.allItems}
                 onMarkAsReady={() => handleStatusTransition({ target: "prete", label: "Marquer Prête", icon: CheckCircle2, color: "text-blue-400" })}
                 onTabChange={setActiveTab}
             />

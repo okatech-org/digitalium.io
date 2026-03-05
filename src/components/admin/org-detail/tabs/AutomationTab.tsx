@@ -58,6 +58,8 @@ import type {
     WorkflowStepType,
     AutomationConfig as AutomationConfigType,
 } from "@/config/workflow-config";
+import InfoButton from "../InfoButton";
+import { HELP_AUTOMATION } from "@/config/org-config-help";
 
 // ─── Types ────────────────────────────────────
 
@@ -381,8 +383,8 @@ function CustomRuleCard({
     return (
         <div
             className={`rounded-xl border transition-all ${rule.isActive
-                    ? "border-violet-500/20 bg-violet-500/[0.03]"
-                    : "border-white/5 bg-white/[0.02]"
+                ? "border-violet-500/20 bg-violet-500/[0.03]"
+                : "border-white/5 bg-white/[0.02]"
                 }`}
         >
             <div className="flex items-start gap-3 p-4">
@@ -618,8 +620,9 @@ export default function AutomationTab({
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-lg font-semibold text-white/90">
+                <h2 className="text-lg font-semibold text-white/90 flex items-center gap-2">
                     Automatisation
+                    <InfoButton {...HELP_AUTOMATION.automations} side="bottom" />
                 </h2>
                 <p className="text-sm text-white/40 mt-1">
                     Configurez les workflows et automatisations pour
@@ -635,6 +638,7 @@ export default function AutomationTab({
                         <h3 className="text-sm font-semibold text-white/70">
                             Workflows
                         </h3>
+                        <InfoButton {...HELP_AUTOMATION.workflows} />
                     </div>
                     <Badge className="bg-white/[0.06] text-white/40 border-white/10 hover:bg-white/[0.08] text-xs">
                         {preset.workflows.length} disponible{preset.workflows.length > 1 ? "s" : ""}
@@ -666,6 +670,7 @@ export default function AutomationTab({
                             <h3 className="text-sm font-semibold text-white/70">
                                 Automatisations planifiées
                             </h3>
+                            <InfoButton {...HELP_AUTOMATION.schedules} />
                         </div>
                         <Badge className="bg-white/[0.06] text-white/40 border-white/10 hover:bg-white/[0.08] text-xs">
                             {preset.automations.length} disponible{preset.automations.length > 1 ? "s" : ""}
@@ -736,6 +741,7 @@ export default function AutomationTab({
                         <h3 className="text-sm font-semibold text-white/70">
                             Règles personnalisées
                         </h3>
+                        <InfoButton {...HELP_AUTOMATION.customRules} />
                     </div>
                     <Button
                         size="sm"

@@ -45,19 +45,18 @@ export function useOrgLifecycle(organizationId?: Id<"organizations">) {
         }
         : (org?.configProgress as ConfigProgress | undefined);
 
-    const requiredItems = [
-        { key: "profilComplete" as const, label: "Profil", onglet: "profil" },
-        { key: "structureOrgComplete" as const, label: "Structure Organisationnelle", onglet: "structure-org" },
-        { key: "structureClassementComplete" as const, label: "Structure de Classement", onglet: "structure-classement" },
-        { key: "modulesConfigComplete" as const, label: "Configuration Modules", onglet: "modules" },
-        { key: "deploymentConfigComplete" as const, label: "Déploiement", onglet: "deployment" },
+    // Display order: Profil → Structure Org → Classement → Modules → Automatisation → Déploiement
+    const allItems = [
+        { key: "profilComplete" as const, label: "Profil", onglet: "profil", required: true },
+        { key: "structureOrgComplete" as const, label: "Structure Organisationnelle", onglet: "structure-org", required: true },
+        { key: "structureClassementComplete" as const, label: "Structure de Classement", onglet: "structure-classement", required: true },
+        { key: "modulesConfigComplete" as const, label: "Configuration Modules", onglet: "modules", required: true },
+        { key: "automationConfigComplete" as const, label: "Automatisation", onglet: "automation", required: false },
+        { key: "deploymentConfigComplete" as const, label: "Déploiement", onglet: "deployment", required: true },
     ];
 
-    const optionalItems = [
-        { key: "automationConfigComplete" as const, label: "Automatisation", onglet: "automation" },
-    ];
-
-    const allItems = [...requiredItems, ...optionalItems];
+    const requiredItems = allItems.filter((i) => i.required);
+    const optionalItems = allItems.filter((i) => !i.required);
 
     const completedRequired = requiredItems.filter(
         (item) => progress?.[item.key] === true

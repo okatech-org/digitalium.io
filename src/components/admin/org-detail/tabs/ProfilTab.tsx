@@ -20,6 +20,8 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { useOrgSites } from "@/hooks/useOrgStructure";
 import { toast } from "sonner";
+import InfoButton from "../InfoButton";
+import { HELP_PROFIL } from "@/config/org-config-help";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — ProfilTab (Org Detail)
@@ -278,6 +280,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-violet-400" />
                             Identite
+                            <InfoButton {...HELP_PROFIL.identite} />
                         </h3>
                         <Button
                             size="sm"
@@ -375,6 +378,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-violet-400" />
                             Coordonnees
+                            <InfoButton {...HELP_PROFIL.coordonnees} />
                         </h3>
                         <Button
                             size="sm"
@@ -494,6 +498,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                     <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-violet-400" />
                         Sites
+                        <InfoButton {...HELP_PROFIL.sites} />
                         <Badge
                             variant="secondary"
                             className="text-[9px] bg-white/5 border-0 text-muted-foreground"
