@@ -14,6 +14,7 @@ import {
     Lock,
     Save,
     Loader2,
+    Calendar,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -60,6 +61,9 @@ interface IArchiveFullConfig {
         gelJuridiqueAutorise: boolean;
         destructionRequiertApprobation: boolean;
     };
+    // v5: Alignement année & mois fiscal
+    yearAlignmentMode: string; // "jan_1_next_year" | "exact_date" | "fiscal_year_end"
+    fiscalYearEndMonth: number; // 1-12
 }
 
 interface IArchiveConfigPanelProps {
@@ -91,6 +95,8 @@ const DEFAULT_CONFIG: IArchiveFullConfig = {
         gelJuridiqueAutorise: true,
         destructionRequiertApprobation: true,
     },
+    yearAlignmentMode: "jan_1_next_year",
+    fiscalYearEndMonth: 12,
 };
 
 // ─── Sub-tabs meta ────────────────────────────
@@ -355,6 +361,77 @@ export default function IArchiveConfigPanel({ orgId }: IArchiveConfigPanelProps)
                                     })
                                 }
                             />
+                        </div>
+
+                        {/* v5: Year alignment configuration */}
+                        <div className="border-t border-white/5 pt-4 space-y-3">
+                            <h4 className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3" />
+                                Alignement du calcul de rétention
+                            </h4>
+
+                            <div className="py-3 px-4 rounded-lg bg-white/[0.02] border border-white/5">
+                                <Label className="text-sm font-medium text-white/80">
+                                    Mode de calcul des dates de déclassement
+                                </Label>
+                                <p className="text-xs text-white/40 mt-0.5 mb-2">
+                                    Définit comment les dates d&apos;expiration sont calculées à partir de la durée de rétention
+                                </p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { key: "jan_1_next_year", label: "1er janvier suivant", desc: "Recommandé OHADA" },
+                                        { key: "exact_date", label: "Date exacte", desc: "Précision au jour" },
+                                        { key: "fiscal_year_end", label: "Fin d'exercice fiscal", desc: "Aligné clôture" },
+                                    ].map(({ key, label, desc }) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => updateConfig("yearAlignmentMode", key)}
+                                            className={`flex flex-col items-center p-2.5 rounded-lg border transition-all text-center ${
+                                                config.yearAlignmentMode === key
+                                                    ? "border-violet-500/30 bg-violet-500/10 text-violet-300"
+                                                    : "border-white/5 bg-white/[0.02] text-zinc-500 hover:border-white/10"
+                                            }`}
+                                        >
+                                            <span className="text-[10px] font-medium">{label}</span>
+                                            <span className="text-[9px] mt-0.5 opacity-60">{desc}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {config.yearAlignmentMode === "fiscal_year_end" && (
+                                <div className="py-3 px-4 rounded-lg bg-white/[0.02] border border-white/5">
+                                    <Label className="text-sm font-medium text-white/80">
+                                        Mois de clôture de l&apos;exercice fiscal
+                                    </Label>
+                                    <p className="text-xs text-white/40 mt-0.5 mb-2">
+                                        L&apos;expiration sera alignée sur le dernier jour de ce mois
+                                    </p>
+                                    <Select
+                                        value={String(config.fiscalYearEndMonth)}
+                                        onValueChange={(val) => updateConfig("fiscalYearEndMonth", parseInt(val))}
+                                    >
+                                        <SelectTrigger className="w-48 bg-white/[0.04] border-white/10 text-white/90">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {[
+                                                "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+                                                "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+                                            ].map((m, i) => (
+                                                <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                                <p className="text-[11px] text-blue-300/80 leading-relaxed">
+                                    ℹ️ <strong>1er janvier suivant</strong> : un document créé le 15 mars 2020 avec 10 ans de rétention expirera le 1er janvier 2031.
+                                    Ce mode est conforme aux pratiques OHADA et favorable à l&apos;organisation.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </TabsContent>

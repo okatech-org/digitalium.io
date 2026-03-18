@@ -23,6 +23,13 @@ const DEFAULT_CATEGORIES: Array<{
     hasSemiActivePhase: boolean;
     isPerpetual: boolean;
     autoDestroy: boolean;
+    // v5: Déclassement scope
+    declassificationScope: "document" | "folder" | "hybrid";
+    phasePermissions: {
+        active: { read: string; write: string; delete: string };
+        semiActive: { read: string; write: string; delete: string };
+        archived: { read: string; write: string; delete: string };
+    };
     defaultConfidentiality: "public" | "internal" | "confidential" | "secret";
     isFixed: boolean;
     sortOrder: number;
@@ -47,6 +54,12 @@ const DEFAULT_CATEGORIES: Array<{
             hasSemiActivePhase: true,
             isPerpetual: false,
             autoDestroy: false,
+            declassificationScope: "folder",           // Exercice fiscal = dossier annuel
+            phasePermissions: {
+                active: { read: "all", write: "org_member+", delete: "org_manager+" },
+                semiActive: { read: "all", write: "none", delete: "org_admin" },
+                archived: { read: "org_manager+", write: "none", delete: "system_admin" },
+            },
             defaultConfidentiality: "confidential",
             isFixed: false,
             sortOrder: 0,
@@ -78,6 +91,12 @@ const DEFAULT_CATEGORIES: Array<{
             hasSemiActivePhase: true,
             isPerpetual: false,
             autoDestroy: false,
+            declassificationScope: "document",          // Chaque contrat/bulletin indépendant
+            phasePermissions: {
+                active: { read: "all", write: "org_member+", delete: "org_manager+" },
+                semiActive: { read: "all", write: "none", delete: "org_admin" },
+                archived: { read: "org_manager+", write: "none", delete: "system_admin" },
+            },
             defaultConfidentiality: "confidential",
             isFixed: false,
             sortOrder: 1,
@@ -107,6 +126,12 @@ const DEFAULT_CATEGORIES: Array<{
             hasSemiActivePhase: true,
             isPerpetual: false,
             autoDestroy: false,
+            declassificationScope: "hybrid",            // Pièces de dates différentes dans un dossier
+            phasePermissions: {
+                active: { read: "all", write: "org_member+", delete: "org_manager+" },
+                semiActive: { read: "all", write: "none", delete: "org_admin" },
+                archived: { read: "org_manager+", write: "none", delete: "system_admin" },
+            },
             defaultConfidentiality: "confidential",
             isFixed: false,
             sortOrder: 2,
@@ -136,6 +161,12 @@ const DEFAULT_CATEGORIES: Array<{
             hasSemiActivePhase: true,
             isPerpetual: false,
             autoDestroy: false,
+            declassificationScope: "document",          // Chaque facture/devis autonome
+            phasePermissions: {
+                active: { read: "all", write: "org_member+", delete: "org_manager+" },
+                semiActive: { read: "all", write: "none", delete: "org_admin" },
+                archived: { read: "org_manager+", write: "none", delete: "system_admin" },
+            },
             defaultConfidentiality: "internal",
             isFixed: false,
             sortOrder: 3,
@@ -165,6 +196,12 @@ const DEFAULT_CATEGORIES: Array<{
             hasSemiActivePhase: true,
             isPerpetual: true,
             autoDestroy: false,
+            declassificationScope: "document",          // Chaque pièce indépendante
+            phasePermissions: {
+                active: { read: "org_manager+", write: "org_admin", delete: "system_admin" },
+                semiActive: { read: "org_manager+", write: "none", delete: "system_admin" },
+                archived: { read: "org_admin", write: "none", delete: "system_admin" },
+            },
             defaultConfidentiality: "secret",
             isFixed: true,
             sortOrder: 4,
@@ -257,6 +294,17 @@ export const upsertCategory = mutation({
         alertBeforeArchiveMonths: v.optional(v.number()),
         hasSemiActivePhase: v.optional(v.boolean()),
         isPerpetual: v.optional(v.boolean()),
+        // v5: Déclassement scope & permissions par phase
+        declassificationScope: v.optional(v.union(
+            v.literal("document"),
+            v.literal("folder"),
+            v.literal("hybrid")
+        )),
+        phasePermissions: v.optional(v.object({
+            active: v.object({ read: v.string(), write: v.string(), delete: v.string() }),
+            semiActive: v.object({ read: v.string(), write: v.string(), delete: v.string() }),
+            archived: v.object({ read: v.string(), write: v.string(), delete: v.string() }),
+        })),
         defaultConfidentiality: v.union(
             v.literal("public"),
             v.literal("internal"),
@@ -276,6 +324,9 @@ export const upsertCategory = mutation({
             alertBeforeArchiveMonths: args.alertBeforeArchiveMonths,
             hasSemiActivePhase: args.hasSemiActivePhase,
             isPerpetual: args.isPerpetual,
+            // v5
+            declassificationScope: args.declassificationScope,
+            phasePermissions: args.phasePermissions,
         };
 
         if (args.id) {

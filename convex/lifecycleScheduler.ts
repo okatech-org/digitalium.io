@@ -2,6 +2,7 @@
 // DIGITALIUM.IO — Convex: Lifecycle Scheduler
 // Internal functions for automated state transitions
 // and retention alert processing
+// v5: Year-aligned transitions & declassification scope
 // ═══════════════════════════════════════════════
 
 import { internalMutation } from "./_generated/server";
@@ -19,10 +20,24 @@ function alertToMs(value: number, unit: string): number {
     }
 }
 
+/**
+ * Normalize a transition timestamp to year boundary.
+ * Used by the scheduler to compare dates consistently
+ * with the year-aligned expiry stored at creation time.
+ */
+function normalizeToYearStart(timestamp: number): number {
+    const d = new Date(timestamp);
+    return new Date(d.getFullYear(), 0, 1).getTime();
+}
+
 // ─── Process Lifecycle Transitions ────────────
 /**
  * Scans all archives and transitions them through lifecycle states
- * based on their computed dates.
+ * based on their computed dates (year-aligned at creation).
+ *
+ * v5 additions:
+ * - Respects declassificationScope ("folder" mode: process parent folders first)
+ * - Year-aligned comparison using normalized dates
  *
  * Rules:
  * - If now >= activeUntil & hasSemiActive → move to semi_active
@@ -34,7 +49,60 @@ export const processTransitions = internalMutation({
     args: {},
     handler: async (ctx) => {
         const now = Date.now();
+        const currentYearStart = normalizeToYearStart(now);
         let transitioned = 0;
+
+        // ── Phase 1 : Folder-level transitions (declassificationScope = "folder") ──
+        // Process folder archive metadata to cascade state to child documents
+        const folderMetadata = await ctx.db.query("folder_archive_metadata").collect();
+
+        for (const fm of folderMetadata) {
+            // Load the category to check declassificationScope
+            const category = await ctx.db.get(fm.archiveCategoryId);
+            if (!category || category.declassificationScope !== "folder") continue;
+
+            // Find all archives linked to this folder
+            const folderArchives = await ctx.db
+                .query("archives")
+                .filter((q) => q.eq(q.field("sourceFolderId"), fm.folderId))
+                .collect();
+
+            for (const archive of folderArchives) {
+                if (!archive.activeUntil || archive.lifecycleState === "archived" || archive.lifecycleState === "destroyed") continue;
+
+                // In folder mode, all documents follow the folder's lifecycle
+                const hasSemiActive = category.hasSemiActivePhase ?? false;
+
+                if (currentYearStart >= archive.activeUntil && archive.lifecycleState === "active") {
+                    if (hasSemiActive && archive.semiActiveUntil) {
+                        await ctx.db.patch(archive._id, {
+                            lifecycleState: "semi_active",
+                            status: "semi_active",
+                            stateChangedAt: now,
+                            updatedAt: now,
+                        });
+                    } else {
+                        await ctx.db.patch(archive._id, {
+                            lifecycleState: "archived",
+                            status: "archived",
+                            stateChangedAt: now,
+                            updatedAt: now,
+                        });
+                    }
+                    transitioned++;
+                } else if (archive.semiActiveUntil && currentYearStart >= archive.semiActiveUntil && archive.lifecycleState === "semi_active") {
+                    await ctx.db.patch(archive._id, {
+                        lifecycleState: "archived",
+                        status: "archived",
+                        stateChangedAt: now,
+                        updatedAt: now,
+                    });
+                    transitioned++;
+                }
+            }
+        }
+
+        // ── Phase 2 : Document-level transitions (standard + hybrid) ──
 
         // Get all active archives that have lifecycle dates
         const activeArchives = await ctx.db
@@ -47,7 +115,8 @@ export const processTransitions = internalMutation({
         for (const archive of activeArchives) {
             if (!archive.activeUntil) continue;
 
-            if (now >= archive.activeUntil) {
+            // Year-aligned comparison
+            if (currentYearStart >= archive.activeUntil) {
                 // Check if category has semi-active phase
                 const category = archive.categoryId
                     ? await ctx.db.get(archive.categoryId)
@@ -87,7 +156,7 @@ export const processTransitions = internalMutation({
         for (const archive of semiActiveArchives) {
             if (!archive.semiActiveUntil) continue;
 
-            if (now >= archive.semiActiveUntil) {
+            if (currentYearStart >= archive.semiActiveUntil) {
                 await ctx.db.patch(archive._id, {
                     lifecycleState: "archived",
                     status: "archived",
@@ -98,7 +167,7 @@ export const processTransitions = internalMutation({
             }
         }
 
-        // ── Étape 3 : Détecter les archives expirées ──
+        // ── Phase 3 : Détecter les archives expirées ──
 
         const archivedItems = await ctx.db
             .query("archives")
@@ -109,7 +178,7 @@ export const processTransitions = internalMutation({
             if (!archive.retentionExpiresAt) continue;
             if (archive.isVault) continue;  // Coffre-Fort = jamais expiré
 
-            if (now >= archive.retentionExpiresAt && archive.status !== "expired" && archive.status !== "destroyed") {
+            if (currentYearStart >= archive.retentionExpiresAt && archive.status !== "expired" && archive.status !== "destroyed") {
                 // Charger la catégorie pour vérifier autoDestroy
                 const category = archive.categoryId
                     ? await ctx.db.get(archive.categoryId)

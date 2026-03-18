@@ -113,6 +113,7 @@ export default function ArchiveUploadDialog({
     const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
     const [tags, setTags] = useState("");
     const [confidentiality, setConfidentiality] = useState("internal");
+    const [originalCreationDate, setOriginalCreationDate] = useState(""); // ISO date string
 
     // Processing
     const [processing, setProcessing] = useState(false);
@@ -199,6 +200,10 @@ export default function ArchiveUploadDialog({
                 tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
                 confidentiality,
                 sourceType: "manual_upload",
+                // v5: Date réelle de création
+                originalCreationDate: originalCreationDate
+                    ? new Date(originalCreationDate).getTime()
+                    : undefined,
             });
             await sleep(200);
 
@@ -225,7 +230,7 @@ export default function ArchiveUploadDialog({
             setProcessing(false);
             setCurrentStep(-1);
         }
-    }, [selectedFile, selectedSlug, convexOrgId, title, description, tags, confidentiality, createArchive, createCertificate, onSuccess]);
+    }, [selectedFile, selectedSlug, convexOrgId, title, description, tags, confidentiality, originalCreationDate, createArchive, createCertificate, onSuccess]);
 
     // ─── Reset ──────────────────────────────────
     const handleClose = useCallback(() => {
@@ -236,6 +241,7 @@ export default function ArchiveUploadDialog({
         setSelectedSlug(null);
         setTags("");
         setConfidentiality("internal");
+        setOriginalCreationDate("");
         setComputedHash("");
         setError(null);
         setResult(null);
@@ -375,6 +381,29 @@ export default function ArchiveUploadDialog({
                                         rows={2}
                                         className="w-full px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-violet-500/30 placeholder:text-zinc-600 resize-none"
                                     />
+                                </div>
+
+                                {/* v5: Original creation date */}
+                                <div>
+                                    <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                                        <Calendar className="h-3 w-3" />
+                                        Date réelle de création (optionnel)
+                                    </label>
+                                    <p className="text-[10px] text-zinc-600 mb-1.5">
+                                        Si le document existait avant son import, indiquez sa vraie date de création
+                                    </p>
+                                    <input
+                                        type="date"
+                                        value={originalCreationDate}
+                                        onChange={(e) => setOriginalCreationDate(e.target.value)}
+                                        max={new Date().toISOString().split("T")[0]}
+                                        className="w-48 px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-violet-500/30 text-white/80 [color-scheme:dark]"
+                                    />
+                                    {originalCreationDate && (
+                                        <p className="text-[10px] text-violet-400/60 mt-1">
+                                            ✓ Le calcul de rétention utilisera cette date au lieu de la date d&apos;import
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Category */}

@@ -414,6 +414,18 @@ export default defineSchema({
         hasSemiActivePhase: v.optional(v.boolean()),      // true si phase semi-active activée
         isPerpetual: v.optional(v.boolean()),              // true pour le Coffre-Fort
         autoDestroy: v.optional(v.boolean()),              // true = destruction auto à l'expiration. Défaut: false
+        // ── Déclassement scope (v5) ──
+        declassificationScope: v.optional(v.union(
+            v.literal("document"),   // Chaque document a son propre cycle indépendant
+            v.literal("folder"),     // Le dossier entier avance comme une unité
+            v.literal("hybrid")     // Dossier + exceptions par document
+        )),
+        // ── Permissions par phase de cycle de vie (v5) ──
+        phasePermissions: v.optional(v.object({
+            active: v.object({ read: v.string(), write: v.string(), delete: v.string() }),
+            semiActive: v.object({ read: v.string(), write: v.string(), delete: v.string() }),
+            archived: v.object({ read: v.string(), write: v.string(), delete: v.string() }),
+        })),
         defaultConfidentiality: v.union(
             v.literal("public"),
             v.literal("internal"),
@@ -487,6 +499,9 @@ export default defineSchema({
         activeUntil: v.optional(v.number()),           // fin phase active
         semiActiveUntil: v.optional(v.number()),       // fin phase semi-active
         stateChangedAt: v.optional(v.number()),        // dernier changement d'état
+        // ── Date réelle de création (v5) ──
+        originalCreationDate: v.optional(v.number()),  // Date réelle de création du document (pas d'import)
+        originalCreationYear: v.optional(v.number()),  // Année extraite pour calcul de rétention
         metadata: v.object({
             ocrText: v.optional(v.string()),
             extractedData: v.optional(v.any()),

@@ -143,6 +143,8 @@ export const createArchiveEntry = mutation({
         tags: v.optional(v.array(v.string())),
         confidentiality: v.optional(v.string()),
         countingStartDate: v.optional(v.number()),
+        // ── v5: Date réelle de création ──
+        originalCreationDate: v.optional(v.number()),     // Date réelle (pas d'import)
         // Double hash (optionnel, pour les archives de type document_archive)
         frozenContent: v.optional(v.any()),
         contentHash: v.optional(v.string()),
@@ -170,21 +172,54 @@ export const createArchiveEntry = mutation({
             throw new Error(`Catégorie "${args.categorySlug}" introuvable pour cette organisation`);
         }
 
-        // 2. Calculer les dates de lifecycle
-        const T0 = args.countingStartDate ?? now;
-        const msPerYear = 365.25 * 24 * 3600 * 1000;
+        // 2. Résoudre la date réelle de création
+        const realCreationDate = args.originalCreationDate ?? now;
+        const realCreationYear = new Date(realCreationDate).getFullYear();
 
-        const activeDuration = (category.activeDurationYears ?? category.retentionYears) * msPerYear;
-        const semiActiveDuration = (category.semiActiveDurationYears ?? 0) * msPerYear;
-        const totalRetention = category.retentionYears * msPerYear;
+        // 3. Charger la config year alignment de l'organisation
+        let yearAlignmentMode: string = "jan_1_next_year"; // défaut recommandé
+        let fiscalYearEndMonth = 12;
+        if (args.organizationId) {
+            const org = await ctx.db.get(args.organizationId);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const iArchiveConfig = (org?.config as any)?.iArchive;
+            if (iArchiveConfig?.yearAlignmentMode) {
+                yearAlignmentMode = iArchiveConfig.yearAlignmentMode;
+            }
+            if (iArchiveConfig?.fiscalYearEndMonth) {
+                fiscalYearEndMonth = iArchiveConfig.fiscalYearEndMonth;
+            }
+        }
 
-        const activeUntil = T0 + activeDuration;
+        // 4. Calculer les dates de lifecycle avec alignement année
+        const T0 = args.countingStartDate ?? realCreationDate;
+        const activeDurationYears = category.activeDurationYears ?? category.retentionYears;
+        const semiActiveDurationYears = category.semiActiveDurationYears ?? 0;
+
+        // Fonction de calcul aligné sur l'année
+        const computeYearAligned = (startTimestamp: number, durationYears: number): number => {
+            const start = new Date(startTimestamp);
+            if (yearAlignmentMode === "exact_date") {
+                // Mode exact : timestamp classique
+                return startTimestamp + durationYears * 365.25 * 24 * 3600 * 1000;
+            } else if (yearAlignmentMode === "fiscal_year_end") {
+                // Aligné sur la fin de l'exercice fiscal
+                const expiryYear = start.getFullYear() + durationYears;
+                return new Date(expiryYear, fiscalYearEndMonth, 0).getTime(); // Dernier jour du mois fiscal
+            } else {
+                // Défaut : "jan_1_next_year" — 1er janvier de l'année suivante
+                const expiryYear = start.getFullYear() + durationYears + 1;
+                return new Date(expiryYear, 0, 1).getTime();
+            }
+        };
+
+        const activeUntil = computeYearAligned(T0, activeDurationYears);
         const semiActiveUntil = category.hasSemiActivePhase
-            ? T0 + activeDuration + semiActiveDuration
+            ? computeYearAligned(T0, activeDurationYears + semiActiveDurationYears)
             : undefined;
-        const retentionExpiresAt = T0 + totalRetention;
+        const retentionExpiresAt = computeYearAligned(T0, category.retentionYears);
 
-        // 3. Créer l'archive avec tous les champs
+        // 5. Créer l'archive avec tous les champs
         const archiveId = await ctx.db.insert("archives", {
             title: args.title,
             description: args.description,
@@ -218,6 +253,9 @@ export const createArchiveEntry = mutation({
             activeUntil,
             semiActiveUntil,
             stateChangedAt: now,
+            // v5: Date réelle de création
+            originalCreationDate: realCreationDate,
+            originalCreationYear: realCreationYear,
             // Métadonnées
             metadata: {
                 confidentiality: (args.confidentiality as "public" | "internal" | "confidential" | "secret") ?? category.defaultConfidentiality ?? "internal",
