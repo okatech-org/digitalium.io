@@ -297,12 +297,16 @@ export default defineSchema({
         organizationId: v.id("organizations"),
         archiveCategoryId: v.id("archive_categories"),
         archiveCategorySlug: v.string(),
-        countingStartEvent: v.string(),  // date_creation | date_cloture | date_tag | date_gel
+        countingStartEvent: v.string(),  // date_creation | date_cloture | date_tag | date_gel | date_manuelle
         confidentiality: v.string(),     // public | internal | confidential | secret
         inheritToChildren: v.boolean(),  // Sous-dossiers héritent ?
         inheritToDocuments: v.boolean(), // Documents enfants héritent ?
         taggedAt: v.number(),
         taggedBy: v.string(),            // userId
+        // ── Lifecycle tracking (v6) ──
+        manualDate: v.optional(v.number()),          // Timestamp si countingStartEvent === "date_manuelle"
+        countingStartDate: v.optional(v.number()),   // Date résolue de début de comptage
+        lifecycleStartedAt: v.optional(v.number()),  // Timestamp effectif du début du cycle
     })
         .index("by_folderId", ["folderId"])
         .index("by_organizationId", ["organizationId"])
@@ -499,6 +503,12 @@ export default defineSchema({
         activeUntil: v.optional(v.number()),           // fin phase active
         semiActiveUntil: v.optional(v.number()),       // fin phase semi-active
         stateChangedAt: v.optional(v.number()),        // dernier changement d'état
+        // ── Gel juridique (v6) ──
+        legalHoldAppliedAt: v.optional(v.number()),       // Timestamp d'application du gel
+        legalHoldReason: v.optional(v.string()),          // Motif du gel (litige, audit, etc.)
+        legalHoldAppliedBy: v.optional(v.string()),       // userId qui a appliqué le gel
+        legalHoldReleasedAt: v.optional(v.number()),      // Timestamp de levée du gel
+        previousStatusBeforeHold: v.optional(v.string()), // Status avant le gel (pour restauration)
         // ── Date réelle de création (v5) ──
         originalCreationDate: v.optional(v.number()),  // Date réelle de création du document (pas d'import)
         originalCreationYear: v.optional(v.number()),  // Année extraite pour calcul de rétention
@@ -719,6 +729,7 @@ export default defineSchema({
         resourceType: v.union(
             v.literal("document"),
             v.literal("archive"),
+            v.literal("folder"),
             v.literal("signature"),
             v.literal("organization"),
             v.literal("user")

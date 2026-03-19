@@ -787,3 +787,124 @@ export const getDestructionCertificate = query({
             .first();
     },
 });
+
+// ═══════════════════════════════════════════════
+// Phase 6 — Gel Juridique (Legal Hold)
+// ═══════════════════════════════════════════════
+
+// ─── Appliquer un gel juridique ──────────────────
+
+export const applyLegalHold = mutation({
+    args: {
+        archiveId: v.id("archives"),
+        userId: v.string(),
+        reason: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        const archive = await ctx.db.get(args.archiveId);
+        if (!archive) throw new Error("Archive introuvable");
+
+        if (archive.status === "on_hold") {
+            throw new Error("Cette archive est déjà en gel juridique");
+        }
+        if (archive.status === "destroyed") {
+            throw new Error("Impossible de geler une archive détruite");
+        }
+
+        // Sauvegarder le status actuel pour pouvoir le restaurer
+        const previousStatus = archive.status;
+
+        await ctx.db.patch(args.archiveId, {
+            status: "on_hold",
+            legalHoldAppliedAt: now,
+            legalHoldReason: args.reason,
+            legalHoldAppliedBy: args.userId,
+            legalHoldReleasedAt: undefined,
+            previousStatusBeforeHold: previousStatus,
+            updatedAt: now,
+        });
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: archive.organizationId,
+            userId: args.userId,
+            action: "archive.legal_hold_applied",
+            resourceType: "archive",
+            resourceId: args.archiveId,
+            details: {
+                reason: args.reason,
+                previousStatus,
+                archiveTitle: archive.title,
+            },
+            createdAt: now,
+        });
+
+        return { previousStatus };
+    },
+});
+
+// ─── Lever le gel juridique ──────────────────────
+
+export const releaseLegalHold = mutation({
+    args: {
+        archiveId: v.id("archives"),
+        userId: v.string(),
+        releaseReason: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        const archive = await ctx.db.get(args.archiveId);
+        if (!archive) throw new Error("Archive introuvable");
+
+        if (archive.status !== "on_hold") {
+            throw new Error("Cette archive n'est pas en gel juridique");
+        }
+
+        // Restaurer le status précédent
+        const restoredStatus = (archive.previousStatusBeforeHold as "active" | "semi_active" | "archived" | "expired") ?? "active";
+
+        await ctx.db.patch(args.archiveId, {
+            status: restoredStatus,
+            legalHoldReleasedAt: now,
+            previousStatusBeforeHold: undefined,
+            updatedAt: now,
+        });
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: archive.organizationId,
+            userId: args.userId,
+            action: "archive.legal_hold_released",
+            resourceType: "archive",
+            resourceId: args.archiveId,
+            details: {
+                reason: args.releaseReason,
+                restoredStatus,
+                holdDurationMs: now - (archive.legalHoldAppliedAt ?? now),
+                archiveTitle: archive.title,
+            },
+            createdAt: now,
+        });
+
+        return { restoredStatus };
+    },
+});
+
+// ─── Lister les archives en gel juridique ─────────
+
+export const listOnHold = query({
+    args: {
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const all = await ctx.db
+            .query("archives")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+        return all.filter((a) => a.status === "on_hold");
+    },
+});

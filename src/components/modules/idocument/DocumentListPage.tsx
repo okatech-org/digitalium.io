@@ -783,6 +783,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 confidentiality: policy.confidentiality,
                 inheritToChildren: policy.inheritToChildren,
                 inheritToDocuments: policy.inheritToDocuments,
+                manualDate: policy.manualDate, // v6: date personnalisée
             });
             toast.success(`Politique "${policy.categorySlug}" appliquée`);
         } catch (err) {

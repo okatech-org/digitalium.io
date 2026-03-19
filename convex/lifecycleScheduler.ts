@@ -68,6 +68,8 @@ export const processTransitions = internalMutation({
                 .collect();
 
             for (const archive of folderArchives) {
+                // Guard: skip on_hold archives (gel juridique)
+                if (archive.status === "on_hold") continue;
                 if (!archive.activeUntil || archive.lifecycleState === "archived" || archive.lifecycleState === "destroyed") continue;
 
                 // In folder mode, all documents follow the folder's lifecycle
@@ -113,6 +115,8 @@ export const processTransitions = internalMutation({
             .collect();
 
         for (const archive of activeArchives) {
+            // Guard: skip on_hold archives (gel juridique)
+            if (archive.status === "on_hold") continue;
             if (!archive.activeUntil) continue;
 
             // Year-aligned comparison
@@ -154,6 +158,8 @@ export const processTransitions = internalMutation({
             .collect();
 
         for (const archive of semiActiveArchives) {
+            // Guard: skip on_hold archives (gel juridique)
+            if (archive.status === "on_hold") continue;
             if (!archive.semiActiveUntil) continue;
 
             if (currentYearStart >= archive.semiActiveUntil) {
