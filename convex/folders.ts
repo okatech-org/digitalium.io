@@ -193,3 +193,51 @@ export const listByOrgFlat = query({
             .collect();
     },
 });
+
+/**
+ * getTreeWithPaths — Returns all active folders with full path strings.
+ * Used by AI classification to understand the existing folder hierarchy.
+ * Example output: { id: "abc123", name: "SGG", path: "Contrats Clients > SGG", depth: 1 }
+ */
+export const getTreeWithPaths = query({
+    args: {
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const folders = await ctx.db
+            .query("folders")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .filter((q) => q.eq(q.field("status"), "active"))
+            .collect();
+
+        // Build a map for quick parent lookup
+        const folderMap = new Map(folders.map((f) => [f._id.toString(), f]));
+
+        // Build full path for each folder
+        const buildPath = (folderId: string): string => {
+            const folder = folderMap.get(folderId);
+            if (!folder) return "";
+            if (!folder.parentFolderId) return folder.name;
+            const parentPath = buildPath(folder.parentFolderId.toString());
+            return parentPath ? `${parentPath} > ${folder.name}` : folder.name;
+        };
+
+        const getDepth = (folderId: string): number => {
+            const folder = folderMap.get(folderId);
+            if (!folder || !folder.parentFolderId) return 0;
+            return 1 + getDepth(folder.parentFolderId.toString());
+        };
+
+        return folders.map((f) => ({
+            id: f._id,
+            name: f.name,
+            path: buildPath(f._id.toString()),
+            depth: getDepth(f._id.toString()),
+            parentFolderId: f.parentFolderId ?? null,
+            tags: f.tags ?? [],
+            description: f.description ?? "",
+        }));
+    },
+});

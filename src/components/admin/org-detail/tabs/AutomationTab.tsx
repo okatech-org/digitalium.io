@@ -26,7 +26,6 @@ import {
     ArrowRight,
     Settings2,
     Play,
-    Pause,
     Plus,
     Trash2,
     X,
@@ -64,14 +63,18 @@ import { HELP_AUTOMATION } from "@/config/org-config-help";
 // ─── Types ────────────────────────────────────
 
 interface AutomationTabProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     orgId: any;
     orgType: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSaveConfig: (config: any) => Promise<void>;
 }
 
 interface LocalAutomationConfig {
     archivageApresSignature: boolean;
+    archivageAutomatique: boolean;
     notificationDocumentsEnAttente: boolean;
     rappelRenouvellementCertificats: boolean;
 }
@@ -117,6 +120,13 @@ const AUTOMATION_ITEMS = [
         icon: Archive,
     },
     {
+        key: "archivageAutomatique" as const,
+        label: "Archivage automatique global",
+        description:
+            "Activer l'archivage automatique des documents selon les règles de catégorie et les planifications",
+        icon: FileArchive,
+    },
+    {
         key: "notificationDocumentsEnAttente" as const,
         label: "Notification de documents en attente",
         description:
@@ -134,9 +144,11 @@ const AUTOMATION_ITEMS = [
 
 // ─── Helpers ──────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getDefaultAutomationConfig(existing?: any): LocalAutomationConfig {
     return {
         archivageApresSignature: existing?.archivageApresSignature ?? false,
+        archivageAutomatique: existing?.archivageAutomatique ?? false,
         notificationDocumentsEnAttente:
             existing?.notificationDocumentsEnAttente ?? true,
         rappelRenouvellementCertificats:
@@ -481,6 +493,7 @@ function CustomRuleCard({
 // ─── Main Component ───────────────────────────
 
 export default function AutomationTab({
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     orgId,
     orgType,
     config,
@@ -608,6 +621,12 @@ export default function AutomationTab({
             await onSaveConfig({
                 ...config,
                 automation: local,
+                // Sync archivageAutomatique into iArchive config
+                // so automationEngine.ts reads it correctly
+                iArchive: {
+                    ...(config?.iArchive ?? {}),
+                    archivageAutomatique: local.archivageAutomatique,
+                },
                 activeWorkflows: activeWorkflowIds,
                 activeAutomations: activeAutomationIds,
                 customRules,

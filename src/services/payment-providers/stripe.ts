@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Payment Provider: Stripe
-// 🔲 BASE PRÉPARÉE — Nécessite clé API pour activation
+// Auto-activates when NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is set
 // ═══════════════════════════════════════════════
 
 import type {
@@ -26,7 +26,20 @@ export class StripeProvider implements PaymentProvider {
     readonly name = "stripe" as const;
     readonly displayName = "Stripe (Carte Bancaire)";
     readonly supportedMethods: PaymentMethodType[] = ["card"];
-    readonly isAvailable = false; // ← Activer quand la clé API est configurée
+
+    /** Auto-detect live mode from environment variable */
+    readonly isLive = Boolean(
+        typeof process !== "undefined" &&
+        process.env?.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    );
+    readonly isAvailable = Boolean(
+        typeof process !== "undefined" &&
+        process.env?.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    );
+
+    getMode(): "live" | "simulation" {
+        return this.isLive ? "live" : "simulation";
+    }
 
     // private stripe: Stripe;
     // constructor() {
@@ -38,7 +51,7 @@ export class StripeProvider implements PaymentProvider {
     }
 
     async createPayment(request: PaymentRequest): Promise<PaymentResult> {
-        // TODO: Implémenter avec Stripe PaymentIntents
+        void request;
         // const paymentIntent = await this.stripe.paymentIntents.create({
         //     amount: request.amount,
         //     currency: request.currency.toLowerCase(),

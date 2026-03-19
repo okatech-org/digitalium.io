@@ -6,3 +6,4 @@ export { AuthLoader } from "./AuthLoader";
 export { ProtectedRoute } from "./ProtectedRoute";
 export { PersonaProtectedRoute } from "./PersonaProtectedRoute";
 export { InstitutionalProtectedRoute } from "./InstitutionalProtectedRoute";
+export { DocumentAccessGuard } from "./DocumentAccessGuard";

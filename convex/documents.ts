@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Documents (iDocument)
@@ -677,5 +678,65 @@ export const moveToFolder = mutation({
             folderId: args.folderId,
             updatedAt: Date.now(),
         });
+    },
+});
+
+// ─── Batch move (for AI reorganization) ─────────
+
+export const batchMoveToFolder = mutation({
+    args: {
+        moves: v.array(v.object({
+            docId: v.string(),
+            targetFolderId: v.string(),
+        })),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        let moved = 0;
+
+        for (const move of args.moves) {
+            try {
+                const docId = move.docId as Id<"documents">;
+                const targetFolderId = move.targetFolderId as Id<"folders">;
+
+                const doc = await ctx.db.get(docId);
+                if (!doc) continue;
+
+                const oldFolderId = doc.folderId as Id<"folders"> | undefined;
+
+                // Move the document
+                await ctx.db.patch(docId, {
+                    folderId: targetFolderId,
+                    parentFolderId: undefined,
+                    updatedAt: now,
+                });
+
+                // Decrement fileCount on old folder
+                if (oldFolderId) {
+                    const oldFolder = await ctx.db.get(oldFolderId);
+                    if (oldFolder && "fileCount" in oldFolder) {
+                        await ctx.db.patch(oldFolderId, {
+                            fileCount: Math.max(0, ((oldFolder.fileCount as number) ?? 1) - 1),
+                            updatedAt: now,
+                        });
+                    }
+                }
+
+                // Increment fileCount on new folder
+                const newFolder = await ctx.db.get(targetFolderId);
+                if (newFolder && "fileCount" in newFolder) {
+                    await ctx.db.patch(targetFolderId, {
+                        fileCount: ((newFolder.fileCount as number) ?? 0) + 1,
+                        updatedAt: now,
+                    });
+                }
+
+                moved++;
+            } catch (e) {
+                console.warn(`[batchMove] Skipped invalid move docId=${move.docId}:`, e);
+            }
+        }
+
+        return { moved };
     },
 });

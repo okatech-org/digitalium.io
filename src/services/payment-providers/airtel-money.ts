@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Payment Provider: Airtel Money
-// 🔲 BASE PRÉPARÉE — Nécessite API Airtel pour activation
+// Auto-activates when AIRTEL_MONEY_CLIENT_ID is set
 // ═══════════════════════════════════════════════
 
 import type {
@@ -33,7 +33,20 @@ export class AirtelMoneyProvider implements PaymentProvider {
     readonly name = "airtel_money" as const;
     readonly displayName = "Airtel Money";
     readonly supportedMethods: PaymentMethodType[] = ["mobile_money"];
-    readonly isAvailable = false; // ← Activer avec les identifiants API
+
+    /** Auto-detect live mode from environment variable */
+    readonly isLive = Boolean(
+        typeof process !== "undefined" &&
+        process.env?.AIRTEL_MONEY_CLIENT_ID
+    );
+    readonly isAvailable = Boolean(
+        typeof process !== "undefined" &&
+        process.env?.AIRTEL_MONEY_CLIENT_ID
+    );
+
+    getMode(): "live" | "simulation" {
+        return this.isLive ? "live" : "simulation";
+    }
 
     // private baseUrl: string;
     // private clientId: string;

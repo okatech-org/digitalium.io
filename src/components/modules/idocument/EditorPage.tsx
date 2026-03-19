@@ -67,6 +67,7 @@ import {
     Eye,
     PenTool,
     Archive,
+    Trash2,
     X,
     FileText,
     RotateCcw,
@@ -77,7 +78,7 @@ import {
 
 // ─── Types ──────────────────────────────────────
 
-type DocStatus = "draft" | "review" | "approved" | "archived";
+type DocStatus = "draft" | "review" | "approved" | "archived" | "trashed";
 
 interface DocMeta {
     id: string;
@@ -132,6 +133,11 @@ const STATUS_CFG: Record<
         label: "Archivé",
         icon: Archive,
         cls: "bg-violet-500/15 text-violet-400 border-violet-500/20",
+    },
+    trashed: {
+        label: "Corbeille",
+        icon: Trash2,
+        cls: "bg-red-500/15 text-red-400 border-red-500/20",
     },
 };
 
@@ -673,7 +679,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
     }, [newComment]);
 
     // ─── Status config ───────────────────────
-    const statusCfg = STATUS_CFG[meta.status];
+    const statusCfg = STATUS_CFG[meta.status] ?? STATUS_CFG.draft;
     const StatusIcon = statusCfg.icon;
 
     return (

@@ -11,17 +11,17 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useFilingStructures, useUserFilingAccess, useAccessRules } from "@/hooks/useFilingAccess";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    FileText, Search, Plus, Filter, MoreHorizontal,
-    Edit3, Share2, Archive, Trash2, CheckSquare, Clock, Eye, RotateCcw,
-    Tag, User, X, Sparkles, PenTool, FolderPlus,
+    FileText, Search, Plus,
+    Edit3, Archive, Trash2, CheckSquare, Clock, Eye, RotateCcw,
+    Tag, X, Sparkles, PenTool, FolderPlus,
     FolderOpen, Folder, FolderTree, Lock, Upload, FileUp, Brain,
-    Loader2, Check, ChevronRight, FileSpreadsheet, Image as ImageIcon,
-    FolderUp,
+    Loader2, Check, FileSpreadsheet, Image as ImageIcon,
+    FolderUp, Wand2, ArrowRight, CheckCircle2, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,13 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+// DropdownMenu imports removed — unused, handled by FolderDocumentContextMenu
 import {
     Dialog,
     DialogContent,
@@ -64,7 +58,6 @@ import type {
     ListColumn,
 } from "@/components/modules/file-manager";
 import FolderDocumentContextMenu, {
-    RetentionCategoryBadge,
     type ArchivePolicyData,
     type ArchiveCategoryOption,
 } from "./FolderDocumentContextMenu";
@@ -73,6 +66,34 @@ import FolderDocumentContextMenu, {
 
 type DocStatus = "draft" | "review" | "approved" | "archived" | "trashed";
 type ImportStep = "select" | "analyzing" | "review" | "done";
+type ReorgStep = "mode" | "analyzing" | "preview" | "executing" | "done";
+type ReorgMode = "classify" | "reorganize";
+
+interface ReorgMove {
+    docId: string;
+    docTitle: string;
+    currentFolderId: string | null;
+    currentFolderName: string | null;
+    targetFolderId: string;
+    targetFolderPath: string;
+    newFoldersToCreate: string[];
+    parentFolderIdForNew: string | null;
+    shouldMove: boolean;
+    selected: boolean; // user can toggle
+    reasoning: string;
+    confidence: number;
+}
+
+interface ReorgPlan {
+    moves: ReorgMove[];
+    summary: string;
+    stats: {
+        totalDocuments: number;
+        documentsToMove: number;
+        documentsAlreadyCorrect: number;
+        newFoldersToCreate: number;
+    };
+}
 
 interface DocItem {
     id: string;
@@ -97,6 +118,10 @@ interface ImportFileItem {
     suggestedTags: string[];
     suggestedFolderId: string;
     suggestedFolderName: string;
+    suggestedPath: string;
+    newFoldersToCreate: string[];
+    parentFolderIdForNew: string | null;
+    reasoning: string;
     confidence: number;
     analyzed: boolean;
 }
@@ -130,31 +155,13 @@ const DEFAULT_SYSTEM_FOLDERS: FileManagerFolder[] = [
 
 // ─── (Demo data removed — documents now fetched from Convex) ──────
 
-// ─── AI Classification rules ────────────────────────────────────
+// ─── AI Classification (via Gemini — folder-aware) ──────────────
+// Hardcoded AI_RULES have been removed. Classification is now
+// handled by aiSmartImport.classifyDocuments (Convex action)
+// which receives the full folder hierarchy as context.
 
-const AI_RULES: { keywords: string[]; tags: string[]; folderId: string; folderName: string }[] = [
-    { keywords: ["contrat", "contract"], tags: ["Contrat", "Juridique"], folderId: "contrats", folderName: "Contrats" },
-    { keywords: ["facture", "invoice"], tags: ["Facture", "Comptabilité"], folderId: "fiscal", folderName: "Documents Fiscaux" },
-    { keywords: ["rapport", "report"], tags: ["Rapport", "Analyse"], folderId: "__mes-documents", folderName: "Mes Documents" },
-    { keywords: ["pv", "procès", "procès-verbal", "délibér"], tags: ["PV", "Direction"], folderId: "pv", folderName: "PV & Délibérations" },
-    { keywords: ["note", "service", "circulaire"], tags: ["Note", "RH"], folderId: "__mes-documents", folderName: "Mes Documents" },
-    { keywords: ["devis", "proposition", "offre"], tags: ["Devis", "Commercial"], folderId: "contrats", folderName: "Contrats" },
-    { keywords: ["convention", "stage", "formation"], tags: ["Convention", "RH"], folderId: "rh", folderName: "Ressources Humaines" },
-    { keywords: ["fiscal", "impôt", "taxe", "déclaration"], tags: ["Fiscal", "Déclaration"], folderId: "fiscal", folderName: "Documents Fiscaux" },
-    { keywords: ["plan", "stratégi", "feuille de route"], tags: ["Stratégie", "Direction"], folderId: "__mes-documents", folderName: "Mes Documents" },
-];
-
-function classifyFileName(name: string): { tags: string[]; folderId: string; folderName: string; confidence: number } {
-    const lower = name.toLowerCase();
-    for (const rule of AI_RULES) {
-        if (rule.keywords.some((kw) => lower.includes(kw))) {
-            return { tags: rule.tags, folderId: rule.folderId, folderName: rule.folderName, confidence: 85 + Math.floor(Math.random() * 12) };
-        }
-    }
-    return { tags: ["Document", "Import"], folderId: "__mes-documents", folderName: "Mes Documents", confidence: 55 + Math.floor(Math.random() * 15) };
-}
-
-const ACCEPTED_DOC_TYPES = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _ACCEPTED_DOC_TYPES = [
     // Documents
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
@@ -309,7 +316,8 @@ const DOC_COLUMNS: ListColumn[] = [
 
 export default function DocumentListPage({ basePath = "/pro/idocument" }: { basePath?: string }) {
     const router = useRouter();
-    const { orgId } = useOrganization();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { orgId: _orgId } = useOrganization();
     const { user, isAdmin } = useAuth();
 
     // ─── Convex: fetch filing structure ─────────────────────────
@@ -319,9 +327,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
     // Instead of raw cells, we now fetch actual folders that are synced from cells
     const convexFolders = useQuery(api.folders.listByOrg, convexOrgId ? { organizationId: convexOrgId } : "skip");
+    const classifyDocumentsAction = useAction(api.aiSmartImport.classifyDocuments);
+    const reorganizeDocumentsAction = useAction(api.aiSmartImport.reorganizeDocuments);
     const createFolderMut = useMutation(api.folders.create);
+    const batchMoveToFolderMut = useMutation(api.documents.batchMoveToFolder);
     const syncFoldersMut = useMutation(api.filingCells.syncFoldersFromCells);
-    const { setRule } = useAccessRules(convexOrgId);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { setRule: _setRule } = useAccessRules(convexOrgId);
 
     // ─── Convex: import mutations ────────────────────────────────
     const generateUploadUrlMut = useMutation(api.documents.generateUploadUrl);
@@ -355,6 +367,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     // Map archive categories to the shape expected by the context menu
     const categoryOptions: ArchiveCategoryOption[] = useMemo(() => {
         if (!archiveCategories) return [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return archiveCategories.map((c: any) => ({
             _id: c._id,
             name: c.name,
@@ -373,6 +386,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         if (!convexOrgId || !activeStructure) return;
         if (convexFolders === undefined) return; // still loading
         // If we have a structure but no synced folders, trigger backfill
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const hasSyncedFolders = convexFolders.some((f: any) => f.filingCellId);
         if (!hasSyncedFolders) {
             syncAttemptedRef.current = true;
@@ -400,6 +414,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             // Strict access: if it's a system folder (synced from filing_cells), check access matrix
             // Admin bypass: admins (level ≤ 2) see all org folders
             // Loading fallback: while access is resolving, show all folders
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .filter((f: any) => {
                 if (isAdmin) return true;
                 if (accessLoading) return true;
@@ -408,6 +423,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 }
                 return true; // regular user folders
             })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .map((f: any) => ({
                 id: f._id,
                 name: f.name,
@@ -475,6 +491,12 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showTagDialog, setShowTagDialog] = useState(false);
+
+    // ─── Deferred: AI folder tree (only fetched when import dialog is open) ──
+    const folderTreeWithPaths = useQuery(
+        api.folders.getTreeWithPaths,
+        showImportDialog && convexOrgId ? { organizationId: convexOrgId } : "skip"
+    );
     const [tagEditDocId, setTagEditDocId] = useState<string | null>(null);
     const [tagInput, setTagInput] = useState("");
     const [newDocTitle, setNewDocTitle] = useState("");
@@ -482,6 +504,21 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [importFiles, setImportFiles] = useState<ImportFileItem[]>([]);
     const [importStep, setImportStep] = useState<ImportStep>("select");
     const [isDragOver, setIsDragOver] = useState(false);
+
+    // ─── Reorganization state ────────────────────────────────────
+    const [showReorgDialog, setShowReorgDialog] = useState(false);
+    const [reorgStep, setReorgStep] = useState<ReorgStep>("mode");
+    const [reorgMode, setReorgMode] = useState<ReorgMode>("classify");
+    const [reorgPlan, setReorgPlan] = useState<ReorgPlan | null>(null);
+    const [reorgLoading, setReorgLoading] = useState(false);
+    const [reorgProgress, setReorgProgress] = useState(0);
+    const [reorgResult, setReorgResult] = useState<{ moved: number; foldersCreated: number } | null>(null);
+
+    // Deferred: AI folder tree for reorganization
+    const folderTreeForReorg = useQuery(
+        api.folders.getTreeWithPaths,
+        showReorgDialog && convexOrgId ? { organizationId: convexOrgId } : "skip"
+    );
 
     // ─── Tag Suggestions by archive category ────────────────────
     const TAG_SUGGESTIONS: Record<string, string[]> = {
@@ -500,6 +537,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         const folder = folders.find((f) => f.id === tagEditDoc.folderId);
         const slug = folder?.metadata?.code?.toString()?.toLowerCase() || "";
         return TAG_SUGGESTIONS[slug] || TAG_SUGGESTIONS.general;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tagEditDoc, folders]);
 
     const handleOpenTagDialog = useCallback((docId: string) => {
@@ -903,6 +941,10 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 suggestedTags: [],
                 suggestedFolderId: "__mes-documents",
                 suggestedFolderName: "Mes Documents",
+                suggestedPath: "",
+                newFoldersToCreate: [],
+                parentFolderIdForNew: null,
+                reasoning: "",
                 confidence: 0,
                 analyzed: false,
             });
@@ -963,6 +1005,10 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 suggestedTags: [],
                 suggestedFolderId: "__mes-documents",
                 suggestedFolderName: "Mes Documents",
+                suggestedPath: "",
+                newFoldersToCreate: [],
+                parentFolderIdForNew: null,
+                reasoning: "",
                 confidence: 0,
                 analyzed: false,
             }));
@@ -982,21 +1028,70 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
     const handleAnalyzeWithAI = useCallback(async () => {
         setImportStep("analyzing");
-        // Simulate AI analysis with progressive updates
-        for (let i = 0; i < importFiles.length; i++) {
-            await new Promise((r) => setTimeout(r, 800 + Math.random() * 700));
+
+        try {
+            // Build folder tree context for AI
+            const treeData = (folderTreeWithPaths ?? []).map((f) => ({
+                id: String(f.id),
+                name: f.name,
+                path: f.path,
+                depth: f.depth,
+                parentFolderId: f.parentFolderId ? String(f.parentFolderId) : null,
+                tags: f.tags,
+                description: f.description,
+            }));
+
+            const fileNames = importFiles.map((f) => f.name);
+
+            // Call Gemini for intelligent, folder-aware classification
+            const result = await classifyDocumentsAction({
+                fileNames,
+                folderTree: treeData,
+            });
+
+            if (result.error) {
+                console.warn("[iDocument AI] Classification error:", result.error);
+                toast.error("L'IA n'a pas pu analyser les fichiers. Classement par défaut appliqué.");
+                // Fallback: mark all as analyzed with defaults
+                setImportFiles((prev) =>
+                    prev.map((f) => ({ ...f, analyzed: true, confidence: 50 }))
+                );
+            } else if (result.classifications?.length > 0) {
+                // Map AI results back to import files
+                setImportFiles((prev) =>
+                    prev.map((f, idx) => {
+                        const classification = result.classifications[idx];
+                        if (!classification) return { ...f, analyzed: true };
+
+                        // Resolve the suggested folder name from tree
+                        const suggestedFolder = treeData.find((td) => td.id === classification.suggestedFolderId);
+
+                        return {
+                            ...f,
+                            suggestedTags: classification.suggestedTags ?? ["Document", "Import"],
+                            suggestedFolderId: classification.suggestedFolderId ?? "__mes-documents",
+                            suggestedFolderName: suggestedFolder?.name ?? "Mes Documents",
+                            suggestedPath: classification.suggestedPath ?? "",
+                            newFoldersToCreate: classification.newFoldersToCreate ?? [],
+                            parentFolderIdForNew: classification.parentFolderIdForNew ?? null,
+                            reasoning: classification.reasoning ?? "",
+                            confidence: Math.round((classification.confidence ?? 0.7) * 100),
+                            analyzed: true,
+                        };
+                    })
+                );
+                toast.success(`🤖 ${result.classifications.length} fichier(s) classé(s) par l'IA Gemini`);
+            }
+        } catch (err) {
+            console.error("[iDocument AI] Classification call failed:", err);
+            toast.error("Erreur lors de l'analyse IA. Classement par défaut appliqué.");
             setImportFiles((prev) =>
-                prev.map((f, idx) => {
-                    if (idx === i) {
-                        const result = classifyFileName(f.name);
-                        return { ...f, suggestedTags: result.tags, suggestedFolderId: result.folderId, suggestedFolderName: result.folderName, confidence: result.confidence, analyzed: true };
-                    }
-                    return f;
-                })
+                prev.map((f) => ({ ...f, analyzed: true, confidence: 50 }))
             );
         }
+
         setImportStep("review");
-    }, [importFiles.length]);
+    }, [importFiles, folderTreeWithPaths, classifyDocumentsAction]);
 
     const handleUpdateImportTag = useCallback((fileId: string, tagIndex: number, newTag: string) => {
         setImportFiles((prev) =>
@@ -1052,15 +1147,45 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
         try {
             for (const importFile of importFiles) {
-                // 1. Resolve destination folder
+                // 1. Resolve destination folder (AI-powered)
                 let targetFolderId: Id<"folders"> | undefined;
                 const suggestedId = importFile.suggestedFolderId;
 
-                // Check if the suggested folder is a Convex ID (not a system pseudo-ID like __mes-documents)
-                if (suggestedId && !suggestedId.startsWith("__")) {
+                // Determine if the suggestedId is a real Convex ID or a system pseudo-ID
+                const isConvexId = suggestedId && !suggestedId.startsWith("__");
+
+                if (isConvexId) {
+                    // Start with the AI-suggested existing folder
                     targetFolderId = suggestedId as Id<"folders">;
-                } else {
-                    // For folder paths in imported filenames (folder import), create hierarchy
+                }
+
+                // 1b. Create sub-folders suggested by AI (cascade creation)
+                if (importFile.newFoldersToCreate && importFile.newFoldersToCreate.length > 0) {
+                    // Determine the parent for new folders: AI suggestion or existing target
+                    let parentId: Id<"folders"> | undefined =
+                        importFile.parentFolderIdForNew && !importFile.parentFolderIdForNew.startsWith("__")
+                            ? (importFile.parentFolderIdForNew as Id<"folders">)
+                            : targetFolderId;
+
+                    for (const folderName of importFile.newFoldersToCreate) {
+                        try {
+                            const folderResult = await getOrCreateFolderMut({
+                                name: folderName,
+                                organizationId: convexOrgId,
+                                createdBy,
+                                parentFolderId: parentId,
+                            });
+                            parentId = folderResult.id;
+                            if (folderResult.created) foldersCreated++;
+                        } catch (folderErr) {
+                            console.warn(`[iDocument] Failed to create sub-folder "${folderName}":`, folderErr);
+                        }
+                    }
+                    // The final created folder is the actual destination
+                    targetFolderId = parentId;
+                } else if (!isConvexId) {
+                    // System pseudo-ID (__mes-documents, etc.) or no folder
+                    // Check for folder paths in imported filenames (folder import)
                     const pathParts = importFile.name.split("/");
                     if (pathParts.length > 1) {
                         // Has folder path — create each level
@@ -1158,6 +1283,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
     const renderFolderCard = useCallback(
         (folder: FileManagerFolder, isDragOver: boolean) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const isArborescence = !!(folder.metadata as any)?.isArborescence;
             return (
                 <Card className={`glass border-white/5 overflow-hidden transition-all group ${isDragOver ? "ring-2 ring-violet-500/50 bg-violet-500/5 scale-[1.02]" : "hover:border-white/10"}`}>
@@ -1411,15 +1537,18 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowNewFolderDialog(true)}
-                        className="border-white/10 text-xs gap-1.5"
-                    >
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        Nouveau dossier
-                    </Button>
+                    {/* Nouveau dossier: non-admins can only create inside "Mes Documents" */}
+                    {(isAdmin || currentFolderId === "__mes-documents") && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowNewFolderDialog(true)}
+                            className="border-white/10 text-xs gap-1.5"
+                        >
+                            <FolderPlus className="h-3.5 w-3.5" />
+                            Nouveau dossier
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         size="sm"
@@ -1429,6 +1558,25 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                         <Upload className="h-3.5 w-3.5" />
                         Importer
                     </Button>
+                    {/* Réorganisation IA: admin only */}
+                    {isAdmin && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setShowReorgDialog(true);
+                                setReorgStep("mode");
+                                setReorgMode("classify");
+                                setReorgPlan(null);
+                                setReorgResult(null);
+                                setReorgProgress(0);
+                            }}
+                            className="border-amber-500/20 text-amber-300 hover:bg-amber-500/10 text-xs gap-1.5"
+                        >
+                            <Wand2 className="h-3.5 w-3.5" />
+                            Réorganisation IA
+                        </Button>
+                    )}
                     <Button
                         onClick={() => setShowNewDocDialog(true)}
                         className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white border-0 gap-2 shadow-lg shadow-violet-500/20 text-xs"
@@ -1566,7 +1714,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                     }
                                 </div>
                             )}
-                            renderFileIcon={(file) => (
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            renderFileIcon={(_file) => (
                                 <div className="h-6 w-6 rounded-md bg-violet-500/10 flex items-center justify-center">
                                     <FileText className="h-3 w-3 text-violet-400" />
                                 </div>
@@ -1709,10 +1858,10 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
                                 <Brain className="h-4 w-4 text-white" />
                             </div>
-                            Importer avec l'IA
+                            Importer avec l&apos;IA
                         </DialogTitle>
                         <DialogDescription>
-                            Déposez vos documents — l'IA analysera leur contenu et suggérera un classement automatique.
+                            Déposez vos documents — l&apos;IA analysera leur contenu et suggérera un classement automatique.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1860,7 +2009,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                             <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                                 <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
                                 <p className="text-xs text-emerald-300">
-                                    Analyse terminée ! Vérifiez les suggestions ci-dessous avant d'importer.
+                                    Analyse terminée ! Vérifiez les suggestions ci-dessous avant d&apos;importer.
                                 </p>
                             </div>
 
@@ -1901,6 +2050,46 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                     ))}
                                                 </div>
                                             </div>
+
+                                            {/* AI Reasoning & Suggested Path */}
+                                            {f.reasoning && (
+                                                <div className="space-y-1.5">
+                                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                        <Brain className="h-3 w-3 text-cyan-400" /> Raisonnement IA
+                                                    </p>
+                                                    <p className="text-[10px] text-cyan-300/80 bg-cyan-500/5 rounded-md px-2 py-1.5 border border-cyan-500/10">
+                                                        {f.reasoning}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {f.suggestedPath && (
+                                                <div className="space-y-1.5">
+                                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                        <FolderTree className="h-3 w-3" /> Chemin suggéré
+                                                    </p>
+                                                    <div className="flex items-center gap-1 text-[10px]">
+                                                        {f.suggestedPath.split(" > ").map((part, pi, arr) => (
+                                                            <span key={pi} className="flex items-center gap-1">
+                                                                <span className={`px-1.5 py-0.5 rounded ${
+                                                                    f.newFoldersToCreate.includes(part)
+                                                                        ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 border-dashed"
+                                                                        : "bg-white/5 text-white/60"
+                                                                }`}>
+                                                                    {f.newFoldersToCreate.includes(part) && "✨ "}{part}
+                                                                </span>
+                                                                {pi < arr.length - 1 && <span className="text-white/20">›</span>}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    {f.newFoldersToCreate.length > 0 && (
+                                                        <p className="text-[9px] text-emerald-400/60 flex items-center gap-1">
+                                                            <FolderPlus className="h-2.5 w-2.5" />
+                                                            {f.newFoldersToCreate.length} nouveau(x) dossier(s) sera/seront créé(s)
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Suggested folder */}
                                             <div className="space-y-1.5">
@@ -1950,7 +2139,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                 className="bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-700 hover:to-teal-600 text-white border-0 gap-2"
                             >
                                 <Brain className="h-4 w-4" />
-                                Analyser avec l'IA
+                                Analyser avec l&apos;IA
                             </Button>
                         )}
                         {importStep === "review" && (
@@ -2054,6 +2243,478 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                         <Button variant="outline" onClick={() => setShowTagDialog(false)} className="border-white/10">
                             Fermer
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ═══ REORGANIZATION DIALOG ═══ */}
+            <Dialog open={showReorgDialog} onOpenChange={(open) => { if (!open) { setShowReorgDialog(false); setReorgStep("mode"); } }}>
+                <DialogContent className="glass border-white/10 max-w-3xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Wand2 className="h-5 w-5 text-amber-400" />
+                            Réorganisation Intelligente
+                        </DialogTitle>
+                        <DialogDescription>
+                            {reorgStep === "mode" && "Choisissez le mode de réorganisation de vos documents."}
+                            {reorgStep === "analyzing" && "L'IA analyse vos documents et votre arborescence..."}
+                            {reorgStep === "preview" && "Voici le plan de réorganisation proposé par l'IA."}
+                            {reorgStep === "executing" && "Réorganisation en cours..."}
+                            {reorgStep === "done" && "Réorganisation terminée !"}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Step: Mode Selection */}
+                    {reorgStep === "mode" && (
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setReorgMode("classify")}
+                                    className={`p-5 rounded-xl border-2 text-left transition-all ${
+                                        reorgMode === "classify"
+                                            ? "border-cyan-500/50 bg-cyan-500/10"
+                                            : "border-white/10 hover:border-white/20 bg-white/5"
+                                    }`}
+                                >
+                                    <Folder className="h-8 w-8 text-cyan-400 mb-3" />
+                                    <h3 className="font-semibold text-sm mb-1">Classer</h3>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Range les documents dans les dossiers existants.
+                                        Aucun nouveau dossier ne sera créé.
+                                    </p>
+                                </button>
+                                <button
+                                    onClick={() => setReorgMode("reorganize")}
+                                    className={`p-5 rounded-xl border-2 text-left transition-all ${
+                                        reorgMode === "reorganize"
+                                            ? "border-amber-500/50 bg-amber-500/10"
+                                            : "border-white/10 hover:border-white/20 bg-white/5"
+                                    }`}
+                                >
+                                    <FolderTree className="h-8 w-8 text-amber-400 mb-3" />
+                                    <h3 className="font-semibold text-sm mb-1">Réorganiser</h3>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Crée une arborescence optimale : dossiers par type,
+                                        sous-dossiers par client, et déplace les documents.
+                                    </p>
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-center text-muted-foreground">
+                                {documents.length} document{documents.length > 1 ? "s" : ""} · {folders.length} dossier{folders.length > 1 ? "s" : ""}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Step: Analyzing */}
+                    {reorgStep === "analyzing" && (
+                        <div className="flex flex-col items-center justify-center py-12 gap-4">
+                            <div className="relative">
+                                <div className="h-16 w-16 rounded-full bg-amber-500/10 flex items-center justify-center">
+                                    <Brain className="h-8 w-8 text-amber-400 animate-pulse" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-cyan-500 flex items-center justify-center">
+                                    <Loader2 className="h-3 w-3 text-white animate-spin" />
+                                </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Analyse IA en cours...</p>
+                            <p className="text-[10px] text-muted-foreground">
+                                Gemini analyse {documents.length} documents et {folders.length} dossiers
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Step: Preview */}
+                    {reorgStep === "preview" && reorgPlan && (
+                        <div className="space-y-4">
+                            {/* Summary */}
+                            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                                <p className="text-xs text-amber-300/80">{reorgPlan.summary}</p>
+                                <div className="flex gap-4 mt-2 text-[10px] text-muted-foreground">
+                                    <span>{reorgPlan.stats.documentsToMove} à déplacer</span>
+                                    <span>{reorgPlan.stats.documentsAlreadyCorrect} déjà corrects</span>
+                                    {reorgPlan.stats.newFoldersToCreate > 0 && (
+                                        <span className="text-emerald-400">✨ {reorgPlan.stats.newFoldersToCreate} dossier(s) à créer</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Moves list */}
+                            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                                {reorgPlan.moves.map((move, i) => (
+                                    <div
+                                        key={move.docId || i}
+                                        className={`p-3 rounded-lg border transition-all ${
+                                            !move.shouldMove
+                                                ? "border-white/5 bg-white/[0.02] opacity-60"
+                                                : move.selected
+                                                    ? "border-amber-500/20 bg-amber-500/5"
+                                                    : "border-white/10 bg-white/5 opacity-50"
+                                        }`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {/* Checkbox */}
+                                            <button
+                                                onClick={() => {
+                                                    setReorgPlan((prev) => {
+                                                        if (!prev) return prev;
+                                                        const newMoves = [...prev.moves];
+                                                        newMoves[i] = { ...newMoves[i], selected: !newMoves[i].selected };
+                                                        return { ...prev, moves: newMoves };
+                                                    });
+                                                }}
+                                                disabled={!move.shouldMove}
+                                                className="mt-0.5 flex-shrink-0"
+                                            >
+                                                {move.shouldMove ? (
+                                                    move.selected
+                                                        ? <CheckCircle2 className="h-4 w-4 text-amber-400" />
+                                                        : <div className="h-4 w-4 rounded-full border border-white/20" />
+                                                ) : (
+                                                    <CheckCircle2 className="h-4 w-4 text-emerald-400/50" />
+                                                )}
+                                            </button>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0 space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <p className="text-xs font-medium truncate">{move.docTitle}</p>
+                                                    <Badge className="text-[9px] h-4 bg-white/5 text-white/40 border-white/10 flex-shrink-0">
+                                                        {Math.round(move.confidence * 100)}%
+                                                    </Badge>
+                                                </div>
+
+                                                {move.shouldMove ? (
+                                                    <div className="flex items-center gap-2 text-[10px]">
+                                                        <span className="text-red-300/60 truncate max-w-[120px]">
+                                                            {move.currentFolderName || "Non classé"}
+                                                        </span>
+                                                        <ArrowRight className="h-3 w-3 text-amber-400 flex-shrink-0" />
+                                                        <span className="text-emerald-300 truncate">
+                                                            {move.targetFolderPath}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[10px] text-emerald-400/60">✓ Déjà au bon endroit</p>
+                                                )}
+
+                                                {move.reasoning && (
+                                                    <p className="text-[9px] text-muted-foreground italic">{move.reasoning}</p>
+                                                )}
+
+                                                {move.newFoldersToCreate.length > 0 && (
+                                                    <div className="flex items-center gap-1 text-[9px] text-emerald-400/60">
+                                                        <FolderPlus className="h-2.5 w-2.5" />
+                                                        Nouveau(x): {move.newFoldersToCreate.join(", ")}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step: Executing */}
+                    {reorgStep === "executing" && (
+                        <div className="flex flex-col items-center justify-center py-12 gap-4">
+                            <RefreshCw className="h-10 w-10 text-amber-400 animate-spin" />
+                            <p className="text-sm">Réorganisation en cours…</p>
+                            <div className="w-full max-w-xs bg-white/5 rounded-full h-2">
+                                <div
+                                    className="bg-gradient-to-r from-amber-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${reorgProgress}%` }}
+                                />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">{Math.round(reorgProgress)}%</p>
+                        </div>
+                    )}
+
+                    {/* Step: Done */}
+                    {reorgStep === "done" && reorgResult && (
+                        <div className="flex flex-col items-center justify-center py-12 gap-4">
+                            <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                            </div>
+                            <p className="text-sm font-semibold">Réorganisation terminée !</p>
+                            <div className="flex gap-6 text-sm">
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-amber-400">{reorgResult.moved}</p>
+                                    <p className="text-[10px] text-muted-foreground">Documents déplacés</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold text-emerald-400">{reorgResult.foldersCreated}</p>
+                                    <p className="text-[10px] text-muted-foreground">Dossiers créés</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        {reorgStep !== "executing" && (
+                            <Button
+                                variant="outline"
+                                onClick={() => { setShowReorgDialog(false); setReorgStep("mode"); }}
+                                className="border-white/10"
+                            >
+                                {reorgStep === "done" ? "Fermer" : "Annuler"}
+                            </Button>
+                        )}
+                        {reorgStep === "mode" && (
+                            <Button
+                                onClick={async () => {
+                                    setReorgStep("analyzing");
+                                    try {
+                                        const treeData = (folderTreeForReorg ?? []).map((f) => ({
+                                            id: String(f.id),
+                                            name: f.name,
+                                            path: f.path,
+                                            depth: f.depth,
+                                            parentFolderId: f.parentFolderId ? String(f.parentFolderId) : null,
+                                            tags: f.tags,
+                                            description: f.description,
+                                        }));
+
+                                        const docsData = documents.map((d) => {
+                                            const folder = folders.find((fl) => fl.id === d.folderId);
+                                            return {
+                                                id: d.id,
+                                                title: d.title,
+                                                fileName: undefined,
+                                                tags: d.tags,
+                                                currentFolderId: d.folderId ?? null,
+                                                currentFolderName: folder?.name ?? null,
+                                            };
+                                        });
+
+                                        const result = await reorganizeDocumentsAction({
+                                            documents: docsData,
+                                            folderTree: treeData,
+                                            mode: reorgMode,
+                                        });
+
+                                        if (result.error || !result.plan) {
+                                            toast.error("L'IA n'a pas pu analyser les documents.");
+                                            setReorgStep("mode");
+                                        } else {
+                                            const plan = result.plan as ReorgPlan;
+
+                                            // Remap AI-generated placeholder docIds back to real Convex IDs
+                                            // AI may return "doc_1", "doc_2" or index-based IDs instead of real Convex IDs
+                                            const docByTitle = new Map<string, string>();
+                                            const docByIndex = new Map<string, string>();
+                                            docsData.forEach((d, idx) => {
+                                                docByTitle.set(d.title.toLowerCase(), d.id);
+                                                docByIndex.set(`doc_${idx + 1}`, d.id);
+                                                docByIndex.set(String(idx + 1), d.id);
+                                            });
+
+                                            plan.moves = plan.moves.map((m: ReorgMove) => {
+                                                let resolvedDocId = m.docId;
+                                                // If the docId is not a real document ID, try to remap it
+                                                if (!docsData.some(d => d.id === m.docId)) {
+                                                    // Try index-based mapping (doc_1, doc_2, etc.)
+                                                    if (docByIndex.has(m.docId)) {
+                                                        resolvedDocId = docByIndex.get(m.docId)!;
+                                                    }
+                                                    // Try title-based mapping
+                                                    else if (m.docTitle && docByTitle.has(m.docTitle.toLowerCase())) {
+                                                        resolvedDocId = docByTitle.get(m.docTitle.toLowerCase())!;
+                                                    }
+                                                }
+
+                                                // ── Infer missing sub-folders from targetFolderPath ──
+                                                // AI often returns targetFolderPath="Finances > Devis > SGG"
+                                                // but leaves newFoldersToCreate=[] and targetFolderId set to "Finances".
+                                                // We parse the path and auto-populate newFoldersToCreate.
+                                                let newFolders = m.newFoldersToCreate ?? [];
+                                                let parentForNew = m.parentFolderIdForNew ?? m.targetFolderId;
+                                                console.log(`[Reorg] Post-process move: path="${m.targetFolderPath}" newFolders=${JSON.stringify(newFolders)} hasGt=${m.targetFolderPath?.includes(">")}`);
+                                                if (newFolders.length === 0 && m.targetFolderPath && m.targetFolderPath.includes(">")) {
+                                                    const pathSegments = m.targetFolderPath.split(/\s*>\s*/).filter(Boolean);
+
+                                                    // Build parent→children map for hierarchy-aware lookup
+                                                    // Key = parentId (or "root" for top-level), Value = Map<name_lower, folderId>
+                                                    const childrenMap = new Map<string, Map<string, string>>();
+                                                    treeData.forEach(f => {
+                                                        const parentKey = f.parentFolderId ?? "root";
+                                                        if (!childrenMap.has(parentKey)) childrenMap.set(parentKey, new Map());
+                                                        childrenMap.get(parentKey)!.set(f.name.toLowerCase(), f.id);
+                                                    });
+
+                                                    // Walk path segments: at each step, find the folder with this name
+                                                    // as a CHILD of the current parent
+                                                    let currentParentId: string = "root";
+                                                    let missingStartIdx = 0;
+                                                    for (let si = 0; si < pathSegments.length; si++) {
+                                                        const segName = pathSegments[si].trim().toLowerCase();
+                                                        const children = childrenMap.get(currentParentId);
+                                                        if (children && children.has(segName)) {
+                                                            currentParentId = children.get(segName)!;
+                                                            missingStartIdx = si + 1;
+                                                        } else {
+                                                            break;
+                                                        }
+                                                    }
+
+                                                    if (missingStartIdx < pathSegments.length) {
+                                                        newFolders = pathSegments.slice(missingStartIdx);
+                                                        if (currentParentId !== "root") {
+                                                            parentForNew = currentParentId;
+                                                        }
+                                                        console.log(`[Reorg] Inferred new folders from path "${m.targetFolderPath}":`, newFolders, "parent:", parentForNew);
+                                                    }
+                                                }
+
+                                                return {
+                                                    ...m,
+                                                    docId: resolvedDocId,
+                                                    newFoldersToCreate: newFolders,
+                                                    parentFolderIdForNew: parentForNew,
+                                                    selected: m.shouldMove,
+                                                };
+                                            });
+
+                                            setReorgPlan(plan);
+                                            setReorgStep("preview");
+                                            toast.success(`🤖 Plan de réorganisation généré`);
+                                        }
+                                    } catch (err) {
+                                        console.error("[Reorg] AI error:", err);
+                                        toast.error("Erreur lors de l'analyse IA.");
+                                        setReorgStep("mode");
+                                    }
+                                }}
+                                disabled={documents.length === 0}
+                                className="bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 text-white border-0 gap-2"
+                            >
+                                <Brain className="h-4 w-4" />
+                                Analyser avec l&apos;IA
+                            </Button>
+                        )}
+                        {reorgStep === "preview" && reorgPlan && (
+                            <Button
+                                onClick={async () => {
+                                    setReorgStep("executing");
+                                    setReorgLoading(true);
+                                    const selectedMoves = reorgPlan.moves.filter((m) => m.selected && m.shouldMove);
+                                    let foldersCreated = 0;
+                                    const finalMoves: { docId: string; targetFolderId: string }[] = [];
+
+                                    try {
+                                        console.log("[Reorg] Starting execution. convexOrgId =", convexOrgId, "user =", user?.email);
+                                        console.log("[Reorg] selectedMoves:", selectedMoves.length, selectedMoves.map(m => ({
+                                            docId: m.docId, targetFolderId: m.targetFolderId,
+                                            newFolders: m.newFoldersToCreate, parentForNew: m.parentFolderIdForNew
+                                        })));
+                                        console.log("[Reorg] Known folders:", folders.map(f => ({ id: f.id, name: f.name })));
+                                        console.log("[Reorg] Known documents:", documents.map(d => ({ id: d.id, title: d.title })));
+                                        if (!convexOrgId) {
+                                            toast.error("Erreur: Organisation non trouvée. Rechargez la page.");
+                                            setReorgStep("preview");
+                                            setReorgLoading(false);
+                                            return;
+                                        }
+                                        // Helper: check if an ID looks like a real Convex folder ID
+                                        const realFolderIds = new Set(folders.map((f) => f.id));
+                                        const isRealFolderId = (id: string | null | undefined): boolean =>
+                                            !!id && !id.startsWith("__") && !id.startsWith("new_") && realFolderIds.has(id);
+
+                                        // 1. Create any new folders first
+                                        const createdFolderMap = new Map<string, string>();
+                                        for (let i = 0; i < selectedMoves.length; i++) {
+                                            const move = selectedMoves[i];
+                                            setReorgProgress(((i + 1) / (selectedMoves.length * 2)) * 100);
+
+                                            if (move.newFoldersToCreate.length > 0) {
+                                                // Resolve starting parent from the move's parentFolderIdForNew
+                                                let parentId: Id<"folders"> | undefined = undefined;
+                                                if (isRealFolderId(move.parentFolderIdForNew)) {
+                                                    parentId = move.parentFolderIdForNew as Id<"folders">;
+                                                } else if (isRealFolderId(move.targetFolderId)) {
+                                                    parentId = move.targetFolderId as Id<"folders">;
+                                                }
+                                                // If parent was already created in this session, use it
+                                                if (!parentId && move.parentFolderIdForNew && createdFolderMap.has(move.parentFolderIdForNew)) {
+                                                    parentId = createdFolderMap.get(move.parentFolderIdForNew) as Id<"folders">;
+                                                }
+                                                console.log(`[Reorg] Move ${i}: creating ${move.newFoldersToCreate.length} folders. Starting parentId =`, parentId);
+
+                                                for (const folderName of move.newFoldersToCreate) {
+                                                    const cacheKey = `${parentId ?? "root"}_${folderName}`;
+                                                    if (createdFolderMap.has(cacheKey)) {
+                                                        parentId = createdFolderMap.get(cacheKey) as Id<"folders">;
+                                                        console.log(`[Reorg] Cached folder "${folderName}" → ${parentId}`);
+                                                        continue;
+                                                    }
+                                                    try {
+                                                        console.log(`[Reorg] Creating folder "${folderName}" under parentId =`, parentId);
+                                                        const folderResult = await getOrCreateFolderMut({
+                                                            name: folderName,
+                                                            organizationId: convexOrgId!,
+                                                            createdBy: user?.email || "system",
+                                                            parentFolderId: parentId,
+                                                        });
+                                                        console.log(`[Reorg] ✓ Folder "${folderName}" → ${folderResult.id} (created: ${folderResult.created})`);
+                                                        createdFolderMap.set(cacheKey, folderResult.id as string);
+                                                        parentId = folderResult.id;
+                                                        if (folderResult.created) foldersCreated++;
+                                                    } catch (e) {
+                                                        console.warn(`[Reorg] ✗ Failed to create folder "${folderName}":`, e);
+                                                    }
+                                                }
+                                                if (parentId) {
+                                                    console.log(`[Reorg] Move ${i}: doc ${move.docId} → folder ${parentId}`);
+                                                    finalMoves.push({ docId: move.docId, targetFolderId: String(parentId) });
+                                                } else {
+                                                    console.warn(`[Reorg] Move ${i}: no parentId resolved, skipping`);
+                                                }
+                                            } else {
+                                                // No new folders — use targetFolderId only if it's a real Convex ID
+                                                if (isRealFolderId(move.targetFolderId)) {
+                                                    console.log(`[Reorg] Move ${i}: doc ${move.docId} → existing folder ${move.targetFolderId}`);
+                                                    finalMoves.push({ docId: move.docId, targetFolderId: move.targetFolderId });
+                                                } else if (createdFolderMap.has(move.targetFolderId)) {
+                                                    console.log(`[Reorg] Move ${i}: doc ${move.docId} → cached folder ${createdFolderMap.get(move.targetFolderId)}`);
+                                                    finalMoves.push({ docId: move.docId, targetFolderId: createdFolderMap.get(move.targetFolderId)! });
+                                                } else {
+                                                    console.warn(`[Reorg] Move ${i}: targetFolderId "${move.targetFolderId}" is not real and not cached, skipping`);
+                                                }
+                                            }
+                                        }
+
+                                        // 2. Batch move documents
+                                        setReorgProgress(75);
+                                        console.log("[Reorg] finalMoves:", finalMoves);
+                                        const docIds = new Set(documents.map((d) => d.id));
+                                        const validMoves = finalMoves.filter((m) => m.targetFolderId && !m.targetFolderId.startsWith("__") && docIds.has(m.docId));
+                                        console.log("[Reorg] validMoves after docId filter:", validMoves.length, validMoves);
+                                        if (validMoves.length > 0) {
+                                            await batchMoveToFolderMut({
+                                                moves: validMoves.map((m) => ({
+                                                    docId: m.docId as Id<"documents">,
+                                                    targetFolderId: m.targetFolderId as Id<"folders">,
+                                                })),
+                                            });
+                                        }
+                                        setReorgProgress(100);
+                                        setReorgResult({ moved: validMoves.length, foldersCreated });
+                                        setReorgStep("done");
+                                        toast.success(`✅ ${validMoves.length} document(s) réorganisé(s)`);
+                                    } catch (err) {
+                                        console.error("[Reorg] Execution error:", err);
+                                        toast.error("Erreur lors de la réorganisation.");
+                                        setReorgStep("preview");
+                                    }
+                                    setReorgLoading(false);
+                                }}
+                                disabled={reorgLoading || !reorgPlan.moves.some((m) => m.selected && m.shouldMove)}
+                                className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white border-0 gap-2"
+                            >
+                                <Check className="h-4 w-4" />
+                                Appliquer ({reorgPlan.moves.filter((m) => m.selected && m.shouldMove).length} déplacements)
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

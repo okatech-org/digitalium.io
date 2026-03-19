@@ -191,3 +191,105 @@ export const remove = mutation({
         await ctx.db.delete(args.id);
     },
 });
+
+/**
+ * Convert a lead into a draft organization.
+ * Automatically creates org + admin member from lead data.
+ */
+export const convert = mutation({
+    args: {
+        id: v.id("leads"),
+        userId: v.string(),
+        orgType: v.optional(v.union(
+            v.literal("enterprise"),
+            v.literal("institution"),
+            v.literal("government"),
+            v.literal("organism")
+        )),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        const lead = await ctx.db.get(args.id);
+        if (!lead) throw new Error("Lead introuvable");
+
+        // Guard: only qualified, proposal, or negotiation leads can be converted
+        const convertibleStatuses = ["qualified", "proposal", "negotiation"];
+        if (!convertibleStatuses.includes(lead.status)) {
+            throw new Error(
+                `Ce lead ne peut pas être converti (statut actuel: ${lead.status}). ` +
+                `Statuts autorisés: ${convertibleStatuses.join(", ")}`
+            );
+        }
+
+        // 1. Create draft organization from lead data
+        const orgId = await ctx.db.insert("organizations", {
+            name: lead.company || lead.name,
+            type: args.orgType ?? "enterprise",
+            sector: lead.sector,
+            email: lead.email,
+            telephone: lead.phone,
+            ownerId: args.userId,
+            quota: {
+                maxUsers: 5,
+                maxStorage: 5 * 1024 * 1024 * 1024, // 5 GB
+                modules: ["iDocument", "iArchive", "iSignature"],
+            },
+            settings: {
+                locale: "fr-GA",
+                currency: "XAF",
+            },
+            configProgress: {
+                profilComplete: false,
+                structureOrgComplete: false,
+                structureClassementComplete: false,
+                modulesConfigComplete: false,
+                automationConfigComplete: false,
+                deploymentConfigComplete: false,
+            },
+            status: "brouillon",
+            createdAt: now,
+            updatedAt: now,
+        });
+
+        // 2. Create admin member for the org
+        await ctx.db.insert("organization_members", {
+            organizationId: orgId,
+            userId: args.userId,
+            role: "admin",
+            estAdmin: true,
+            level: 2,
+            status: "active",
+            joinedAt: now,
+            nom: lead.name,
+            email: lead.email,
+            telephone: lead.phone,
+        });
+
+        // 3. Update lead status to converted
+        await ctx.db.patch(args.id, {
+            status: "converted",
+            lastContactedAt: now,
+            updatedAt: now,
+        });
+
+        // 4. Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: orgId,
+            userId: args.userId,
+            action: "lead.converted",
+            resourceType: "organization",
+            resourceId: orgId,
+            details: {
+                leadId: args.id,
+                leadName: lead.name,
+                leadCompany: lead.company,
+                leadEmail: lead.email,
+                previousStatus: lead.status,
+            },
+            createdAt: now,
+        });
+
+        return { organizationId: orgId, leadId: args.id };
+    },
+});
+

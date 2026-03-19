@@ -80,6 +80,8 @@ const DEV_EMAIL_ORG_MAP: Record<string, DevOrgMapping> = {
     "dgpa@digitalium.io": { id: "minpeche", name: "Ministère de la Pêche", type: "government", sector: "Agriculture & Pêche" },
     "anpa@digitalium.io": { id: "minpeche", name: "Ministère de la Pêche", type: "government", sector: "Agriculture & Pêche" },
     "inspecteur-peche@digitalium.io": { id: "minpeche", name: "Ministère de la Pêche", type: "government", sector: "Agriculture & Pêche" },
+    "gueylord.pellen-lakoumba@digitalium.io": { id: "minpeche", name: "Ministère de la Pêche", type: "government", sector: "Agriculture & Pêche" },
+    "isabelle.scala@digitalium.io": { id: "minpeche", name: "Ministère de la Pêche", type: "government", sector: "Agriculture & Pêche" },
 
     // Platform admin accounts → Platform
     "demo-sysadmin@digitalium.ga": { id: "digitalium", name: "DIGITALIUM", type: "platform", sector: "Technologie" },

@@ -92,6 +92,28 @@ export const getByName = query({
 });
 
 /**
+ * Fallback: find the org a user belongs to by email.
+ * Used when getByName doesn't match (dev accounts with display names that differ from Convex org names).
+ */
+export const getByMemberEmail = query({
+    args: { email: v.string() },
+    handler: async (ctx, args) => {
+        const membership = await ctx.db
+            .query("organization_members")
+            .filter((q) => q.eq(q.field("email"), args.email))
+            .first();
+        if (!membership) {
+            // Fallback: return first active org if only one exists
+            const allOrgs = await ctx.db.query("organizations")
+                .filter((q) => q.eq(q.field("status"), "active"))
+                .collect();
+            return allOrgs.length === 1 ? allOrgs[0] : null;
+        }
+        return await ctx.db.get(membership.organizationId);
+    },
+});
+
+/**
  * Get aggregated KPI stats for the organizations dashboard.
  */
 export const getStats = query({

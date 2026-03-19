@@ -136,3 +136,13 @@ export function isSimulationMode(): boolean {
     const providers = getGateway().listAvailable();
     return providers.length === 1 && providers[0].name === "simulation";
 }
+
+/**
+ * Get the active payment mode.
+ * Returns "live" if at least one real provider (Stripe/Airtel) is configured,
+ * "simulation" otherwise.
+ */
+export function getActiveMode(): "live" | "simulation" {
+    return isSimulationMode() ? "simulation" : "live";
+}
+
