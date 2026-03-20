@@ -71,7 +71,6 @@ import {
     X,
     FileText,
     RotateCcw,
-    ChevronRight,
     Send,
     Loader2,
 } from "lucide-react";
@@ -309,7 +308,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
             return `<h1>${convexDoc.title}</h1><p></p>`;
         }
         return INITIAL_CONTENT;
-    }, [convexDoc]);
+    }, [convexDoc, isImportedFile]);
 
     const [meta, setMeta] = useState<DocMeta>(initialMeta);
     const [sidePanel, setSidePanel] = useState<"comments" | "history" | "properties" | null>(null);
@@ -831,7 +830,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                                 <div
                                     key={name}
                                     className="h-7 w-7 rounded-full border-2 border-zinc-900 flex items-center justify-center text-[10px] font-bold text-white"
-                                    style={{ backgroundColor: userColor(name) }}
+                                    ref={(el) => { if (el) el.style.backgroundColor = userColor(name); }}
                                     title={name}
                                 >
                                     {name.split(" ").map((n) => n[0]).join("")}
@@ -859,7 +858,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
             {/* ═══ WORKFLOW STATUS BAR — only for non-imported documents ═══ */}
             {!isImportedFile && (
                 <WorkflowStatusBar
-                    status={meta.status}
+                    status={meta.status as import("./WorkflowStatusBar").DocStatus}
                     userLevel={userLevel}
                     isAdmin={isAdmin}
                     onSubmitForReview={() => handleWorkflowAction("submit_review")}
@@ -892,8 +891,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                             initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.1 }}
-                            className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none"
-                            style={{ width: "210mm", maxWidth: "100%", minHeight: "297mm" }}
+                            className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none editor-a4-page"
                         >
                             <div className="p-8">
                                 {/* File info header */}
@@ -927,8 +925,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                                     <div className="mb-6">
                                         <iframe
                                             src={convexDoc.fileUrl}
-                                            className="w-full rounded-lg border border-zinc-200"
-                                            style={{ height: "800px" }}
+                                            className="w-full rounded-lg border border-zinc-200 preview-iframe-pdf"
                                             title={convexDoc.fileName || "Aperçu PDF"}
                                         />
                                     </div>
@@ -936,11 +933,11 @@ export default function EditorPage({ documentId }: EditorPageProps) {
 
                                 {convexDoc.fileUrl && convexDoc.mimeType?.startsWith("image/") && (
                                     <div className="mb-6 flex justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={convexDoc.fileUrl}
                                             alt={convexDoc.fileName || "Image importée"}
-                                            className="max-w-full rounded-lg border border-zinc-200 shadow-sm"
-                                            style={{ maxHeight: "700px" }}
+                                            className="max-w-full rounded-lg border border-zinc-200 shadow-sm preview-img-max"
                                         />
                                     </div>
                                 )}
@@ -950,8 +947,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                                         <video
                                             src={convexDoc.fileUrl}
                                             controls
-                                            className="max-w-full rounded-lg border border-zinc-200 shadow-sm"
-                                            style={{ maxHeight: "500px" }}
+                                            className="max-w-full rounded-lg border border-zinc-200 shadow-sm preview-video-max"
                                         />
                                     </div>
                                 )}
@@ -1007,12 +1003,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
                             initial={{ opacity: 0, scale: 0.98 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.1 }}
-                            className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none"
-                            style={{
-                                width: "210mm",
-                                minHeight: "297mm",
-                                maxWidth: "100%",
-                            }}
+                            className="mx-auto bg-white shadow-2xl shadow-black/30 print:shadow-none editor-a4-page"
                         >
                             <EditorContent
                                 editor={editor}
@@ -1452,9 +1443,7 @@ function PropertiesPanel({ meta }: { meta: DocMeta }) {
                         >
                             <div
                                 className="h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                                style={{
-                                    backgroundColor: userColor(name),
-                                }}
+                                ref={(el) => { if (el) el.style.backgroundColor = userColor(name); }}
                             >
                                 {name
                                     .split(" ")

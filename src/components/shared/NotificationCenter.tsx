@@ -160,6 +160,7 @@ export default function NotificationCenter() {
                             )}
                             <button
                                 onClick={() => setIsOpen(false)}
+                                title="Fermer les notifications"
                                 className="p-1 rounded hover:bg-white/[0.06] text-white/30 hover:text-white/60"
                             >
                                 <X className="h-4 w-4" />

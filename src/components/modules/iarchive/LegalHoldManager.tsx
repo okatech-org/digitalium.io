@@ -280,6 +280,7 @@ export default function LegalHoldManager() {
                                         e.target.value as Id<"archives">
                                     )
                                 }
+                                title="Archive à geler"
                                 className="w-full px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-amber-500/30 text-white/80"
                             >
                                 <option value="">Sélectionner une archive…</option>

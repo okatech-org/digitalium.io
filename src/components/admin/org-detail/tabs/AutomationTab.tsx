@@ -476,6 +476,7 @@ function CustomRuleCard({
                 <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={() => onDelete(rule.id)}
+                        title="Supprimer la règle"
                         className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-colors"
                     >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -873,6 +874,7 @@ export default function AutomationTab({
                                     <select
                                         value={cond.field}
                                         onChange={(e) => handleUpdateCondition(idx, "field", e.target.value)}
+                                        title="Champ de la condition"
                                         className="h-7 rounded-md bg-white/5 border border-white/10 text-[11px] text-white/70 px-1.5 flex-1"
                                     >
                                         {RULE_CONDITION_FIELDS.map((f) => (
@@ -882,6 +884,7 @@ export default function AutomationTab({
                                     <select
                                         value={cond.operator}
                                         onChange={(e) => handleUpdateCondition(idx, "operator", e.target.value)}
+                                        title="Opérateur de la condition"
                                         className="h-7 rounded-md bg-white/5 border border-white/10 text-[11px] text-white/70 px-1.5 w-[110px]"
                                     >
                                         {RULE_CONDITION_OPERATORS.map((o) => (
@@ -896,6 +899,7 @@ export default function AutomationTab({
                                     />
                                     <button
                                         onClick={() => handleRemoveCondition(idx)}
+                                        title="Supprimer la condition"
                                         className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-500/10 text-white/20 hover:text-red-400 transition-colors shrink-0"
                                     >
                                         <X className="h-3 w-3" />

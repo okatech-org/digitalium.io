@@ -1953,6 +1953,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                 </div>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleRemoveImportFile(f.id); }}
+                                                    title="Retirer le fichier"
                                                     className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-white/10 text-muted-foreground hover:text-red-400 transition-colors"
                                                 >
                                                     <X className="h-3.5 w-3.5" />
@@ -2042,6 +2043,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                             {tag}
                                                             <button
                                                                 onClick={() => handleUpdateImportTag(f.id, i, "")}
+                                                                title="Supprimer le tag"
                                                                 className="ml-0.5 hover:text-red-400 transition-colors"
                                                             >
                                                                 <X className="h-2.5 w-2.5" />
@@ -2191,6 +2193,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                         {t}
                                         <button
                                             onClick={() => handleRemoveTag(t)}
+                                            title="Supprimer le tag"
                                             className="ml-0.5 hover:text-red-400 transition-colors"
                                         >
                                             <X className="h-2.5 w-2.5" />
@@ -2423,7 +2426,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                             <div className="w-full max-w-xs bg-white/5 rounded-full h-2">
                                 <div
                                     className="bg-gradient-to-r from-amber-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${reorgProgress}%` }}
+                                    ref={(el) => { if (el) el.style.width = `${reorgProgress}%`; }}
                                 />
                             </div>
                             <p className="text-[10px] text-muted-foreground">{Math.round(reorgProgress)}%</p>

@@ -122,7 +122,8 @@ export default function ArchiveUploadDialog({
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<{ archiveId: string; certificateNumber: string } | null>(null);
 
-    const selectedCategory = sortedCategories.find((c) => c.slug === selectedSlug);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _selectedCategory = sortedCategories.find((c) => c.slug === selectedSlug);
 
     // ─── File selection ─────────────────────────
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,7 +231,7 @@ export default function ArchiveUploadDialog({
             setProcessing(false);
             setCurrentStep(-1);
         }
-    }, [selectedFile, selectedSlug, convexOrgId, title, description, tags, confidentiality, originalCreationDate, createArchive, createCertificate, onSuccess]);
+    }, [selectedFile, selectedSlug, convexOrgId, title, description, tags, confidentiality, originalCreationDate, userName, createArchive, createCertificate, onSuccess]);
 
     // ─── Reset ──────────────────────────────────
     const handleClose = useCallback(() => {
@@ -334,6 +335,7 @@ export default function ArchiveUploadDialog({
                                         onChange={handleFileSelect}
                                         className="hidden"
                                         accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt,.csv"
+                                        title="Sélectionner un fichier à archiver"
                                     />
                                     {selectedFile ? (
                                         <div className="flex items-center gap-3">
@@ -397,6 +399,7 @@ export default function ArchiveUploadDialog({
                                         value={originalCreationDate}
                                         onChange={(e) => setOriginalCreationDate(e.target.value)}
                                         max={new Date().toISOString().split("T")[0]}
+                                        title="Date réelle de création"
                                         className="w-48 px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-violet-500/30 text-white/80 [color-scheme:dark]"
                                     />
                                     {originalCreationDate && (

@@ -353,6 +353,7 @@ export default function SignatureWorkflowManager() {
                                     {newSteps.length > 1 && (
                                         <button
                                             onClick={() => removeStep(idx)}
+                                            title="Supprimer l'étape"
                                             className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-500/10 text-white/20 hover:text-red-400"
                                         >
                                             <X className="h-3 w-3" />

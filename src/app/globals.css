@@ -238,3 +238,33 @@
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 60px 60px;
 }
+
+/* ── Editor A4 page dimensions ── */
+.editor-a4-page {
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+}
+
+/* ── Imported file preview: fixed heights ── */
+.preview-iframe-pdf {
+  height: 800px;
+}
+
+.preview-img-max {
+  max-height: 700px;
+}
+
+.preview-video-max {
+  max-height: 500px;
+}
+
+/* ── Dynamic color via CSS custom property ── */
+.avatar-dynamic-bg {
+  background-color: var(--avatar-color);
+}
+
+/* ── Progress bar dynamic width ── */
+.progress-bar-dynamic {
+  width: var(--progress-width);
+}
