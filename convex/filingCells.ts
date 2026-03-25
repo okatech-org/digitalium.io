@@ -110,6 +110,29 @@ export const create = mutation({
     handler: async (ctx, args) => {
         const now = Date.now();
 
+        // ── Validation du code (v7) ──
+        const codeRegex = /^[A-Za-z0-9.\-]{1,9}$/;
+        if (!codeRegex.test(args.code)) {
+            throw new Error(
+                "Le code doit contenir entre 1 et 9 caractères alphanumériques, points ou tirets uniquement."
+            );
+        }
+
+        // ── Unicité globale du code dans la structure ──
+        const existingWithCode = await ctx.db
+            .query("filing_cells")
+            .withIndex("by_filingStructureId", (q) =>
+                q.eq("filingStructureId", args.filingStructureId)
+            )
+            .filter((q) => q.eq(q.field("code"), args.code))
+            .first();
+
+        if (existingWithCode) {
+            throw new Error(
+                `Le code "${args.code}" est déjà utilisé dans cette structure de classement (par "${existingWithCode.intitule}"). Chaque code doit être unique à travers tous les niveaux.`
+            );
+        }
+
         // Calculer le niveau si non spécifié
         let niveau = args.niveau ?? 0;
         if (args.niveau === undefined && args.parentId) {
@@ -238,6 +261,30 @@ export const update = mutation({
         const existing = await ctx.db.get(id);
         if (!existing) throw new Error("Cellule de classement introuvable");
 
+        // ── Validation du code si modifié (v7) ──
+        if (args.code !== undefined) {
+            const codeRegex = /^[A-Za-z0-9.\-]{1,9}$/;
+            if (!codeRegex.test(args.code)) {
+                throw new Error(
+                    "Le code doit contenir entre 1 et 9 caractères alphanumériques, points ou tirets uniquement."
+                );
+            }
+            if (args.code !== existing.code) {
+                const duplicate = await ctx.db
+                    .query("filing_cells")
+                    .withIndex("by_filingStructureId", (q) =>
+                        q.eq("filingStructureId", existing.filingStructureId)
+                    )
+                    .filter((q) => q.eq(q.field("code"), args.code!))
+                    .first();
+                if (duplicate && duplicate._id !== id) {
+                    throw new Error(
+                        `Le code "${args.code}" est déjà utilisé dans cette structure de classement (par "${duplicate.intitule}").`
+                    );
+                }
+            }
+        }
+
         const clean = Object.fromEntries(
             Object.entries(updates).filter(([, v]) => v !== undefined)
         );
@@ -347,6 +394,36 @@ export const bulkCreate = mutation({
         const sorted = [...args.cells].sort((a, b) => a.niveau - b.niveau);
 
         for (const cell of sorted) {
+            // ── Validation du code (v7) ──
+            const codeRegex = /^[A-Za-z0-9.\-]{1,9}$/;
+            if (!codeRegex.test(cell.code)) {
+                throw new Error(
+                    `Code "${cell.code}" invalide pour "${cell.intitule}". Max 9 car. : lettres, chiffres, points, tirets.`
+                );
+            }
+            // Check uniqueness against existing DB codes
+            const dbDuplicate = await ctx.db
+                .query("filing_cells")
+                .withIndex("by_filingStructureId", (q) =>
+                    q.eq("filingStructureId", args.filingStructureId)
+                )
+                .filter((q) => q.eq(q.field("code"), cell.code))
+                .first();
+            if (dbDuplicate) {
+                throw new Error(
+                    `Le code "${cell.code}" est déjà utilisé dans cette structure (par "${dbDuplicate.intitule}").`
+                );
+            }
+            // Check uniqueness within the batch (earlier items)
+            const batchDuplicate = sorted
+                .slice(0, sorted.indexOf(cell))
+                .find((c) => c.code === cell.code);
+            if (batchDuplicate) {
+                throw new Error(
+                    `Code "${cell.code}" dupliqué dans le lot (utilisé par "${batchDuplicate.intitule}" et "${cell.intitule}").`
+                );
+            }
+
             const parentId = cell.parentTempId
                 ? tempIdMap.get(cell.parentTempId) ?? undefined
                 : undefined;

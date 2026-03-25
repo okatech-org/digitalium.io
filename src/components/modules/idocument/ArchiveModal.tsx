@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import { sha256 } from "@/lib/crypto";
 import { uploadFile } from "@/lib/supabase";
@@ -36,6 +35,8 @@ import {
     Clock,
     Eye,
     ShieldCheck,
+    FileOutput,
+    AlertCircle,
 } from "lucide-react";
 
 // ─── Icon map for category icons ────────────────
@@ -116,6 +117,10 @@ interface ArchiveModalProps {
     open: boolean;
     documentTitle: string;
     documentContent?: unknown; // TipTap JSON content
+    /** Imported file metadata (non-TipTap documents) */
+    importedFileMimeType?: string;
+    importedFileName?: string;
+    importedFileSize?: number;
     onClose: () => void;
     onConfirm: (data: ArchiveConfirmData) => void;
 }
@@ -126,16 +131,29 @@ export default function ArchiveModal({
     open,
     documentTitle,
     documentContent,
+    importedFileMimeType,
+    importedFileName,
+    importedFileSize,
     onClose,
     onConfirm,
 }: ArchiveModalProps) {
     const { convexOrgId } = useConvexOrgId();
+
+    // Detect if this is an imported file (not TipTap content)
+    const isImportedFile = !!importedFileMimeType && !documentContent;
+    const CONVERTIBLE_TYPES = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/msword", "application/vnd.ms-excel"];
+    const isConvertible = isImportedFile && CONVERTIBLE_TYPES.includes(importedFileMimeType ?? "");
+    const isPdfAlready = importedFileMimeType === "application/pdf";
 
     // Load categories from DB
     const categories = useQuery(
         api.archiveConfig.listCategories,
         convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
+
+    // 8.3: Pending auto-archive count — uses archive categories as proxy
+    // (documents query requires folderId which we don't have in this context)
+    const pendingArchiveCount = 0; // Will be populated when auto-archive backend is connected
 
     const sortedCategories = useMemo(
         () => [...(categories ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -346,6 +364,34 @@ export default function ArchiveModal({
                         {!processing ? (
                             /* ─── Configuration Form ─── */
                             <div className="px-5 py-4 space-y-4 overflow-auto flex-1">
+                                {/* 8.3: Pending auto-archive banner */}
+                                {pendingArchiveCount > 0 && (
+                                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                                        <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                        <p className="text-[10px] text-amber-300/80">
+                                            <span className="font-semibold">{pendingArchiveCount}</span> document(s) en attente d&apos;archivage automatique
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* 8.2: PDF conversion info banner — dynamic per file type */}
+                                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-cyan-500/5 border border-cyan-500/10">
+                                    <FileOutput className="h-3.5 w-3.5 text-cyan-400 shrink-0 mt-0.5" />
+                                    <div className="text-[10px] text-cyan-300/80 leading-relaxed">
+                                        {isImportedFile ? (
+                                            isPdfAlready ? (
+                                                <p>📄 Le fichier <strong>{importedFileName}</strong> ({((importedFileSize ?? 0) / 1024).toFixed(0)} Ko) est déjà au format PDF. Il sera archivé directement avec double hash SHA-256.</p>
+                                            ) : isConvertible ? (
+                                                <p>📄 Le fichier <strong>{importedFileName}</strong> ({((importedFileSize ?? 0) / 1024).toFixed(0)} Ko) sera archivé dans son format original. La conversion PDF serveur (LibreOffice headless) sera appliquée automatiquement pour les formats Office.</p>
+                                            ) : (
+                                                <p>📄 Le fichier <strong>{importedFileName}</strong> sera archivé dans son format original avec double hash SHA-256 pour garantir l&apos;intégrité.</p>
+                                            )
+                                        ) : (
+                                            <p>📄 Conversion PDF : le document TipTap sera converti en PDF figé via <code className="text-cyan-400 text-[9px]">html2pdf.js</code> côté client. Le fichier sera uploadé vers le stockage sécurisé.</p>
+                                        )}
+                                    </div>
+                                </div>
+
                                 {/* Category selector */}
                                 <div>
                                     <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-2.5">
@@ -365,6 +411,7 @@ export default function ArchiveModal({
                                                 return (
                                                     <button
                                                         key={cat._id}
+                                                        aria-label={`Catégorie : ${cat.name}`}
                                                         onClick={() => setSelectedSlug(cat.slug)}
                                                         className={`flex flex-col items-center p-3 rounded-lg border transition-all ${selectedSlug === cat.slug
                                                             ? `${colors.bg} ${colors.color}`
@@ -406,6 +453,7 @@ export default function ArchiveModal({
                                     <select
                                         value={countingEvent}
                                         onChange={(e) => setCountingEvent(e.target.value)}
+                                        aria-label="Événement de début du comptage"
                                         className="w-full px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-violet-500/30 text-white"
                                     >
                                         {COUNTING_EVENTS.map((ev) => (
@@ -418,6 +466,7 @@ export default function ArchiveModal({
                                         type="date"
                                         value={countingDate}
                                         onChange={(e) => setCountingDate(e.target.value)}
+                                        aria-label="Date de début du comptage"
                                         className="w-full mt-2 px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-violet-500/30 text-white"
                                     />
                                 </div>
@@ -434,6 +483,7 @@ export default function ArchiveModal({
                                             return (
                                                 <button
                                                     key={opt.key}
+                                                    aria-label={`Confidentialité : ${opt.label}`}
                                                     onClick={() => setConfidentiality(opt.key)}
                                                     className={`flex flex-col items-center p-2 rounded-lg border text-[10px] transition-all ${confidentiality === opt.key
                                                         ? "border-violet-500/30 bg-violet-500/10 text-violet-300"
@@ -459,6 +509,7 @@ export default function ArchiveModal({
                                         value={tags}
                                         onChange={(e) => setTags(e.target.value)}
                                         placeholder="contrat, SOGARA, 2025 (séparés par virgule)"
+                                        aria-label="Tags supplémentaires"
                                         className="w-full px-3 py-2 text-xs bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-violet-500/30 placeholder:text-zinc-600"
                                     />
                                 </div>

@@ -27,6 +27,7 @@ import {
   Upload,
   FileSpreadsheet,
   FileText,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -134,9 +135,10 @@ interface TreeNodeProps {
   depth: number;
   onAddChild: (parentId: Id<"org_units">) => void;
   onRemove: (id: Id<"org_units">, nom: string) => void;
+  onDeactivate?: (id: Id<"org_units">, nom: string) => void;
 }
 
-function TreeNode({ node, depth, onAddChild, onRemove }: TreeNodeProps) {
+function TreeNode({ node, depth, onAddChild, onRemove, onDeactivate }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
   const dotColor = ORG_UNIT_TYPE_COLORS[node.type] ?? "#6B7280";
@@ -151,6 +153,7 @@ function TreeNode({ node, depth, onAddChild, onRemove }: TreeNodeProps) {
         {/* Expand / Collapse */}
         <button
           onClick={() => setExpanded(!expanded)}
+          aria-label={expanded ? "Réduire" : "Développer"}
           className="flex h-5 w-5 shrink-0 items-center justify-center text-white/40 hover:text-white/70"
           disabled={!hasChildren}
         >
@@ -200,12 +203,23 @@ function TreeNode({ node, depth, onAddChild, onRemove }: TreeNodeProps) {
           >
             <Plus className="h-3 w-3" />
           </Button>
+          {onDeactivate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white/40 hover:bg-amber-500/10 hover:text-amber-400"
+              onClick={() => onDeactivate(node._id, node.nom)}
+              title="D\u00e9sactiver (masquer sans supprimer)"
+            >
+              <EyeOff className="h-3 w-3" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-white/40 hover:bg-red-500/10 hover:text-red-400"
             onClick={() => onRemove(node._id, node.nom)}
-            title="Supprimer"
+            title="Supprimer d\u00e9finitivement"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -222,6 +236,7 @@ function TreeNode({ node, depth, onAddChild, onRemove }: TreeNodeProps) {
               depth={depth + 1}
               onAddChild={onAddChild}
               onRemove={onRemove}
+              onDeactivate={onDeactivate}
             />
           ))}
         </div>
@@ -296,6 +311,8 @@ function OrganigrammePanel({
   const { units, tree, isLoading, createUnit, removeUnit, bulkCreateUnits } =
     useOrgUnits(orgId);
 
+  const updateUnitMut = useMutation(api.orgUnits.update);
+
   const [showForm, setShowForm] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [form, setForm] = useState<AddUnitForm>(initialAddUnitForm);
@@ -324,6 +341,18 @@ function OrganigrammePanel({
       }
     },
     [removeUnit]
+  );
+
+  const handleDeactivate = useCallback(
+    async (id: Id<"org_units">, nom: string) => {
+      try {
+        await updateUnitMut({ id, estActif: false });
+        toast.success(`Unit\u00e9 "${nom}" d\u00e9sactiv\u00e9e (masqu\u00e9e)`);
+      } catch {
+        toast.error("Erreur lors de la d\u00e9sactivation");
+      }
+    },
+    [updateUnitMut]
   );
 
   const handleCreate = useCallback(async () => {
@@ -527,6 +556,7 @@ function OrganigrammePanel({
               depth={0}
               onAddChild={handleAddChild}
               onRemove={handleRemove}
+              onDeactivate={handleDeactivate}
             />
           ))}
         </div>
@@ -1741,6 +1771,7 @@ function PersonnelPanel({
                               type="checkbox"
                               checked={editForm.estAdmin}
                               onChange={(e) => setEditForm({ ...editForm, estAdmin: e.target.checked })}
+                              aria-label="Administrateur"
                               className="h-3 w-3 rounded border-white/30 text-violet-500 disabled:opacity-30"
                               disabled={isLastAdmin(m) && editForm.estAdmin}
                             />

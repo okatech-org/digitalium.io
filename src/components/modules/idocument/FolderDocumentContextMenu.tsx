@@ -28,6 +28,9 @@ import {
     User,
     FileText,
     Folder as FolderIcon,
+    FolderPlus,
+    Share2,
+    KeyRound,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -99,6 +102,9 @@ interface FolderDocumentContextMenuProps {
     onRename?: (id: string, newName: string) => void;
     onDelete?: (id: string) => void;
     onSavePolicy?: (id: string, policy: ArchivePolicyData) => void;
+    onCreateSubfolder?: (parentId: string) => void;
+    onShare?: (id: string, type: "folder" | "document") => void;
+    onManageAccess?: (id: string) => void;
 }
 
 // ─── Constants ──────────────────────────────────────────
@@ -154,6 +160,9 @@ export default function FolderDocumentContextMenu({
     onRename,
     onDelete,
     onSavePolicy,
+    onCreateSubfolder,
+    onShare,
+    onManageAccess,
 }: FolderDocumentContextMenuProps) {
     // ─── State ──────────────────────────────────────
     const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -240,6 +249,7 @@ export default function FolderDocumentContextMenu({
                 <DropdownMenuTrigger asChild>
                     <button
                         onClick={(e) => e.stopPropagation()}
+                        aria-label="Actions"
                         className="h-7 w-7 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-all text-muted-foreground hover:text-white"
                     >
                         <MoreHorizontal className="h-4 w-4" />
@@ -262,10 +272,34 @@ export default function FolderDocumentContextMenu({
                         </DropdownMenuItem>
                     )}
 
+                    {/* ── Create Subfolder (folders only) ── */}
+                    {itemType === "folder" && !isSystem && onCreateSubfolder && (
+                        <DropdownMenuItem onClick={() => onCreateSubfolder(itemId)} className="text-xs gap-2">
+                            <FolderPlus className="h-3.5 w-3.5 text-emerald-400" />
+                            Créer sous-dossier
+                        </DropdownMenuItem>
+                    )}
+
+                    {/* ── Share ── */}
+                    {onShare && (
+                        <DropdownMenuItem onClick={() => onShare(itemId, itemType)} className="text-xs gap-2">
+                            <Share2 className="h-3.5 w-3.5 text-blue-400" />
+                            Partager
+                        </DropdownMenuItem>
+                    )}
+
+                    {/* ── Manage Access (admin only, folders) ── */}
+                    {isAdmin && itemType === "folder" && onManageAccess && (
+                        <DropdownMenuItem onClick={() => onManageAccess(itemId)} className="text-xs gap-2">
+                            <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+                            Gérer accès
+                        </DropdownMenuItem>
+                    )}
+
                     {/* ── Archive Policy ── */}
                     <DropdownMenuItem onClick={handleOpenPolicy} className="text-xs gap-2">
                         <Archive className="h-3.5 w-3.5 text-cyan-400" />
-                        Politique d'archivage
+                        Politique d&apos;archivage
                     </DropdownMenuItem>
 
                     {/* ── Quick Category Sub-menu ── */}

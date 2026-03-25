@@ -64,6 +64,7 @@ export default function HeroSection({
                     src="/images/security/sovereignty_main.png"
                     alt="Centre de données sécurisé au Gabon"
                     fill
+                    sizes="100vw"
                     className="object-cover"
                     priority
                 />
@@ -76,8 +77,7 @@ export default function HeroSection({
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                 <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-digitalium-blue/10 blur-2xl animate-float" />
                 <div
-                    className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-digitalium-violet/10 blur-2xl animate-float"
-                    style={{ animationDelay: "1.5s" }}
+                    className="absolute -bottom-20 -left-20 w-80 h-80 rounded-full bg-digitalium-violet/10 blur-2xl animate-float [animation-delay:1.5s]"
                 />
                 <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-digitalium-blue/5 blur-2xl animate-pulse-glow" />
             </div>
@@ -239,6 +239,7 @@ export default function HeroSection({
                                         src={p.image}
                                         alt={p.title}
                                         fill
+                                        sizes="(max-width: 640px) 100vw, 40vw"
                                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
                                 </div>

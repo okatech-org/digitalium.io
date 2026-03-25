@@ -34,10 +34,61 @@ export const createFromImport = mutation({
         fileSize: v.number(),
         mimeType: v.string(),
         excerpt: v.optional(v.string()),
+        documentTypeId: v.optional(v.id("document_types")),
+        customMetadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
         const now = Date.now();
         const fileUrl = await ctx.storage.getUrl(args.storageId);
+
+        // ── Validation : mêmes règles que create (v7) ──
+        if (args.organizationId) {
+            // 1. Dossier obligatoire si structure de classement active
+            const activeStructure = await ctx.db
+                .query("filing_structures")
+                .withIndex("by_org_actif", (q) =>
+                    q.eq("organizationId", args.organizationId!).eq("estActif", true)
+                )
+                .first();
+
+            if (activeStructure && !args.folderId) {
+                throw new Error("Un dossier de destination est obligatoire pour importer un document (plan de classement actif).");
+            }
+
+            // 2. Type de document obligatoire si des types existent
+            const existingTypes = await ctx.db
+                .query("document_types")
+                .withIndex("by_organizationId", (q) =>
+                    q.eq("organizationId", args.organizationId!)
+                )
+                .filter((q) => q.eq(q.field("estActif"), true))
+                .first();
+
+            if (existingTypes && !args.documentTypeId) {
+                throw new Error("Le type de document est obligatoire pour l'import.");
+            }
+
+            // 3. Champs métadonnées obligatoires
+            const requiredMetaFields = await ctx.db
+                .query("document_metadata_fields")
+                .withIndex("by_org_actif", (q) =>
+                    q.eq("organizationId", args.organizationId!).eq("estActif", true)
+                )
+                .filter((q) => q.eq(q.field("isRequired"), true))
+                .collect();
+
+            if (requiredMetaFields.length > 0) {
+                const meta = (args.customMetadata ?? {}) as Record<string, unknown>;
+                const missingFields = requiredMetaFields.filter(
+                    (f) => !meta[f.fieldName] || meta[f.fieldName] === ""
+                );
+
+                if (missingFields.length > 0) {
+                    const names = missingFields.map((f) => f.fieldLabel).join(", ");
+                    throw new Error(`Import — champs obligatoires manquants : ${names}`);
+                }
+            }
+        }
 
         const docId = await ctx.db.insert("documents", {
             title: args.title,
@@ -57,6 +108,8 @@ export const createFromImport = mutation({
             fileName: args.fileName,
             fileSize: args.fileSize,
             mimeType: args.mimeType,
+            documentTypeId: args.documentTypeId,
+            customMetadata: args.customMetadata,
             createdAt: now,
             updatedAt: now,
         });
@@ -144,10 +197,62 @@ export const create = mutation({
         organizationId: v.optional(v.id("organizations")),
         createdBy: v.string(),
         tags: v.optional(v.array(v.string())),
+        folderId: v.optional(v.id("folders")),
+        documentTypeId: v.optional(v.id("document_types")),
+        customMetadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
         const now = Date.now();
-        return ctx.db.insert("documents", {
+
+        // ── Validation : dossier obligatoire si structure de classement active ──
+        if (args.organizationId) {
+            const activeStructure = await ctx.db
+                .query("filing_structures")
+                .withIndex("by_org_actif", (q) =>
+                    q.eq("organizationId", args.organizationId!).eq("estActif", true)
+                )
+                .first();
+
+            if (activeStructure && !args.folderId) {
+                throw new Error("Un dossier de destination est obligatoire pour créer un document.");
+            }
+
+            // ── Validation : type de document obligatoire si des types existent ──
+            const existingTypes = await ctx.db
+                .query("document_types")
+                .withIndex("by_organizationId", (q) =>
+                    q.eq("organizationId", args.organizationId!)
+                )
+                .filter((q) => q.eq(q.field("estActif"), true))
+                .first();
+
+            if (existingTypes && !args.documentTypeId) {
+                throw new Error("Le type de document est obligatoire.");
+            }
+
+            // ── Validation : champs métadonnées obligatoires ──
+            const requiredMetaFields = await ctx.db
+                .query("document_metadata_fields")
+                .withIndex("by_org_actif", (q) =>
+                    q.eq("organizationId", args.organizationId!).eq("estActif", true)
+                )
+                .filter((q) => q.eq(q.field("isRequired"), true))
+                .collect();
+
+            if (requiredMetaFields.length > 0) {
+                const meta = (args.customMetadata ?? {}) as Record<string, unknown>;
+                const missingFields = requiredMetaFields.filter(
+                    (f) => !meta[f.fieldName] || meta[f.fieldName] === ""
+                );
+
+                if (missingFields.length > 0) {
+                    const names = missingFields.map((f) => f.fieldLabel).join(", ");
+                    throw new Error(`Champs obligatoires manquants : ${names}`);
+                }
+            }
+        }
+
+        const docId = await ctx.db.insert("documents", {
             title: args.title,
             content: args.content,
             organizationId: args.organizationId,
@@ -157,9 +262,25 @@ export const create = mutation({
             status: "draft",
             tags: args.tags ?? [],
             version: 1,
+            folderId: args.folderId,
+            documentTypeId: args.documentTypeId,
+            customMetadata: args.customMetadata,
             createdAt: now,
             updatedAt: now,
         });
+
+        // Increment fileCount on the target folder
+        if (args.folderId) {
+            const folder = await ctx.db.get(args.folderId);
+            if (folder) {
+                await ctx.db.patch(args.folderId, {
+                    fileCount: (folder.fileCount ?? 0) + 1,
+                    updatedAt: now,
+                });
+            }
+        }
+
+        return docId;
     },
 });
 

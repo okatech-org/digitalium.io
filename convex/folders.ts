@@ -50,6 +50,29 @@ export const create = mutation({
     },
     handler: async (ctx, args) => {
         const now = Date.now();
+
+        // ── Validation : classement obligatoire ──
+        // Un dossier DOIT avoir soit un parentFolderId (sous-dossier), soit être créé
+        // quand aucune structure de classement n'est active
+        if (args.parentFolderId) {
+            const parent = await ctx.db.get(args.parentFolderId);
+            if (!parent) throw new Error("Dossier parent introuvable");
+        } else {
+            // Dossier racine : vérifier qu'une structure de classement est active
+            const activeStructure = await ctx.db
+                .query("filing_structures")
+                .withIndex("by_org_actif", (q) =>
+                    q.eq("organizationId", args.organizationId).eq("estActif", true)
+                )
+                .first();
+
+            if (activeStructure) {
+                throw new Error(
+                    "Un plan de classement est actif. Vous devez créer le dossier via le plan de classement ou comme sous-dossier d'un dossier existant."
+                );
+            }
+        }
+
         return await ctx.db.insert("folders", {
             name: args.name,
             description: args.description ?? "",
@@ -239,5 +262,40 @@ export const getTreeWithPaths = query({
             tags: f.tags ?? [],
             description: f.description ?? "",
         }));
+    },
+});
+/** Partager un dossier (mise à jour des permissions partagées) */
+export const shareFolder = mutation({
+    args: {
+        id: v.id("folders"),
+        sharedWith: v.array(v.string()), // user IDs
+        visibility: v.union(
+            v.literal("private"),
+            v.literal("shared"),
+            v.literal("team")
+        ),
+    },
+    handler: async (ctx, args) => {
+        const folder = await ctx.db.get(args.id);
+        if (!folder) throw new Error("Dossier introuvable");
+
+        const permissions = folder.permissions || {
+            visibility: "team",
+            sharedWith: [],
+            teamIds: [],
+        };
+
+        const updatedPermissions = {
+            ...permissions,
+            visibility: args.visibility,
+            sharedWith: args.sharedWith,
+        };
+
+        await ctx.db.patch(args.id, {
+            permissions: updatedPermissions,
+            updatedAt: Date.now(),
+        });
+
+        return { success: true };
     },
 });

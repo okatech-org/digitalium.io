@@ -368,7 +368,28 @@ export const resolveUserAccess = query({
         }
 
         // Filter rules applicable to any of this member's assignments
+        // Also include group-based rules (v7): if a rule has a groupId, check group membership
+        const memberGroupIds: Id<"permission_groups">[] = [];
+        const allGroups = await ctx.db
+            .query("permission_groups")
+            .withIndex("by_organizationId", (q: any) => q.eq("organizationId", args.organizationId))
+            .filter((q: any) => q.eq(q.field("estActif"), true))
+            .collect();
+
+        for (const group of allGroups) {
+            // Check if user is a member of the group (members[] stores userIds/emails)
+            if (group.members?.includes(args.userId)) {
+                memberGroupIds.push(group._id);
+            }
+        }
+
         const memberRules = allRules.filter((rule) => {
+            // Group-based rule (v7)
+            const ruleAny = rule as any;
+            if (ruleAny.groupId) {
+                return memberGroupIds.includes(ruleAny.groupId);
+            }
+            // Standard role-based rule
             if (!rule.businessRoleId) return false;
             return assignments.some((a) => {
                 if (rule.businessRoleId !== a.businessRoleId) return false;

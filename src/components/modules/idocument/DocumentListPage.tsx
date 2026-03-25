@@ -40,6 +40,13 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 // File-manager Finder components
 import {
@@ -50,6 +57,7 @@ import {
     FinderListView,
     FinderColumnView,
 } from "@/components/modules/file-manager";
+import { ShareDialog } from "./ShareDialog";
 import type {
     ViewMode,
     FileManagerFolder,
@@ -344,13 +352,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     // ─── Convex: fetch existing documents ────────────────────────
     const convexDocuments = useQuery(
         api.documents.list,
-        convexOrgId ? { organizationId: convexOrgId } : {}
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
 
     // ─── Convex: fetch trashed documents (for Poubelle) ─────────
     const convexTrashedDocs = useQuery(
         api.documents.listTrashed,
-        convexOrgId ? { organizationId: convexOrgId } : {}
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
     const restoreDocMut = useMutation(api.documents.restore);
     const permanentDeleteDocMut = useMutation(api.documents.permanentDelete);
@@ -363,6 +371,11 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const setFolderArchiveMetaMut = useMutation(api.folderArchiveMetadata.setMetadata);
     const updateFolderMut = useMutation(api.folders.update);
     const removeFolderMut = useMutation(api.folders.remove);
+
+    // ── Document Types + Metadata (v7) ──
+    const documentTypes = useQuery(api.documentTypes.list, convexOrgId ? { organizationId: convexOrgId } : "skip");
+    const metadataFields = useQuery(api.documentMetadataFields.list, convexOrgId ? { organizationId: convexOrgId } : "skip");
+    const createDocMut = useMutation(api.documents.create);
 
     // Map archive categories to the shape expected by the context menu
     const categoryOptions: ArchiveCategoryOption[] = useMemo(() => {
@@ -449,7 +462,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     );
 
     // ─── State ──────────────────────────────────────────────────
-    const [viewMode, setViewMode] = useState<ViewMode>(() => getInitialViewMode());
+    const [viewMode, setViewMode] = useState<ViewMode>(() => getInitialViewMode(undefined, "column"));
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<DocStatus | "all">("all");
@@ -491,6 +504,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showTagDialog, setShowTagDialog] = useState(false);
+    const [showShareDialog, setShowShareDialog] = useState(false);
+    const [shareTarget, setShareTarget] = useState<{ id: string; type: "folder" | "document" } | null>(null);
 
     // ─── Deferred: AI folder tree (only fetched when import dialog is open) ──
     const folderTreeWithPaths = useQuery(
@@ -500,6 +515,9 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [tagEditDocId, setTagEditDocId] = useState<string | null>(null);
     const [tagInput, setTagInput] = useState("");
     const [newDocTitle, setNewDocTitle] = useState("");
+    const [newDocTypeId, setNewDocTypeId] = useState<string>("");
+    const [newDocFolderId, setNewDocFolderId] = useState<string>("");
+    const [newDocMetadata, setNewDocMetadata] = useState<Record<string, string>>({});
     const [newFolderName, setNewFolderName] = useState("");
     const [importFiles, setImportFiles] = useState<ImportFileItem[]>([]);
     const [importStep, setImportStep] = useState<ImportStep>("select");
@@ -830,25 +848,71 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
         }
     }, [convexOrgId, user, setFolderArchiveMetaMut]);
 
-    const handleCreateDocument = useCallback(() => {
+    // ─── Context menu callbacks: subfolder, share, manage access ────
+    const handleCreateSubfolder = useCallback((parentId: string) => {
+        setCurrentFolderId(parentId);
+        setShowNewFolderDialog(true);
+    }, []);
+
+    const handleShareItem = useCallback((id: string, type: "folder" | "document" = "document") => {
+        setShareTarget({ id, type });
+        setShowShareDialog(true);
+    }, []);
+
+    const handleManageAccess = useCallback((_id: string) => {
+        if (isAdmin) {
+            // Navigate to the organization admin > ClassementTab
+            toast.info("Ouvrir l'onglet Classement dans l'admin pour gérer les accès.");
+        } else {
+            toast.info("Seuls les administrateurs peuvent gérer les accès.");
+        }
+    }, [isAdmin]);
+
+    const handleCreateDocument = useCallback(async () => {
         if (!newDocTitle.trim()) return;
-        const newDoc: DocItem = {
-            id: `doc-${Date.now()}`,
-            title: newDocTitle.trim(),
-            excerpt: "Nouveau document créé — commencez à rédiger votre contenu…",
-            author: "Vous",
-            authorInitials: "V",
-            updatedAt: "À l'instant",
-            updatedAtTs: Date.now(),
-            status: "draft",
-            tags: [],
-            version: 1,
-            folderId: currentFolderId || "__mes-documents",
-        };
-        setDocuments((prev) => [newDoc, ...prev]);
+
+        // ── If connected to Convex, use the create mutation ──
+        if (convexOrgId && user) {
+            try {
+                const folderId = newDocFolderId || (currentFolderId && !currentFolderId.startsWith("__") ? currentFolderId : undefined);
+                await createDocMut({
+                    title: newDocTitle.trim(),
+                    content: null,
+                    organizationId: convexOrgId,
+                    createdBy: user.email || "user",
+                    tags: [],
+                    folderId: folderId ? folderId as Id<"folders"> : undefined,
+                    documentTypeId: newDocTypeId ? newDocTypeId as Id<"document_types"> : undefined,
+                    customMetadata: Object.keys(newDocMetadata).length > 0 ? newDocMetadata : undefined,
+                });
+                toast.success(`Document "${newDocTitle.trim()}" créé`);
+            } catch (err: any) {
+                toast.error(err.message || "Erreur lors de la création");
+            }
+        } else {
+            // Fallback local
+            const newDoc: DocItem = {
+                id: `doc-${Date.now()}`,
+                title: newDocTitle.trim(),
+                excerpt: "Nouveau document créé — commencez à rédiger votre contenu…",
+                author: "Vous",
+                authorInitials: "V",
+                updatedAt: "À l'instant",
+                updatedAtTs: Date.now(),
+                status: "draft",
+                tags: [],
+                version: 1,
+                folderId: currentFolderId || "__mes-documents",
+            };
+            setDocuments((prev) => [newDoc, ...prev]);
+        }
+
         setNewDocTitle("");
+        setNewDocTypeId("");
+        setNewDocFolderId("");
+        setNewDocMetadata({});
         setShowNewDocDialog(false);
-    }, [newDocTitle, currentFolderId]);
+    }, [newDocTitle, currentFolderId, convexOrgId, user, createDocMut, newDocTypeId, newDocFolderId, newDocMetadata]);
 
     const createCellMut = useMutation(api.filingCells.create);
 
@@ -1321,6 +1385,9 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                     onRename={handleRenameItem}
                                     onDelete={handleDeleteItem}
                                     onSavePolicy={handleSavePolicy}
+                                    onCreateSubfolder={handleCreateSubfolder}
+                                    onShare={handleShareItem}
+                                    onManageAccess={isAdmin ? handleManageAccess : undefined}
                                 />
                             </div>
                         </div>
@@ -1341,7 +1408,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 </Card>
             );
         },
-        [isAdmin, categoryOptions, handleRenameItem, handleDeleteItem, handleSavePolicy]
+        [isAdmin, categoryOptions, handleRenameItem, handleDeleteItem, handleSavePolicy, handleCreateSubfolder, handleShareItem, handleManageAccess]
     );
 
     const renderFileCard = useCallback(
@@ -1417,6 +1484,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                             onRename={handleRenameItem}
                                             onDelete={handleDeleteItem}
                                             onSavePolicy={handleSavePolicy}
+                                            onShare={handleShareItem}
                                         />
                                     </div>
                                 </>
@@ -1440,7 +1508,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 </Card>
             );
         },
-        [router, basePath, currentFolderId, handleDeleteItem, handleRestoreItem, handleOpenTagDialog, isAdmin, categoryOptions, handleRenameItem, handleSavePolicy]
+        [router, basePath, currentFolderId, handleDeleteItem, handleRestoreItem, handleOpenTagDialog, isAdmin, categoryOptions, handleRenameItem, handleSavePolicy, handleShareItem]
     );
 
     const renderFilePreview = useCallback(
@@ -1766,7 +1834,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
             {/* ── New Document Dialog ────────────────────────── */}
             <Dialog open={showNewDocDialog} onOpenChange={setShowNewDocDialog}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Sparkles className="h-5 w-5 text-violet-400" />
@@ -1790,6 +1858,88 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                 }}
                             />
                         </div>
+
+                        {/* ── Type de document (v7) ── */}
+                        {documentTypes && documentTypes.length > 0 && (
+                            <div className="space-y-2">
+                                <Label className="text-xs">Type de document <span className="text-rose-400">*</span></Label>
+                                <Select value={newDocTypeId} onValueChange={setNewDocTypeId}>
+                                    <SelectTrigger className="bg-white/5 border-white/10">
+                                        <SelectValue placeholder="Sélectionner un type…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {documentTypes.map((dt) => (
+                                            <SelectItem key={dt._id} value={dt._id}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: dt.couleur || "#6B7280" }} />
+                                                    <span>{dt.nom}</span>
+                                                    <span className="text-[10px] text-muted-foreground ml-1">{dt.code}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* ── Dossier de destination (v7) ── */}
+                        {!currentFolderId && dynamicFolders.length > 0 && (
+                            <div className="space-y-2">
+                                <Label className="text-xs">Dossier de destination {activeStructure ? "*" : ""}</Label>
+                                <Select value={newDocFolderId} onValueChange={setNewDocFolderId}>
+                                    <SelectTrigger className="bg-white/5 border-white/10">
+                                        <SelectValue placeholder="Sélectionner un dossier…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {dynamicFolders.filter(f => !f.parentFolderId).map((f) => (
+                                            <SelectItem key={f.id} value={f.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <Folder className="h-3 w-3 text-amber-400" />
+                                                    <span>{f.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* ── Métadonnées personnalisées (v7) ── */}
+                        {metadataFields && metadataFields.length > 0 && (
+                            <div className="space-y-3 pt-2 border-t border-white/5">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Métadonnées</p>
+                                {metadataFields.map((field) => (
+                                    <div key={field._id} className="space-y-1">
+                                        <Label className="text-xs text-white/60">
+                                            {field.fieldLabel} {field.isRequired && <span className="text-amber-400">*</span>}
+                                        </Label>
+                                        {field.fieldType === "select" ? (
+                                            <Select value={newDocMetadata[field.fieldName] || ""} onValueChange={(v) => setNewDocMetadata(p => ({ ...p, [field.fieldName]: v }))}>
+                                                <SelectTrigger className="bg-white/5 border-white/10 text-xs h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {field.options?.map((opt: string) => (
+                                                        <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : field.fieldType === "boolean" ? (
+                                            <div className="flex items-center gap-2">
+                                                <input type="checkbox" checked={newDocMetadata[field.fieldName] === "true"} onChange={(e) => setNewDocMetadata(p => ({ ...p, [field.fieldName]: e.target.checked ? "true" : "false" }))} aria-label={field.fieldLabel} className="rounded" />
+                                                <span className="text-xs text-white/50">Oui</span>
+                                            </div>
+                                        ) : (
+                                            <Input
+                                                type={field.fieldType === "number" ? "number" : field.fieldType === "date" ? "date" : "text"}
+                                                value={newDocMetadata[field.fieldName] || ""}
+                                                onChange={(e) => setNewDocMetadata(p => ({ ...p, [field.fieldName]: e.target.value }))}
+                                                className="bg-white/5 border-white/10 text-xs h-8"
+                                                placeholder={field.defaultValue || ""}
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowNewDocDialog(false)} className="border-white/10">
@@ -1797,7 +1947,12 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                         </Button>
                         <Button
                             onClick={handleCreateDocument}
-                            disabled={!newDocTitle.trim()}
+                            disabled={
+                                !newDocTitle.trim()
+                                || (!!activeStructure && !currentFolderId && !newDocFolderId)
+                                || (!!documentTypes && documentTypes.length > 0 && !newDocTypeId)
+                                || (!!metadataFields && metadataFields.filter((f: { isRequired?: boolean }) => f.isRequired).some((f: { fieldName: string }) => !newDocMetadata[f.fieldName] || newDocMetadata[f.fieldName] === ""))
+                            }
                             className="bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600 text-white border-0"
                         >
                             <Plus className="h-4 w-4 mr-1.5" />
@@ -2721,6 +2876,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ShareDialog 
+                isOpen={showShareDialog} 
+                onClose={() => setShowShareDialog(false)} 
+                itemId={shareTarget?.id || null} 
+                itemType={shareTarget?.type || null} 
+            />
         </motion.div>
     );
 }

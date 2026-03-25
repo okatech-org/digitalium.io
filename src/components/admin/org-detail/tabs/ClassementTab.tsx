@@ -36,6 +36,7 @@ import { useFilingStructures, useFilingCells } from "@/hooks/useFilingAccess";
 import { getFilingTemplate } from "@/config/filing-presets";
 import { CONFIDENTIALITY_LABELS } from "@/types/filing";
 import type { ConfidentialityLevel, FilingCellNode } from "@/types/filing";
+import type { OrgType } from "@/types/org-structure";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -74,7 +75,7 @@ const MODULE_LABELS: Record<string, { label: string; color: string }> = {
 /* ─── Types ────────────────────────────────────── */
 
 interface ClassementTabProps {
-  orgId: any; // Id<"organizations">
+  orgId: Id<"organizations">;
   orgType: string;
 }
 
@@ -106,14 +107,14 @@ function TreeNode({
   const isExpanded = expanded.has(node._id);
   const confidentiality = CONFIDENTIALITY_COLORS[node.accessDefaut] ?? CONFIDENTIALITY_COLORS.public;
   const moduleInfo = node.moduleId ? MODULE_LABELS[node.moduleId] : null;
-
   return (
-    <div style={{ paddingLeft: depth * 24 }}>
+    <div style={{ paddingLeft: `${depth * 24}px` }}>
       <div className="group flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-white/[0.03] transition-all">
         {/* Expand/collapse toggle */}
         {hasChildren ? (
           <button
             onClick={() => onToggle(node._id)}
+            aria-label={isExpanded ? "Réduire" : "Développer"}
             className="text-muted-foreground hover:text-white transition-colors shrink-0"
           >
             {isExpanded ? (
@@ -209,10 +210,19 @@ function AddCellInlineForm({
   const [intitule, setIntitule] = useState("");
   const [accessDefaut, setAccessDefaut] = useState<ConfidentialityLevel>("restreint");
 
+  // v7: Visual code validation — matches backend regex in filingCells.ts
+  const CODE_REGEX = /^[A-Za-z0-9.\-]{1,9}$/;
+  const isCodeValid = code.trim().length === 0 || CODE_REGEX.test(code.trim());
+  const isCodeEmpty = code.trim().length === 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim() || !intitule.trim()) {
       toast.error("Le code et l'intitule sont requis");
+      return;
+    }
+    if (!CODE_REGEX.test(code.trim())) {
+      toast.error("Code invalide : 1-9 caractères alphanumériques, points ou tirets uniquement");
       return;
     }
     onSubmit({ parentId, code: code.trim(), intitule: intitule.trim(), accessDefaut });
@@ -226,13 +236,28 @@ function AddCellInlineForm({
       onSubmit={handleSubmit}
       className="flex items-center gap-2 p-3 bg-white/[0.03] border border-white/5 rounded-lg mt-2"
     >
-      <Input
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        placeholder="Code (ex: FISC-TVA)"
-        className="h-8 text-xs bg-white/[0.03] border-white/10 w-32"
-        autoFocus
-      />
+      <div className="relative">
+        <Input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder="Code (ex: FISC-TVA)"
+          className={`h-8 text-xs bg-white/[0.03] w-32 font-mono ${
+            !isCodeValid
+              ? "border-red-500/50 focus:border-red-500 text-red-300"
+              : "border-white/10"
+          }`}
+          autoFocus
+          maxLength={9}
+        />
+        {!isCodeValid && (
+          <p className="absolute -bottom-4 left-0 text-[9px] text-red-400 whitespace-nowrap">
+            Max 9 car. : A-Z, 0-9, . , -
+          </p>
+        )}
+        {!isCodeEmpty && isCodeValid && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-400 text-[10px]">✓</span>
+        )}
+      </div>
       <Input
         value={intitule}
         onChange={(e) => setIntitule(e.target.value)}
@@ -242,13 +267,19 @@ function AddCellInlineForm({
       <select
         value={accessDefaut}
         onChange={(e) => setAccessDefaut(e.target.value as ConfidentialityLevel)}
+        aria-label="Niveau de confidentialité"
         className="h-8 text-xs bg-white/[0.03] border border-white/10 rounded-md px-2 text-white/70"
       >
         <option value="public">Public</option>
         <option value="restreint">Restreint</option>
         <option value="confidentiel">Confidentiel</option>
       </select>
-      <Button type="submit" size="sm" className="h-8 text-xs bg-gradient-to-r from-violet-600 to-indigo-500 text-white border-0">
+      <Button
+        type="submit"
+        size="sm"
+        className="h-8 text-xs bg-gradient-to-r from-violet-600 to-indigo-500 text-white border-0"
+        disabled={!isCodeValid || isCodeEmpty || !intitule.trim()}
+      >
         <Plus className="h-3 w-3 mr-1" />
         Ajouter
       </Button>
@@ -261,7 +292,7 @@ function AddCellInlineForm({
 
 /* ─── Sub-tab A: Arborescence ──────────────────── */
 
-function ArborescencePanel({ orgId, orgType }: { orgId: any; orgType: string }) {
+function ArborescencePanel({ orgId, orgType }: { orgId: Id<"organizations">; orgType: string }) {
   const {
     structures,
     activeStructure,
@@ -324,7 +355,7 @@ function ArborescencePanel({ orgId, orgType }: { orgId: any; orgType: string }) 
       await setActiveStructure({ id: structureId, organizationId: orgId });
 
       // Load template cells
-      const template = getFilingTemplate(orgType as any);
+      const template = getFilingTemplate(orgType as OrgType);
       const cellsToCreate = template.map((t) => ({
         code: t.code,
         intitule: t.intitule,
@@ -362,7 +393,7 @@ function ArborescencePanel({ orgId, orgType }: { orgId: any; orgType: string }) 
         code: data.code,
         intitule: data.intitule,
         accessDefaut: data.accessDefaut,
-        parentId: data.parentId ? (data.parentId as any) : undefined,
+        parentId: data.parentId ? (data.parentId as Id<"filing_cells">) : undefined,
         niveau: data.parentId ? 1 : 0,
         tags: [],
         ordre: tree.length,
@@ -376,7 +407,7 @@ function ArborescencePanel({ orgId, orgType }: { orgId: any; orgType: string }) 
 
   const handleRemoveCell = async (id: string) => {
     try {
-      await removeCell({ id: id as any });
+      await removeCell({ id: id as Id<"filing_cells"> });
       toast.success("Cellule supprimee");
     } catch {
       toast.error("Erreur lors de la suppression");
@@ -467,9 +498,9 @@ function ArborescencePanel({ orgId, orgType }: { orgId: any; orgType: string }) 
                 Aucune cellule de classement. Ajoutez un dossier racine pour commencer.
               </p>
             ) : (
-              (tree as any[])
-                .sort((a: any, b: any) => a.ordre - b.ordre)
-                .map((node: any) => (
+              (tree as unknown as FilingCellNode[])
+                .sort((a: FilingCellNode, b: FilingCellNode) => a.ordre - b.ordre)
+                .map((node: FilingCellNode) => (
                   <TreeNode
                     key={node._id}
                     node={node}
@@ -515,7 +546,7 @@ function nextAccessLevel(current: AccessLevelType): AccessLevelType {
   return ACCESS_LEVELS[(idx + 1) % ACCESS_LEVELS.length];
 }
 
-function MatriceAccesPanel({ orgId }: { orgId: any }) {
+function MatriceAccesPanel({ orgId }: { orgId: Id<"organizations"> }) {
   // Org units & business roles (real columns)
   const orgUnits = useQuery(api.orgUnits.list, { organizationId: orgId });
   const businessRoles = useQuery(api.businessRoles.list, { organizationId: orgId });
@@ -527,14 +558,14 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
   // Flatten filing tree to { id, label, depth }
   const flatCells = React.useMemo(() => {
     const results: { id: string; label: string; depth: number }[] = [];
-    const walk = (nodes: any[], prefix = "", depth = 0) => {
+    const walk = (nodes: FilingCellNode[], prefix = "", depth = 0) => {
       for (const n of nodes) {
         const label = prefix ? `${prefix} / ${n.intitule || n.code}` : (n.intitule || n.code);
         results.push({ id: n._id, label, depth });
         if (n.children && n.children.length > 0) walk(n.children, label, depth + 1);
       }
     };
-    if (filingTree && filingTree.length > 0) walk(filingTree as any[]);
+    if (filingTree && filingTree.length > 0) walk(filingTree as unknown as FilingCellNode[]);
     return results;
   }, [filingTree]);
 
@@ -546,27 +577,27 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
 
     if (units.length > 0 && roles.length > 0) {
       for (const unit of units) {
-        const unitType = (unit as any).type;
+        const unitType = (unit as { type?: string }).type;
         const matchingRoles = roles.filter(
-          (role: any) => role.orgUnitType === unitType || !role.orgUnitType
+          (role: { orgUnitType?: string }) => role.orgUnitType === unitType || !role.orgUnitType
         );
         for (const role of matchingRoles) {
           cols.push({
             key: `${unit._id}__${role._id}`,
             unitId: unit._id,
             roleId: role._id,
-            label: (role as any).nom,
-            subLabel: (unit as any).nom,
+            label: (role as { nom?: string }).nom ?? "",
+            subLabel: (unit as { nom?: string }).nom ?? "",
           });
         }
       }
     } else if (roles.length > 0) {
       for (const role of roles) {
-        cols.push({ key: `__${role._id}`, roleId: role._id, label: (role as any).nom });
+        cols.push({ key: `__${role._id}`, roleId: role._id, label: (role as { nom?: string }).nom ?? "" });
       }
     } else if (units.length > 0) {
       for (const unit of units) {
-        cols.push({ key: `${unit._id}__`, unitId: unit._id, label: (unit as any).nom });
+        cols.push({ key: `${unit._id}__`, unitId: unit._id, label: (unit as { nom?: string }).nom ?? "" });
       }
     }
     return cols;
@@ -631,9 +662,8 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
   const makeKey = (cellId: string, unitId?: string, roleId?: string) =>
     `${cellId}__${unitId ?? ""}__${roleId ?? ""}`;
 
-  const getAccess = (cellId: string, unitId?: string, roleId?: string): AccessLevelType => {
-    return localMap[makeKey(cellId, unitId, roleId)] ?? "aucun";
-  };
+  // Note: getAccess is implicitly used via renderAccessCell's localMap lookup
+  // Keeping as documented reference for the access pattern
 
   // ─── Click: cycle access (local only) ───
   const handleCycleAccess = (cellId: string, unitId?: string, roleId?: string) => {
@@ -697,8 +727,8 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
     setSaving(true);
     try {
       // Upserts: keys in local that differ from server
-      const upserts: { filingCellId: any; orgUnitId?: any; businessRoleId?: any; acces: any }[] = [];
-      const removals: any[] = [];
+      const upserts: { filingCellId: Id<"filing_cells">; orgUnitId?: Id<"org_units">; businessRoleId?: Id<"business_roles">; acces: AccessLevelType }[] = [];
+      const removals: Id<"cell_access_rules">[] = [];
 
       for (const key of Array.from(dirtyKeys)) {
         const [cellId, unitId, roleId] = key.split("__");
@@ -707,13 +737,13 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
 
         if (localAccess === "aucun" && serverEntry?.ruleId) {
           // Rule was on server, now removed
-          removals.push(serverEntry.ruleId);
+          removals.push(serverEntry.ruleId as Id<"cell_access_rules">);
         } else if (localAccess !== "aucun") {
           // New or changed rule
           upserts.push({
-            filingCellId: cellId,
-            orgUnitId: unitId || undefined,
-            businessRoleId: roleId || undefined,
+            filingCellId: cellId as Id<"filing_cells">,
+            orgUnitId: (unitId || undefined) as Id<"org_units"> | undefined,
+            businessRoleId: (roleId || undefined) as Id<"business_roles"> | undefined,
             acces: localAccess,
           });
         }
@@ -728,10 +758,10 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
       toast.success("Matrice sauvegardée", {
         description: `${upserts.length} règle(s) modifiée(s), ${removals.length} supprimée(s)`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Matrice save error:", err);
       toast.error("Erreur lors de la sauvegarde", {
-        description: err?.message ?? "Erreur inconnue",
+      description: (err instanceof Error ? err.message : undefined) ?? "Erreur inconnue",
       });
     } finally {
       setSaving(false);
@@ -945,7 +975,7 @@ function MatriceAccesPanel({ orgId }: { orgId: any }) {
 
 /* ─── Sub-tab C: Habilitations Individuelles (v2) ── */
 
-function HabilitationsPanel({ orgId }: { orgId: any }) {
+function HabilitationsPanel({ orgId }: { orgId: Id<"organizations"> }) {
   const members = useQuery(api.orgMembers.list, { organizationId: orgId });
 
   // Filing structures + cells for the access dropdown
@@ -955,14 +985,14 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
   // Flatten the filing tree into a list of selectable cells
   const flatCells = React.useMemo(() => {
     const results: { id: string; label: string }[] = [];
-    const walk = (nodes: any[], prefix = "") => {
+    const walk = (nodes: FilingCellNode[], prefix = "") => {
       for (const n of nodes) {
         const label = prefix ? `${prefix} / ${n.intitule || n.code}` : (n.intitule || n.code);
         results.push({ id: n._id, label });
         if (n.children && n.children.length > 0) walk(n.children, label);
       }
     };
-    if (filingTree && filingTree.length > 0) walk(filingTree as any[]);
+    if (filingTree && filingTree.length > 0) walk(filingTree as unknown as FilingCellNode[]);
     return results;
   }, [filingTree]);
 
@@ -972,37 +1002,51 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
   const removeOverride = useMutation(api.cellAccessOverrides.removeOverride);
 
   const [showForm, setShowForm] = useState(false);
+  const [habMode, setHabMode] = useState<"individual" | "group">("individual");
   const [formMember, setFormMember] = useState("");
+  const [formGroup, setFormGroup] = useState("");
   const [formCell, setFormCell] = useState("");
   const [formAccess, setFormAccess] = useState<"lecture" | "ecriture" | "gestion" | "admin" | "aucun">("lecture");
   const [formMotif, setFormMotif] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Permission Groups ──
+  const permissionGroups = useQuery(api.permissionGroups.list, { organizationId: orgId });
+
   const hasMembers = members && members.length > 0;
   const hasCells = flatCells.length > 0;
 
   const handleAdd = async () => {
-    if (!formMember || !formCell) {
+    if (habMode === "individual" && !formMember) {
       toast.error("Membre et cellule d'accès sont requis");
       return;
     }
-    const member = (members as any[])?.find((m: any) => m._id === formMember);
+    if (habMode === "group" && !formGroup) {
+      toast.error("Groupe et cellule d'accès sont requis");
+      return;
+    }
+    if (!formCell) {
+      toast.error("Cellule d'accès requise");
+      return;
+    }
+    const member = habMode === "individual" ? (members as { _id: string; userId?: string; nom?: string; email?: string }[])?.find((m) => m._id === formMember) : null;
     setSubmitting(true);
     try {
       await createOverride({
         organizationId: orgId,
-        filingCellId: formCell as any,
-        userId: member?.userId ?? formMember,
+        filingCellId: formCell as Id<"filing_cells">,
+        userId: habMode === "individual" ? (member?.userId ?? formMember) : `group:${formGroup}`,
         acces: formAccess,
-        motif: formMotif || undefined,
-        accordePar: "admin", // TODO: use actual current user
+        motif: habMode === "group" ? `[Groupe] ${formMotif || ""}`.trim() : (formMotif || undefined),
+        accordePar: "admin",
       });
       setFormMember("");
+      setFormGroup("");
       setFormCell("");
       setFormAccess("lecture");
       setFormMotif("");
       setShowForm(false);
-      toast.success("Habilitation enregistrée");
+      toast.success(habMode === "group" ? "Habilitation de groupe enregistrée" : "Habilitation enregistrée");
     } catch {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
@@ -1010,7 +1054,7 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
     }
   };
 
-  const handleRemove = async (id: any) => {
+  const handleRemove = async (id: Id<"cell_access_overrides">) => {
     try {
       await removeOverride({ id });
       toast.success("Habilitation désactivée");
@@ -1030,14 +1074,20 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
   const memberNames = React.useMemo(() => {
     const map: Record<string, string> = {};
     if (members) {
-      for (const m of members as any[]) {
+      for (const m of members as { _id: string; userId?: string; nom?: string; email?: string }[]) {
         if (m.userId) map[m.userId] = m.nom ?? m.email ?? "?";
       }
     }
+    // Add group names to the lookup
+    if (permissionGroups) {
+      for (const g of permissionGroups as { _id: string; nom: string }[]) {
+        map[`group:${g._id}`] = `👥 ${g.nom}`;
+      }
+    }
     return map;
-  }, [members]);
+  }, [members, permissionGroups]);
 
-  const activeOverrides = (overrides ?? []).filter((o: any) => o.estActif);
+  const activeOverrides = (overrides ?? []).filter((o: { estActif?: boolean }) => o.estActif);
 
   return (
     <motion.div variants={fadeUp} className="space-y-4">
@@ -1088,23 +1138,55 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
 
       {showForm && hasMembers && hasCells && (
         <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-          <p className="text-xs font-medium text-white/60">Nouvelle habilitation individuelle</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <select
-              value={formMember}
-              onChange={(e) => setFormMember(e.target.value)}
-              className="h-9 text-xs bg-white/[0.03] border border-white/10 rounded-md px-2 text-white/70"
+          {/* Mode toggle */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setHabMode("individual")}
+              className={`text-xs px-3 py-1.5 rounded-md transition-all ${habMode === "individual" ? "bg-amber-500/15 text-amber-300 border border-amber-500/30" : "text-white/40 hover:text-white/60 border border-transparent"}`}
             >
-              <option value="">Sélectionner un membre…</option>
-              {(members as any[]).map((m: any) => (
-                <option key={m._id} value={m._id}>
-                  {m.nom ?? "Sans nom"}
-                </option>
-              ))}
-            </select>
+              Individuelle
+            </button>
+            <button
+              onClick={() => setHabMode("group")}
+              className={`text-xs px-3 py-1.5 rounded-md transition-all ${habMode === "group" ? "bg-violet-500/15 text-violet-300 border border-violet-500/30" : "text-white/40 hover:text-white/60 border border-transparent"}`}
+            >
+              Par groupe
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {habMode === "individual" ? (
+              <select
+                value={formMember}
+                onChange={(e) => setFormMember(e.target.value)}
+                aria-label="Sélectionner un membre"
+                className="h-9 text-xs bg-white/[0.03] border border-white/10 rounded-md px-2 text-white/70"
+              >
+                <option value="">Sélectionner un membre…</option>
+                {(members as { _id: string; nom?: string }[]).map((m) => (
+                  <option key={m._id} value={m._id}>
+                    {m.nom ?? "Sans nom"}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={formGroup}
+                onChange={(e) => setFormGroup(e.target.value)}
+                aria-label="Sélectionner un groupe"
+                className="h-9 text-xs bg-white/[0.03] border border-violet-500/20 rounded-md px-2 text-white/70"
+              >
+                <option value="">Sélectionner un groupe…</option>
+                {(permissionGroups ?? []).map((g: { _id: string; nom: string; members?: string[] }) => (
+                  <option key={g._id} value={g._id}>
+                    👥 {g.nom} ({(g.members ?? []).length} membres)
+                  </option>
+                ))}
+              </select>
+            )}
             <select
               value={formCell}
               onChange={(e) => setFormCell(e.target.value)}
+              aria-label="Sélectionner une cellule"
               className="h-9 text-xs bg-white/[0.03] border border-white/10 rounded-md px-2 text-white/70"
             >
               <option value="">Sélectionner une cellule…</option>
@@ -1116,7 +1198,8 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
             </select>
             <select
               value={formAccess}
-              onChange={(e) => setFormAccess(e.target.value as any)}
+              onChange={(e) => setFormAccess(e.target.value as typeof formAccess)}
+              aria-label="Niveau d'accès"
               className="h-9 text-xs bg-white/[0.03] border border-white/10 rounded-md px-2 text-white/70"
             >
               <option value="aucun">🚫 Aucun accès</option>
@@ -1156,7 +1239,7 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
               </tr>
             </thead>
             <tbody>
-              {activeOverrides.map((o: any) => {
+              {activeOverrides.map((o: { _id: string; acces: string; userId: string; filingCellId: string; motif?: string; estActif?: boolean }) => {
                 const display = ACCESS_DISPLAY[o.acces as AccessLevelType] ?? ACCESS_DISPLAY.aucun;
                 return (
                   <tr key={o._id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
@@ -1176,7 +1259,8 @@ function HabilitationsPanel({ orgId }: { orgId: any }) {
                     </td>
                     <td className="py-2.5 px-1">
                       <button
-                        onClick={() => handleRemove(o._id)}
+                        onClick={() => handleRemove(o._id as Id<"cell_access_overrides">)}
+                        aria-label="Supprimer l'habilitation"
                         className="p-1 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-colors"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -1220,8 +1304,8 @@ function ArchivagePolicyPanel({ orgId }: { orgId: Id<"organizations"> }) {
   // Sync from server
   React.useEffect(() => {
     if (savedConfig) {
-      setRetentionPeriod((savedConfig as any).retentionPeriod ?? "10");
-      setArchivageAuto((savedConfig as any).archivageAutomatique ?? true);
+      setRetentionPeriod((savedConfig as { retentionPeriod?: string }).retentionPeriod ?? "10");
+      setArchivageAuto((savedConfig as { archivageAutomatique?: boolean }).archivageAutomatique ?? true);
     }
   }, [savedConfig]);
 
@@ -1232,7 +1316,7 @@ function ArchivagePolicyPanel({ orgId }: { orgId: Id<"organizations"> }) {
       await saveConfigMut({
         organizationId: orgId,
         iArchiveConfig: {
-          ...(savedConfig as any ?? {}),
+          ...(savedConfig as Record<string, unknown> ?? {}),
           retentionPeriod,
           archivageAutomatique: archivageAuto,
         },
@@ -1351,7 +1435,7 @@ function ArchivagePolicyPanel({ orgId }: { orgId: Id<"organizations"> }) {
       {/* ── Catégories de rétention ── */}
       <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
         <RetentionCategoryTable
-          categories={(categories ?? []) as any[]}
+          categories={(categories ?? []) as { _id: string; name: string; slug: string; description?: string; color: string; icon: string; retentionYears: number; ohadaReference?: string; countingStartEvent?: string; activeDurationYears?: number; semiActiveDurationYears?: number; alertBeforeArchiveMonths?: number; hasSemiActivePhase?: boolean; isPerpetual?: boolean; defaultConfidentiality: "public" | "internal" | "confidential" | "secret"; isFixed: boolean; isActive: boolean; sortOrder: number }[]}
           onUpsert={handleUpsertCategory}
           onDelete={handleDeleteCategory}
           onSeedDefaults={handleSeedDefaults}

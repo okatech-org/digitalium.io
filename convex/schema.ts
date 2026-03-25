@@ -256,6 +256,7 @@ export default defineSchema({
         filingCellId: v.optional(v.id("filing_cells")), // Link to admin structure
         isSystem: v.optional(v.boolean()), // True if synced from filing_cells
         tags: v.array(v.string()), // e.g. ["fiscal", "social"]
+        folderTypeId: v.optional(v.id("document_types")), // Type de dossier (v7)
         permissions: v.object({
             visibility: v.union(
                 v.literal("private"),
@@ -332,6 +333,8 @@ export default defineSchema({
         ),
         version: v.number(),
         tags: v.array(v.string()),
+        documentTypeId: v.optional(v.id("document_types")),    // Type de document obligatoire (v7)
+        customMetadata: v.optional(v.any()),                    // Métadonnées personnalisées (v7)
         parentFolderId: v.optional(v.string()),
         // ── Imported file storage (v4) ──
         folderId: v.optional(v.id("folders")),               // Lien structurel vers le dossier parent
@@ -369,6 +372,51 @@ export default defineSchema({
         .index("by_org_status", ["organizationId", "status"])
         .index("by_parentFolderId", ["parentFolderId"])
         .index("by_folderId", ["folderId"]),
+
+    // ═══════════════════════════════════════════
+    // 4c. DOCUMENT TYPES (v7 — types de documents préconfigurés)
+    // ═══════════════════════════════════════════
+    document_types: defineTable({
+        organizationId: v.id("organizations"),
+        nom: v.string(),
+        code: v.string(),
+        description: v.optional(v.string()),
+        icone: v.optional(v.string()),
+        couleur: v.optional(v.string()),
+        retentionCategorySlug: v.optional(v.string()),
+        isDefault: v.optional(v.boolean()),
+        estActif: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_org_code", ["organizationId", "code"])
+        .index("by_org_actif", ["organizationId", "estActif"]),
+
+    // ═══════════════════════════════════════════
+    // 4d. DOCUMENT METADATA FIELDS (v7 — métadonnées personnalisables)
+    // ═══════════════════════════════════════════
+    document_metadata_fields: defineTable({
+        organizationId: v.id("organizations"),
+        fieldName: v.string(),
+        fieldLabel: v.string(),
+        fieldType: v.union(
+            v.literal("text"),
+            v.literal("number"),
+            v.literal("date"),
+            v.literal("select"),
+            v.literal("boolean")
+        ),
+        options: v.optional(v.array(v.string())),
+        isRequired: v.boolean(),
+        defaultValue: v.optional(v.string()),
+        ordre: v.number(),
+        estActif: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_org_actif", ["organizationId", "estActif"]),
 
     // ═══════════════════════════════════════════
     // 5. DOCUMENT VERSIONS (historique)
@@ -977,6 +1025,7 @@ export default defineSchema({
         filingCellId: v.id("filing_cells"),
         orgUnitId: v.optional(v.id("org_units")),
         businessRoleId: v.optional(v.id("business_roles")),
+        groupId: v.optional(v.id("permission_groups")),  // Groupe de permissions (v7)
         acces: accessLevel,
         priorite: v.number(),
         estActif: v.boolean(),
@@ -988,7 +1037,8 @@ export default defineSchema({
         .index("by_orgUnitId", ["orgUnitId"])
         .index("by_businessRoleId", ["businessRoleId"])
         .index("by_cell_unit", ["filingCellId", "orgUnitId"])
-        .index("by_cell_role", ["filingCellId", "businessRoleId"]),
+        .index("by_cell_role", ["filingCellId", "businessRoleId"])
+        .index("by_groupId", ["groupId"]),
 
     // ═══════════════════════════════════════════
     // 20. CELL ACCESS OVERRIDES (v2 — habilitations individuelles)
@@ -1112,4 +1162,20 @@ export default defineSchema({
         .index("by_method", ["method"])
         .index("by_externalId", ["externalId"])
         .index("by_org_status", ["organizationId", "status"]),
+
+    // ═══════════════════════════════════════════
+    // 23. PERMISSION GROUPS (v7 — groupes de permissions ad-hoc)
+    // ═══════════════════════════════════════════
+    permission_groups: defineTable({
+        organizationId: v.id("organizations"),
+        nom: v.string(),
+        description: v.optional(v.string()),
+        couleur: v.optional(v.string()),
+        members: v.array(v.string()),
+        estActif: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_org_actif", ["organizationId", "estActif"]),
 });

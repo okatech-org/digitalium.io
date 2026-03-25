@@ -22,6 +22,8 @@ import { OHADA_REFERENCES } from "@/config/filing-presets";
 import { toast } from "sonner";
 import RetentionAlertEditor from "./RetentionAlertEditor";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
+import { useMutation } from "convex/react";
+import { api } from "../../../../../../convex/_generated/api";
 
 // ─── Types ────────────────────────────────────
 
@@ -99,6 +101,7 @@ export default function RetentionCategoryTable({
     const [showAdd, setShowAdd] = useState(false);
     const [saving, setSaving] = useState(false);
     const [alertCatId, setAlertCatId] = useState<string | null>(null);
+    const propagateRetentionMut = useMutation(api.configPropagation.propagateRetentionChange);
     const [newData, setNewData] = useState({
         name: "",
         slug: "",
@@ -137,6 +140,22 @@ export default function RetentionCategoryTable({
             });
             toast.success(`Catégorie "${cat.name}" mise à jour`);
             cancelEdit();
+
+            // Propagate changes to linked archives and folders
+            if (organizationId) {
+                try {
+                    const result = await propagateRetentionMut({
+                        organizationId,
+                        categoryId: cat._id as Id<"archive_categories">,
+                        userId: "admin",
+                    });
+                    if (result.updatedArchives > 0 || result.updatedFolders > 0) {
+                        toast.info(`Propagation : ${result.updatedArchives} archive(s) et ${result.updatedFolders} dossier(s) mis à jour`);
+                    }
+                } catch (err) {
+                    console.warn("Propagation partielle:", err);
+                }
+            }
         } catch {
             toast.error("Erreur lors de la mise à jour");
         } finally {

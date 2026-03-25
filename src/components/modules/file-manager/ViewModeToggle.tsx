@@ -18,13 +18,13 @@ import type { ViewMode } from "./types";
 const STORAGE_KEY = "digitalium-view-mode";
 
 /** Read the saved view mode synchronously — call in useState initializer to avoid flash */
-export function getInitialViewMode(storageKey?: string): ViewMode {
-    if (typeof window === "undefined") return "grid";
+export function getInitialViewMode(storageKey?: string, defaultMode: ViewMode = "grid"): ViewMode {
+    if (typeof window === "undefined") return defaultMode;
     try {
         const stored = localStorage.getItem(storageKey || STORAGE_KEY);
         if (stored === "grid" || stored === "list" || stored === "column") return stored;
     } catch { /* SSR or localStorage unavailable */ }
-    return "grid";
+    return defaultMode;
 }
 
 const VIEW_MODES: { value: ViewMode; icon: React.ElementType; label: string }[] = [
@@ -61,6 +61,7 @@ export default function ViewModeToggle({ value, onChange, storageKey }: ViewMode
                             <TooltipTrigger asChild>
                                 <button
                                     onClick={() => handleChange(mode)}
+                                    aria-label={label}
                                     className={`p-1.5 rounded-md transition-all ${isActive
                                             ? "bg-violet-500/10 text-violet-300 border border-violet-500/20"
                                             : "text-muted-foreground hover:bg-white/5 border border-transparent"

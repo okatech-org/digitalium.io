@@ -1,0 +1,9 @@
+{
+  "vscode-edge-devtools.headless": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "css.lint.validProperties": [],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "vscode-edge-devtools.webhint": false
+}
