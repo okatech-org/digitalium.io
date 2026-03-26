@@ -15,7 +15,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { sha256 } from "@/lib/crypto";
-import { downloadFile } from "@/lib/supabase";
+
 import {
     Download,
     Shield,
@@ -27,7 +27,6 @@ import {
     XCircle,
     Copy,
     Check,
-    Hash,
     Trash2,
 } from "lucide-react";
 
@@ -74,41 +73,28 @@ export default function CertificateViewer({ archiveId, onDownloadPDF }: Props) {
         setVerifying(true);
         setVerifyResult(null);
         try {
-            // Extract Supabase Storage path from the URL
             const fileUrl = archive.fileUrl;
 
             if (fileUrl.startsWith("placeholder://") || fileUrl.startsWith("local://")) {
-                // Fallback for legacy placeholder URLs — cannot verify
+                // Fallback for local/placeholder URLs — cannot verify
                 await new Promise((r) => setTimeout(r, 500));
                 setVerifyResult(null);
                 setVerifying(false);
                 return;
             }
 
-            // Parse the storage path from the public URL
-            // URL format: https://<project>.supabase.co/storage/v1/object/public/archives/<path>
-            const urlParts = fileUrl.split("/storage/v1/object/public/");
-            let blob: Blob | null = null;
-
-            if (urlParts.length === 2) {
-                const [bucket, ...rest] = urlParts[1].split("/");
-                const path = rest.join("/");
-                blob = await downloadFile(bucket, path);
-            }
-
-            if (!blob) {
-                // Try direct fetch as fallback
-                const resp = await fetch(fileUrl);
-                if (resp.ok) blob = await resp.blob();
-            }
-
-            if (blob) {
-                const buffer = await blob.arrayBuffer();
-                const computedHash = await sha256(buffer);
-                setVerifyResult(computedHash === archive.sha256Hash);
-            } else {
+            // Fetch file directly from Convex File Storage URL or any public URL
+            const resp = await fetch(fileUrl);
+            if (!resp.ok) {
                 setVerifyResult(false);
+                setVerifying(false);
+                return;
             }
+
+            const blob = await resp.blob();
+            const buffer = await blob.arrayBuffer();
+            const computedHash = await sha256(buffer);
+            setVerifyResult(computedHash === archive.sha256Hash);
         } catch (err) {
             console.error("Integrity verification error:", err);
             setVerifyResult(false);

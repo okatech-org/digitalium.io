@@ -95,6 +95,34 @@ export default defineSchema({
         .index("by_email", ["email"])
         .index("by_personaType", ["personaType"]),
 
+    // ── User Preferences (Settings page) ──
+    user_preferences: defineTable({
+        userId: v.string(), // Firebase UID — one row per user
+        // Profil
+        prenom: v.optional(v.string()),
+        nom: v.optional(v.string()),
+        telephone: v.optional(v.string()),
+        bio: v.optional(v.string()),
+        // Design System
+        theme: v.optional(v.string()),
+        densite: v.optional(v.string()),
+        fontFamily: v.optional(v.string()),
+        borderRadius: v.optional(v.string()),
+        brandName: v.optional(v.string()),
+        brandColors: v.optional(v.any()),
+        // Langue
+        langue: v.optional(v.string()),
+        // Notifications
+        notifications: v.optional(v.any()),
+        // Accessibilité
+        tailleTexte: v.optional(v.string()),
+        contrasteEleve: v.optional(v.boolean()),
+        animationsReduites: v.optional(v.boolean()),
+        // Timestamps
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"]),
+
     // ═══════════════════════════════════════════
     // 2. ORGANIZATIONS
     // ═══════════════════════════════════════════
@@ -537,7 +565,7 @@ export default defineSchema({
         // ── Double hash SHA-256 (v3 — contenu TipTap) ──
         frozenContent: v.optional(v.any()),                 // Snapshot JSON du contenu TipTap gelé
         contentHash: v.optional(v.string()),                // SHA-256 du JSON gelé (intégrité interne)
-        pdfUrl: v.optional(v.string()),                     // URL du PDF généré (Supabase Storage)
+        pdfUrl: v.optional(v.string()),                     // URL du PDF généré (Convex File Storage)
         pdfHash: v.optional(v.string()),                    // SHA-256 du PDF (intégrité légale)
         // ── Lifecycle tracking (v2) ──
         lifecycleState: v.optional(v.union(

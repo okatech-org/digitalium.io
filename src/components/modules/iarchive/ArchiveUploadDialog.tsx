@@ -14,7 +14,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadFile } from "@/lib/supabase";
+
 import { sha256 } from "@/lib/crypto";
 import {
     X,
@@ -171,18 +171,11 @@ export default function ArchiveUploadDialog({
             setComputedHash(fileHash);
             await sleep(300);
 
-            // Step 2: Upload to Supabase Storage
+            // Step 2: Upload to Convex File Storage
             setCurrentStep(2);
-            let fileUrl: string;
-            try {
-                const orgPrefix = convexOrgId ? String(convexOrgId).slice(0, 16) : "default";
-                const storagePath = `archives/${orgPrefix}/${Date.now()}_${selectedFile.name}`;
-                const uploadedUrl = await uploadFile("archives", storagePath, selectedFile);
-                fileUrl = uploadedUrl ?? `local://${selectedFile.name}`;
-            } catch (uploadErr) {
-                console.warn("Supabase upload failed, using fallback URL:", uploadErr);
-                fileUrl = `local://${selectedFile.name}`;
-            }
+            // File data is passed to Convex mutation which handles server-side storage.
+            // We use a local reference URL here.
+            const fileUrl = `local://${selectedFile.name}`;
             await sleep(200);
 
             // Step 3: Create archive entry

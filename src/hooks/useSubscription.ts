@@ -1,13 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 // DIGITALIUM.IO — Hook: useSubscription
-// Business subscription management with Supabase + dev fallback
+// Business subscription management via Convex + dev fallback
 // ═══════════════════════════════════════════════════════════
 
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuthContext } from "@/contexts/FirebaseAuthContext";
-import { supabase } from "@/lib/supabase";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { BusinessSubscription } from "@/types/personas";
 
 /* ─── Dev fallback subscription ─────────────────────────── */
@@ -66,7 +68,13 @@ export function useSubscription(organizationId?: string) {
     // Resolve orgId from param or first org in user profile
     const orgId = organizationId ?? user?.organizations?.[0]?.id ?? null;
 
-    // ── Fetch subscription ──
+    // Query Convex subscriptions table — skip if no orgId
+    const convexSub = useQuery(
+        api.subscriptions.getByOrganizationId,
+        orgId ? { organizationId: orgId as Id<"organizations"> } : "skip"
+    );
+
+    // ── Sync Convex data → local state ──
     useEffect(() => {
         if (!user || !orgId) {
             setSubscription(null);
@@ -74,76 +82,53 @@ export function useSubscription(organizationId?: string) {
             return;
         }
 
-        let cancelled = false;
-
-        async function fetchSubscription() {
+        // convexSub is undefined while loading, null if no result
+        if (convexSub === undefined) {
             setLoading(true);
+            return;
+        }
+
+        if (convexSub) {
+            // Map Convex row to BusinessSubscription shape
+            setSubscription({
+                id: convexSub._id,
+                organizationId: convexSub.organizationId,
+                plan: convexSub.plan,
+                status: convexSub.status === "past_due" ? "active" : convexSub.status,
+
+                startedAt: new Date(convexSub.currentPeriodStart),
+                trialEndsAt: convexSub.trialEndsAt
+                    ? new Date(convexSub.trialEndsAt)
+                    : null,
+                currentPeriodEnd: new Date(convexSub.currentPeriodEnd),
+
+                maxUsers: convexSub.maxUsers,
+                currentUsers: convexSub.activeUsers ?? 0,
+                modules: Object.entries(convexSub.modules ?? {})
+                    .filter(([, enabled]) => enabled)
+                    .map(([name]) => name),
+                storageBytes: -1,
+
+                pricing: {
+                    monthly: convexSub.pricePerUser ?? 0,
+                    annual: (convexSub.pricePerUser ?? 0) * 12 * 0.85,
+                },
+
+                currency: "XAF",
+                autoRenew: true,
+            });
             setError(null);
-
-            try {
-                const { data, error: sbError } = await supabase
-                    .from("org_subscriptions")
-                    .select("*")
-                    .eq("organization_id", orgId!)
-                    .maybeSingle();
-
-                if (!cancelled) {
-                    if (sbError) throw sbError;
-
-                    if (data) {
-                        setSubscription({
-                            id: data.id,
-                            organizationId: data.organization_id,
-                            plan: data.plan,
-                            status: data.status,
-                            startedAt: new Date(data.started_at),
-                            trialEndsAt: data.trial_ends_at
-                                ? new Date(data.trial_ends_at)
-                                : null,
-                            currentPeriodEnd: new Date(data.current_period_end),
-                            maxUsers: data.max_users,
-                            currentUsers: data.current_users ?? 0,
-                            modules: data.modules ?? [],
-                            storageBytes: data.storage_bytes ?? -1,
-                            pricing: {
-                                monthly: data.price_monthly ?? 0,
-                                annual: data.price_annual ?? 0,
-                            },
-                            currency: data.currency ?? "XAF",
-                            autoRenew: data.auto_renew ?? true,
-                        });
-                    } else {
-                        // No subscription row → use dev fallback
-                        if (isDev()) {
-                            setSubscription(buildDevSubscription(orgId!));
-                        } else {
-                            setSubscription(null);
-                        }
-                    }
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    console.warn(
-                        "[useSubscription] Supabase unavailable, using fallback",
-                        err
-                    );
-                    if (isDev()) {
-                        setSubscription(buildDevSubscription(orgId!));
-                    } else {
-                        setError("Impossible de charger l'abonnement.");
-                    }
-                }
-            } finally {
-                if (!cancelled) setLoading(false);
+        } else {
+            // No subscription in Convex → use dev fallback
+            if (isDev()) {
+                setSubscription(buildDevSubscription(orgId));
+            } else {
+                setSubscription(null);
             }
         }
 
-        fetchSubscription();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [user, orgId]);
+        setLoading(false);
+    }, [user, orgId, convexSub]);
 
     // ── Derived state ──
     const isActive = subscription?.status === "active";

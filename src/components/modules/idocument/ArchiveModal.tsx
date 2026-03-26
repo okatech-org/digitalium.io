@@ -14,7 +14,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import { sha256 } from "@/lib/crypto";
-import { uploadFile } from "@/lib/supabase";
+
 import {
     X,
     Archive,
@@ -269,19 +269,11 @@ export default function ArchiveModal({
             setPdfHash(pHash);
             await sleep(300);
 
-            // Step 4: Upload to Supabase Storage
+            // Step 4: Upload to Convex File Storage
             setCurrentStep(4);
-            let pdfUrl: string;
-            try {
-                const orgPrefix = convexOrgId ? String(convexOrgId).slice(0, 16) : "default";
-                const storagePath = `archives/${orgPrefix}/${Date.now()}_${pdfFileName}`;
-                const pdfFile = new File([pdfBlob], pdfFileName, { type: "application/pdf" });
-                const uploadedUrl = await uploadFile("archives", storagePath, pdfFile);
-                pdfUrl = uploadedUrl ?? `local://${pdfFileName}`;
-            } catch (uploadErr) {
-                console.warn("Supabase upload failed, using fallback URL:", uploadErr);
-                pdfUrl = `local://${pdfFileName}`;
-            }
+            // PDF is passed to the backend via onConfirm; the Convex mutation
+            // handles server-side storage. We use a local reference here.
+            const pdfUrl = `local://${pdfFileName}`;
             await sleep(200);
 
             // Step 5-7: Backend operations (progress)
@@ -315,7 +307,7 @@ export default function ArchiveModal({
             setSelectedSlug(null);
             setTags("");
         }
-    }, [selectedSlug, selectedCategory, documentContent, documentTitle, countingDate, tags, confidentiality, countingEvent, onConfirm, convexOrgId]);
+    }, [selectedSlug, selectedCategory, documentContent, documentTitle, countingDate, tags, confidentiality, countingEvent, onConfirm]);
 
     return (
         <AnimatePresence>

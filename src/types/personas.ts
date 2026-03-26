@@ -150,6 +150,7 @@ export type SubscriptionStatus =
 
 export type SubscriptionPlan =
     | "starter"
+    | "pro"
     | "professional"
     | "enterprise"
     | "custom";

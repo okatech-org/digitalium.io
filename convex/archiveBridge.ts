@@ -21,7 +21,7 @@ export const archiveDocument = mutation({
         // Double hash (calculés côté client)
         frozenContent: v.any(),              // JSON TipTap gelé
         contentHash: v.string(),             // SHA-256 du JSON gelé
-        pdfUrl: v.string(),                  // URL du PDF sur Supabase Storage
+        pdfUrl: v.string(),                  // URL du PDF sur Convex File Storage
         pdfHash: v.string(),                 // SHA-256 du PDF généré
         pdfFileName: v.string(),             // Nom du fichier PDF
         pdfFileSize: v.number(),             // Taille du PDF en bytes

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SIGNAL_TYPES } from "./lib/types";
+import { requireAuth } from "./lib/auth";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Organizations
@@ -185,8 +186,11 @@ export const create = mutation({
             domain: v.optional(v.string()),
             pagePublique: v.optional(v.boolean()),
         })),
+        // ── Auth guard: verify caller identity ──
+        callerUserId: v.string(),
     },
     handler: async (ctx, args) => {
+        await requireAuth(ctx, args.callerUserId);
         const now = Date.now();
         const modules = args.modules ?? ["iDocument", "iArchive", "iSignature"];
 

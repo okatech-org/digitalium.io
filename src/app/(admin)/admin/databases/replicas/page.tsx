@@ -39,11 +39,11 @@ const STATUS_CFG: Record<ReplicaStatus, { label: string; color: string; bg: stri
 /* ─── Mock Data ──────────────────────────────────── */
 
 const INITIAL_REPLICAS: Replica[] = [
-    { name: "pg-replica-eu-01", source: "Supabase PG", region: "eu-west-1", lag: "0.3s", status: "synced" },
-    { name: "pg-replica-us-01", source: "Supabase PG", region: "us-east-1", lag: "4.8s", status: "lagging" },
+    { name: "pg-replica-eu-01", source: "Convex DB", region: "eu-west-1", lag: "0.3s", status: "synced" },
+    { name: "pg-replica-us-01", source: "Convex DB", region: "us-east-1", lag: "4.8s", status: "lagging" },
     { name: "convex-mirror-eu", source: "Convex Primary", region: "eu-west-1", lag: "0.1s", status: "synced" },
     { name: "redis-replica-01", source: "Redis Cache", region: "us-west-2", lag: "0.05s", status: "synced" },
-    { name: "pg-replica-af-01", source: "Supabase PG", region: "af-south-1", lag: "12.3s", status: "error" },
+    { name: "pg-replica-af-01", source: "Convex DB", region: "af-south-1", lag: "12.3s", status: "error" },
 ];
 
 /* ═══════════════════════════════════════════════

@@ -14,7 +14,7 @@ export type ModuleStatus = "active" | "beta" | "coming_soon";
 export interface ModuleTechStack {
     editor?: string;       // ex: "Yjs + Tiptap"
     realtime?: string;     // ex: "Convex"
-    storage?: string;      // ex: "Supabase Storage"
+    storage?: string;      // ex: "Convex File Storage"
     ai?: string;           // ex: "Google Gemini"
     hashing?: string;      // ex: "SHA-256"
 }
@@ -68,7 +68,7 @@ export const MODULES: Record<ModuleId, ModuleConfig> = {
         techStack: {
             editor: "Yjs + Tiptap",
             realtime: "Convex",
-            storage: "Supabase Storage",
+            storage: "Convex File Storage",
         },
         features: [
             {
@@ -113,7 +113,7 @@ export const MODULES: Record<ModuleId, ModuleConfig> = {
         status: "active",
         techStack: {
             hashing: "SHA-256",
-            storage: "Supabase Storage",
+            storage: "Convex File Storage",
             realtime: "Convex",
         },
         retention: {

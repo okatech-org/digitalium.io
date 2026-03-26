@@ -30,12 +30,12 @@ interface Backup {
 }
 
 const INITIAL_BACKUPS: Backup[] = [
-    { id: "bk-20260212-001", db: "Supabase PG", size: "4.6 GB", date: "12 fév 2026 — 04:00", duration: "3m 12s", status: "completed" },
-    { id: "bk-20260211-001", db: "Supabase PG", size: "4.5 GB", date: "11 fév 2026 — 04:00", duration: "2m 58s", status: "completed" },
+    { id: "bk-20260212-001", db: "Convex DB", size: "4.6 GB", date: "12 fév 2026 — 04:00", duration: "3m 12s", status: "completed" },
+    { id: "bk-20260211-001", db: "Convex DB", size: "4.5 GB", date: "11 fév 2026 — 04:00", duration: "2m 58s", status: "completed" },
     { id: "bk-20260212-f01", db: "Firestore", size: "890 MB", date: "12 fév 2026 — 03:30", duration: "1m 45s", status: "completed" },
     { id: "bk-20260211-f01", db: "Firestore", size: "887 MB", date: "11 fév 2026 — 03:30", duration: "1m 42s", status: "completed" },
     { id: "bk-20260212-c01", db: "Convex", size: "1.1 GB", date: "12 fév 2026 — 05:00", duration: "48s", status: "completed" },
-    { id: "bk-20260210-001", db: "Supabase PG", size: "4.4 GB", date: "10 fév 2026 — 04:00", duration: "3m 05s", status: "completed" },
+    { id: "bk-20260210-001", db: "Convex DB", size: "4.4 GB", date: "10 fév 2026 — 04:00", duration: "3m 05s", status: "completed" },
 ];
 
 const STATUS_CFG = {

@@ -2,7 +2,7 @@
 
 // ═══════════════════════════════════════════════════════════
 // DIGITALIUM.IO — Context: Persona
-// Supabase-backed persona resolution with dev fallback
+// Convex-backed persona resolution with dev fallback
 // Exposes: personaType, personaConfig, isLoading, error
 // Methods: setPersona(), getRedirectUrl()
 // ═══════════════════════════════════════════════════════════
@@ -17,7 +17,6 @@ import React, {
 } from "react";
 import type { PersonaType, PersonaConfig } from "@/types/personas";
 import { PERSONAS } from "@/config/personas";
-import { supabase } from "@/lib/supabase";
 import { useAuthContext } from "@/contexts/FirebaseAuthContext";
 
 /* ─── Dev fallback: email → persona mapping ──────────── */
@@ -73,7 +72,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // ── Fetch persona from Supabase on auth change ──
+    // ── Resolve persona from user profile or dev fallback ──
     useEffect(() => {
         if (authLoading) return;
 
@@ -83,51 +82,13 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        let cancelled = false;
-
-        async function fetchPersona() {
-            setIsLoading(true);
-            setError(null);
-
-            try {
-                // 1. Try Supabase
-                const { data, error: sbError } = await supabase
-                    .from("user_personas")
-                    .select("persona_type")
-                    .eq("user_id", user!.uid)
-                    .maybeSingle();
-
-                if (!cancelled) {
-                    if (sbError) throw sbError;
-
-                    if (data?.persona_type) {
-                        setPersonaType(data.persona_type as PersonaType);
-                    } else {
-                        // 2. Fallback: derive from auth user
-                        const derived = derivePersona();
-                        setPersonaType(derived);
-                    }
-                }
-            } catch (err) {
-                if (!cancelled) {
-                    console.warn(
-                        "[PersonaContext] Supabase unavailable, using fallback",
-                        err
-                    );
-                    // 3. Dev fallback
-                    const derived = derivePersona();
-                    setPersonaType(derived);
-                    if (!isDev()) {
-                        setError("Impossible de charger le persona.");
-                    }
-                }
-            } finally {
-                if (!cancelled) setIsLoading(false);
-            }
-        }
+        // Derive persona from user profile or dev mapping
+        const derived = derivePersona();
+        setPersonaType(derived);
+        setIsLoading(false);
 
         function derivePersona(): PersonaType {
-            // Check user's personaType from auth
+            // Check user's personaType from auth profile
             if (user!.personaType) return user!.personaType;
 
             // Dev email mapping
@@ -139,33 +100,24 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
             // Default
             return "business";
         }
-
-        fetchPersona();
-
-        return () => {
-            cancelled = true;
-        };
     }, [user, authLoading]);
 
-    // ── Set persona (upsert to Supabase) ──
+    // ── Set persona (persisted in local state, will be synced to Convex users table in production) ──
     const setPersona = useCallback(
         async (type: PersonaType) => {
             if (!user) return;
 
             setPersonaType(type);
 
+            // In production, this would call a Convex mutation to persist:
+            // await updatePersonaTypeMutation({ userId: user.uid, personaType: type });
+            // For now, persona is derived from user profile + dev fallback.
             try {
-                await supabase.from("user_personas").upsert(
-                    {
-                        user_id: user.uid,
-                        persona_type: type,
-                        updated_at: new Date().toISOString(),
-                    },
-                    { onConflict: "user_id" }
-                );
+                if (typeof window !== "undefined") {
+                    localStorage.setItem(`digitalium_persona_${user.uid}`, type);
+                }
             } catch (err) {
                 console.warn("[PersonaContext] Failed to persist persona", err);
-                // State is already updated locally — silent fail
             }
         },
         [user]

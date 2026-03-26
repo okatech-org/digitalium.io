@@ -5,8 +5,8 @@
 
 "use client";
 
-import React, { useRef } from "react";
-import { motion, useInView } from "framer-motion";
+import React from "react";
+import { motion } from "framer-motion";
 import {
     CheckCircle2,
     XCircle,
@@ -15,11 +15,6 @@ import {
     MemoryStick,
     HardDrive,
     Zap,
-    ArrowUpRight,
-    ArrowDownRight,
-    Shield,
-    Clock,
-    Database,
     Server,
 } from "lucide-react";
 import {
@@ -39,9 +34,9 @@ import { Badge } from "@/components/ui/badge";
 
 const SERVICES = [
     { name: "Convex", status: "operational" as const, latency: "12ms", region: "us-east-1", uptime: "99.98%" },
-    { name: "Supabase", status: "operational" as const, latency: "34ms", region: "eu-west-1", uptime: "99.95%" },
+    { name: "Convex File Storage", status: "operational" as const, latency: "28ms", region: "us-east-1", uptime: "99.95%" },
     { name: "Firebase Auth", status: "operational" as const, latency: "89ms", region: "global", uptime: "99.99%" },
-    { name: "Supabase Storage", status: "degraded" as const, latency: "245ms", region: "eu-west-1", uptime: "99.72%" },
+    { name: "Convex Actions", status: "operational" as const, latency: "45ms", region: "us-east-1", uptime: "99.97%" },
     { name: "Edge Functions", status: "operational" as const, latency: "18ms", region: "us-east-1", uptime: "99.97%" },
     { name: "Redis Cache", status: "operational" as const, latency: "2ms", region: "us-east-1", uptime: "100%" },
 ];
@@ -54,10 +49,10 @@ const METRICS = [
 ];
 
 const ALERTS = [
-    { severity: "warning" as const, message: "Supabase Storage latency élevée (>200ms)", time: "Il y a 2 min", service: "Supabase" },
+    { severity: "info" as const, message: "Convex File Storage sync terminé — 2.4 TB", time: "Il y a 2 min", service: "Convex" },
     { severity: "info" as const, message: "Mise à jour Convex déployée v2.14.1", time: "Il y a 15 min", service: "Convex" },
     { severity: "warning" as const, message: "Rate limit atteint sur /api/documents (429)", time: "Il y a 32 min", service: "Edge Functions" },
-    { severity: "success" as const, message: "Sauvegarde quotidienne terminée — 847 tables", time: "Il y a 1h", service: "Supabase" },
+    { severity: "success" as const, message: "Sauvegarde quotidienne terminée — 29 tables", time: "Il y a 1h", service: "Convex" },
     { severity: "error" as const, message: "Connexion Redis timeout (retry 3/5)", time: "Il y a 2h", service: "Redis" },
     { severity: "info" as const, message: "Certificat SSL renouvelé — expire dans 364j", time: "Il y a 3h", service: "Infrastructure" },
 ];
@@ -66,7 +61,7 @@ const ALERTS = [
 const LATENCY_DATA = Array.from({ length: 30 }, (_, i) => ({
     time: `${30 - i}m`,
     convex: Math.floor(8 + Math.random() * 12),
-    supabase: Math.floor(25 + Math.random() * 20),
+    fileStorage: Math.floor(20 + Math.random() * 15),
     firebase: Math.floor(60 + Math.random() * 50),
 }));
 
@@ -170,7 +165,7 @@ export default function SysAdminDashboardPage() {
                             <motion.div
                                 key={svc.name}
                                 variants={fadeUp}
-                                className={`glass-card rounded-xl p-4 flex items-center gap-3 border ${svc.status === "degraded" ? "border-amber-500/20" : "border-transparent"}`}
+                                className={`glass-card rounded-xl p-4 flex items-center gap-3 border border-transparent`}
                             >
                                 <div className={`h-9 w-9 rounded-lg ${cfg.bg} flex items-center justify-center`}>
                                     <StatusIcon className={`h-4 w-4 ${cfg.color}`} />
@@ -211,7 +206,7 @@ export default function SysAdminDashboardPage() {
                 <div className="glass-card rounded-2xl p-5">
                     <div className="mb-4">
                         <h2 className="text-sm font-semibold">Latence API — 30 dernières minutes</h2>
-                        <p className="text-xs text-muted-foreground">Convex, Supabase, Firebase</p>
+                        <p className="text-xs text-muted-foreground">Convex, File Storage, Firebase</p>
                     </div>
                     <div className="h-[240px]">
                         <ResponsiveContainer width="100%" height="100%">
@@ -221,7 +216,7 @@ export default function SysAdminDashboardPage() {
                                         <stop offset="0%" stopColor="#f97316" stopOpacity={0.3} />
                                         <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                                     </linearGradient>
-                                    <linearGradient id="gSupabase" x1="0" y1="0" x2="0" y2="1">
+                                    <linearGradient id="gFileStorage" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
                                         <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
                                     </linearGradient>
@@ -235,7 +230,7 @@ export default function SysAdminDashboardPage() {
                                 <YAxis tick={{ fontSize: 10, fill: "hsl(215,16%,57%)" }} tickLine={false} axisLine={false} />
                                 <Tooltip content={<ChartTooltip />} />
                                 <Area type="monotone" dataKey="convex" stroke="#f97316" fill="url(#gConvex)" strokeWidth={2} name="Convex" />
-                                <Area type="monotone" dataKey="supabase" stroke="#22c55e" fill="url(#gSupabase)" strokeWidth={2} name="Supabase" />
+                                <Area type="monotone" dataKey="fileStorage" stroke="#22c55e" fill="url(#gFileStorage)" strokeWidth={2} name="File Storage" />
                                 <Area type="monotone" dataKey="firebase" stroke="#eab308" fill="url(#gFirebase)" strokeWidth={2} name="Firebase" />
                             </AreaChart>
                         </ResponsiveContainer>

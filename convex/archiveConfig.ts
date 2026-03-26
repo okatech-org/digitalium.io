@@ -624,15 +624,6 @@ export const getChangelog = query({
             .order("desc")
             .take(100);
 
-
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "CONFIG_MODIFIEE",
-            action: "archiveConfig.seedDefaultCategories",
-            entiteType: "archive_categories",
-            entiteId: "system",
-            userId: "system",
-        });
         return entries;
     },
 });

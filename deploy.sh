@@ -66,6 +66,7 @@ if [[ "$ONLY" == "all" || "$ONLY" == "--only docker" || "$2" == "docker" ]]; the
 
     log "Deploying to Cloud Run..."
     gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+        --project "${PROJECT_ID}" \
         --image "${IMAGE}" \
         --region "${REGION}" \
         --platform managed \

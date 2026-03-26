@@ -37,6 +37,7 @@ import type * as hippocampe from "../hippocampe.js";
 import type * as http from "../http.js";
 import type * as iasted from "../iasted.js";
 import type * as leads from "../leads.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as lib_certificateNumber from "../lib/certificateNumber.js";
 import type * as lib_helpers from "../lib/helpers.js";
 import type * as lib_types from "../lib/types.js";
@@ -62,6 +63,7 @@ import type * as sensoriel from "../sensoriel.js";
 import type * as signatureWorkflows from "../signatureWorkflows.js";
 import type * as signatures from "../signatures.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as userPreferences from "../userPreferences.js";
 import type * as users from "../users.js";
 import type * as visuel from "../visuel.js";
 
@@ -101,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   iasted: typeof iasted;
   leads: typeof leads;
+  "lib/auth": typeof lib_auth;
   "lib/certificateNumber": typeof lib_certificateNumber;
   "lib/helpers": typeof lib_helpers;
   "lib/types": typeof lib_types;
@@ -126,6 +129,7 @@ declare const fullApi: ApiFromModules<{
   signatureWorkflows: typeof signatureWorkflows;
   signatures: typeof signatures;
   subscriptions: typeof subscriptions;
+  userPreferences: typeof userPreferences;
   users: typeof users;
   visuel: typeof visuel;
 }>;
