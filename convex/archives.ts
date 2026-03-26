@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { generateArchiveCertNumber, generateDestructionCertNumber } from "./lib/certificateNumber";
 
 // ═══════════════════════════════════════════════
@@ -358,6 +359,15 @@ export const getCertificateByNumber = query({
         }
 
         // 3. Not found
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "ARCHIVE_CREEE",
+            action: "archives.createArchiveEntry",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return null;
     },
 });
@@ -427,6 +437,15 @@ export const getExpiringArchives = query({
             archives = await ctx.db.query("archives").collect();
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "ARCHIVE_MODIFIEE",
+            action: "archives.verifyIntegrity",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return archives.filter(
             (a) =>
                 a.status === "active" &&
@@ -644,6 +663,15 @@ export const createCertificate = mutation({
         // Link certificate back to archive
         await ctx.db.patch(args.archiveId, { certificateId: certId });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "ARCHIVE_CREEE",
+            action: "archives.createCertificate",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return { certId, certificateNumber };
     },
 });
@@ -781,6 +809,15 @@ export const requestDestruction = mutation({
 export const getDestructionCertificate = query({
     args: { archiveId: v.id("archives") },
     handler: async (ctx, args) => {
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "ARCHIVE_MODIFIEE",
+            action: "archives.requestDestruction",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.db
             .query("destruction_certificates")
             .withIndex("by_archiveId", (q) => q.eq("archiveId", args.archiveId))
@@ -840,6 +877,15 @@ export const applyLegalHold = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "ARCHIVE_MODIFIEE",
+            action: "archives.applyLegalHold",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return { previousStatus };
     },
 });
@@ -905,6 +951,15 @@ export const listOnHold = query({
             )
             .collect();
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "ARCHIVE_MODIFIEE",
+            action: "archives.releaseLegalHold",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return all.filter((a) => a.status === "on_hold");
     },
 });

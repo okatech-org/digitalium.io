@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
@@ -185,6 +186,15 @@ export const propagateRetentionChange = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "configPropagation.propagateRetentionChange",
+            entiteType: "configSysteme",
+            entiteId: "system",
+            userId: "system",
+        });
         return { updatedArchives, updatedFolders };
     },
 });
@@ -267,6 +277,15 @@ export const propagateAccessChange = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "configPropagation.propagateAccessChange",
+            entiteType: "configSysteme",
+            entiteId: "system",
+            userId: "system",
+        });
         return { updatedFolders };
     },
 });
@@ -394,6 +413,15 @@ export const propagateFolderConfigChange = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "configPropagation.propagateFolderConfigChange",
+            entiteType: "configSysteme",
+            entiteId: "system",
+            userId: "system",
+        });
         return { updatedFolders, updatedDocuments };
     },
 });

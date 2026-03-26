@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Filing Structures (v2)
@@ -105,6 +106,15 @@ export const setActive = mutation({
         }
 
         await ctx.db.patch(args.id, { estActif: true, updatedAt: now });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "filingStructures.setActive",
+            entiteType: "filing_structures",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });

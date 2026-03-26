@@ -25,6 +25,11 @@ import type { FileManagerFolder, FileManagerFile, DragMoveEvent } from "./types"
 
 /* ─── Animation variants ────────────────── */
 
+const stagger = {
+    hidden: {},
+    visible: { transition: { staggerChildren: 0.04 } },
+};
+
 const fadeUp = {
     hidden: { opacity: 0, y: 16 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
@@ -209,7 +214,12 @@ export default function FinderGridView({
         >
             {/* Folders */}
             {hasFolders && (
-                <div className={gridCols}>
+                <motion.div
+                    className={gridCols}
+                    variants={stagger}
+                    initial="hidden"
+                    animate="visible"
+                >
                     {folders.map((folder) => (
                         <DraggableFolderCard
                             key={folder.id}
@@ -227,7 +237,7 @@ export default function FinderGridView({
                             )}
                         </DraggableFolderCard>
                     ))}
-                </div>
+                </motion.div>
             )}
 
             {/* Files */}
@@ -238,7 +248,12 @@ export default function FinderGridView({
                             Fichiers
                         </p>
                     )}
-                    <div className={gridCols}>
+                    <motion.div
+                        className={gridCols}
+                        variants={stagger}
+                        initial="hidden"
+                        animate="visible"
+                    >
                         {files.map((file) => (
                             <DraggableFileCard key={file.id} file={file}>
                                 <motion.div variants={fadeUp}>
@@ -246,7 +261,7 @@ export default function FinderGridView({
                                 </motion.div>
                             </DraggableFileCard>
                         ))}
-                    </div>
+                    </motion.div>
                 </>
             )}
 

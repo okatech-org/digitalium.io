@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ─── Default lifecycle values by category slug ──
 
@@ -91,6 +92,15 @@ export const migrateCategories = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "fixLifecycleData.migrateCategories",
+            entiteType: "fixLifecycleData",
+            entiteId: "system",
+            userId: "system",
+        });
         return { patched, total: categories.length };
     },
 });
@@ -139,6 +149,15 @@ export const migrateArchives = mutation({
             patched++;
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "fixLifecycleData.migrateArchives",
+            entiteType: "fixLifecycleData",
+            entiteId: "system",
+            userId: "system",
+        });
         return { patched, total: archives.length };
     },
 });

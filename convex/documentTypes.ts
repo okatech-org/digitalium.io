@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // ─── Queries ─────────────────────────────────────
@@ -181,6 +182,15 @@ export const seedDefaults = mutation({
             });
             ids.push(id);
         }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "documentTypes.seedDefaults",
+            entiteType: "document_types",
+            entiteId: "system",
+            userId: "system",
+        });
         return ids;
     },
 });

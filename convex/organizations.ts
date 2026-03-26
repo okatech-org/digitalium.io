@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { SIGNAL_TYPES } from "./lib/types";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Organizations
@@ -242,6 +244,17 @@ export const create = mutation({
             joinedAt: now,
         });
 
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_CREEE,
+            action: "organizations.create",
+            entiteType: "organizations",
+            entiteId: String(orgId),
+            userId: args.ownerId,
+            nom: args.name,
+            description: `Organisation créée: ${args.name}`,
+        });
+
         return orgId;
     },
 });
@@ -261,6 +274,17 @@ export const updateStatus = mutation({
         await ctx.db.patch(args.id, {
             status: args.status,
             updatedAt: Date.now(),
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_STATUT_CHANGE,
+            action: "organizations.updateStatus",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: existing.name,
+            description: `Statut: ${existing.status} → ${args.status}`,
         });
 
         return args.id;
@@ -299,6 +323,16 @@ export const update = mutation({
         await ctx.db.patch(id, {
             ...clean,
             updatedAt: Date.now(),
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_MODIFIEE,
+            action: "organizations.update",
+            entiteType: "organizations",
+            entiteId: String(id),
+            userId: "admin",
+            nom: existing.name,
         });
 
         return id;
@@ -428,6 +462,17 @@ export const createDraft = mutation({
             joinedAt: now,
         });
 
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_CREEE,
+            action: "organizations.createDraft",
+            entiteType: "organizations",
+            entiteId: String(orgId),
+            userId: args.ownerId,
+            nom: args.name,
+            description: `Brouillon créé: ${args.name}`,
+        });
+
         return orgId;
     },
 });
@@ -544,6 +589,17 @@ export const markAsReady = mutation({
             updatedAt: Date.now(),
         });
 
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_STATUT_CHANGE,
+            action: "organizations.markAsReady",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
+            description: `Organisation prête: ${org.name}`,
+        });
+
         return args.id;
     },
 });
@@ -566,6 +622,17 @@ export const activate = mutation({
         await ctx.db.patch(args.id, {
             status: "active",
             updatedAt: now,
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_STATUT_CHANGE,
+            action: "organizations.activate",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
+            description: `Organisation activée: ${org.name}`,
         });
 
         // ── Phase 14: Seed defaults on first activation ──
@@ -685,6 +752,17 @@ export const suspend = mutation({
             updatedAt: Date.now(),
         });
 
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_STATUT_CHANGE,
+            action: "organizations.suspend",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
+            description: `Organisation suspendue: ${org.name}`,
+        });
+
         return args.id;
     },
 });
@@ -718,6 +796,17 @@ export const startTrial = mutation({
             updatedAt: now,
         });
 
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_STATUT_CHANGE,
+            action: "organizations.startTrial",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
+            description: `Essai démarré (${days}j): ${org.name}`,
+        });
+
         return args.id;
     },
 });
@@ -734,6 +823,17 @@ export const terminate = mutation({
         await ctx.db.patch(args.id, {
             status: "resiliee",
             updatedAt: Date.now(),
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.ORGANISATION_STATUT_CHANGE,
+            action: "organizations.terminate",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
+            description: `Organisation résiliée: ${org.name}`,
         });
 
         return args.id;
@@ -762,6 +862,16 @@ export const updateConfig = mutation({
             updatedAt: Date.now(),
         });
 
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.CONFIG_MODIFIEE,
+            action: "organizations.updateConfig",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
+        });
+
         return args.id;
     },
 });
@@ -787,6 +897,16 @@ export const updateHosting = mutation({
             hosting: args.hosting,
             subdomain: args.hosting.domain || undefined,
             updatedAt: Date.now(),
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.CONFIG_MODIFIEE,
+            action: "organizations.updateHosting",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
         });
 
         return args.id;
@@ -898,6 +1018,16 @@ export const updatePublicPageConfig = mutation({
         await ctx.db.patch(args.id, {
             publicPageConfig: mergedConfig,
             updatedAt: Date.now(),
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: SIGNAL_TYPES.CONFIG_MODIFIEE,
+            action: "organizations.updatePublicPageConfig",
+            entiteType: "organizations",
+            entiteId: String(args.id),
+            userId: "admin",
+            nom: org.name,
         });
 
         return args.id;

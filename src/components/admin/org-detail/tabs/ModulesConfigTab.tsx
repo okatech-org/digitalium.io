@@ -66,11 +66,6 @@ interface IDocumentConfig {
     allowedFormats: string[];
 }
 
-interface IArchiveConfig {
-    retentionPeriod: string;
-    archivageAutomatique: boolean;
-    notificationsExpiration: boolean;
-}
 
 interface ISignatureConfig {
     maxSignataires: number;
@@ -163,13 +158,7 @@ function getDefaultDocumentConfig(existing?: any): IDocumentConfig {
     };
 }
 
-function getDefaultArchiveConfig(existing?: any): IArchiveConfig {
-    return {
-        retentionPeriod: existing?.retentionPeriod ?? "10",
-        archivageAutomatique: existing?.archivageAutomatique ?? true,
-        notificationsExpiration: existing?.notificationsExpiration ?? true,
-    };
-}
+
 
 function getDefaultSignatureConfig(existing?: any): ISignatureConfig {
     return {
@@ -857,85 +846,6 @@ function IDocumentPanel({
     );
 }
 
-function IArchivePanel({
-    config,
-    onSave,
-}: {
-    config: IArchiveConfig;
-    onSave: (cfg: IArchiveConfig) => Promise<void>;
-}) {
-    const [local, setLocal] = useState<IArchiveConfig>(config);
-    const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        setLocal(config);
-    }, [config]);
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            await onSave(local);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <div className="space-y-4">
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
-                <h3 className="text-sm font-semibold text-white/70 mb-4">
-                    Configuration iArchive
-                </h3>
-                <div className="space-y-3">
-                    <div className="py-3 px-4 rounded-lg bg-white/[0.02] border border-white/5">
-                        <Label className="text-sm font-medium text-white/80">
-                            Duree de retention OHADA
-                        </Label>
-                        <p className="text-xs text-white/40 mt-0.5 mb-2">
-                            Periode de conservation legale des documents archives
-                        </p>
-                        <Select
-                            value={local.retentionPeriod}
-                            onValueChange={(val) =>
-                                setLocal((prev) => ({ ...prev, retentionPeriod: val }))
-                            }
-                        >
-                            <SelectTrigger className="w-48 bg-white/[0.04] border-white/10 text-white/90">
-                                <SelectValue placeholder="Choisir une duree" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="5">5 ans</SelectItem>
-                                <SelectItem value="10">10 ans (recommande)</SelectItem>
-                                <SelectItem value="30">30 ans</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <ToggleRow
-                        label="Archivage automatique"
-                        description="Archiver automatiquement les documents a leur date d'echeance"
-                        checked={local.archivageAutomatique}
-                        onCheckedChange={(val) =>
-                            setLocal((prev) => ({ ...prev, archivageAutomatique: val }))
-                        }
-                    />
-                    <ToggleRow
-                        label="Notifications avant expiration"
-                        description="Envoyer des alertes avant l'expiration de la periode de retention"
-                        checked={local.notificationsExpiration}
-                        onCheckedChange={(val) =>
-                            setLocal((prev) => ({
-                                ...prev,
-                                notificationsExpiration: val,
-                            }))
-                        }
-                    />
-                </div>
-            </div>
-            <SaveButton onClick={handleSave} saving={saving} />
-        </div>
-    );
-}
 
 function ISignaturePanel({
     config,
@@ -1026,16 +936,13 @@ export default function ModulesConfigTab({
     const [documentConfig, setDocumentConfig] = useState<IDocumentConfig>(
         getDefaultDocumentConfig(config?.iDocument)
     );
-    const [archiveConfig, setArchiveConfig] = useState<IArchiveConfig>(
-        getDefaultArchiveConfig(config?.iArchive)
-    );
     const [signatureConfig, setSignatureConfig] = useState<ISignatureConfig>(
         getDefaultSignatureConfig(config?.iSignature)
     );
 
     useEffect(() => {
         setDocumentConfig(getDefaultDocumentConfig(config?.iDocument));
-        setArchiveConfig(getDefaultArchiveConfig(config?.iArchive));
+        // archiveConfig is managed by IArchiveConfigPanel directly
         setSignatureConfig(getDefaultSignatureConfig(config?.iSignature));
     }, [config]);
 
@@ -1061,12 +968,7 @@ export default function ModulesConfigTab({
         });
     };
 
-    const handleSaveArchive = async (cfg: IArchiveConfig) => {
-        await onSaveConfig({
-            ...config,
-            iArchive: cfg,
-        });
-    };
+    // iArchive config is managed directly by IArchiveConfigPanel via archiveConfig.saveConfig
 
     const handleSaveSignature = async (cfg: ISignatureConfig) => {
         await onSaveConfig({

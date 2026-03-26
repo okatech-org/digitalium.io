@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Cell Access Overrides (v2)
@@ -148,6 +149,15 @@ export const removeOverride = mutation({
 
         // Soft delete
         await ctx.db.patch(args.id, { estActif: false, updatedAt: Date.now() });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "cellAccessOverrides.removeOverride",
+            entiteType: "cell_access_overrides",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });

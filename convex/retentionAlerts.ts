@@ -5,6 +5,7 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ─── Alert type & unit validators ─────────────
 
@@ -162,6 +163,15 @@ export const seedDefaults = mutation({
             count++;
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "retentionAlerts.seedDefaults",
+            entiteType: "retention_alerts",
+            entiteId: "system",
+            userId: "system",
+        });
         return { count };
     },
 });
@@ -183,6 +193,15 @@ export const removeAllForCategory = mutation({
             await ctx.db.delete(alert._id);
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "retentionAlerts.removeAllForCategory",
+            entiteType: "retention_alerts",
+            entiteId: "system",
+            userId: "system",
+        });
         return { deleted: alerts.length };
     },
 });

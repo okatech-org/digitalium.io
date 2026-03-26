@@ -10,6 +10,7 @@ import React, { useState, useMemo, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api";
+import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -105,6 +106,7 @@ const STEPS = [
 
 function NewOrganizationWizardInner() {
   const router = useRouter();
+  const { user } = useAuth();
   const createOrg = useMutation(api.organizations.createDraft);
   const createSite = useMutation(api.orgSites.create);
 
@@ -145,7 +147,7 @@ function NewOrganizationWizardInner() {
         name: data.nom,
         type: data.type,
         sector: data.secteur || undefined,
-        ownerId: "admin_placeholder", // TODO: wire to real auth
+        ownerId: user?.uid ?? "system",
         rccm: data.rccm || undefined,
         nif: data.nif || undefined,
         contact: data.contact || undefined,

@@ -47,18 +47,18 @@ interface NewSiteForm {
 }
 
 const SITE_TYPE_OPTIONS: { value: SiteType; label: string }[] = [
-    { value: "siege", label: "Siege" },
+    { value: "siege", label: "Siège" },
     { value: "filiale", label: "Filiale" },
     { value: "agence", label: "Agence" },
-    { value: "bureau_regional", label: "Bureau regional" },
+    { value: "bureau_regional", label: "Bureau régional" },
     { value: "antenne", label: "Antenne" },
 ];
 
 const SITE_TYPE_LABELS: Record<SiteType, string> = {
-    siege: "Siege",
+    siege: "Siège",
     filiale: "Filiale",
     agence: "Agence",
-    bureau_regional: "Bureau regional",
+    bureau_regional: "Bureau régional",
     antenne: "Antenne",
 };
 
@@ -138,7 +138,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                 rccm: identity.rccm || undefined,
                 nif: identity.nif || undefined,
             });
-            toast.success("Identite mise a jour");
+            toast.success("Identité mise à jour");
             onFieldSaved?.();
         } catch (err) {
             toast.error(
@@ -163,7 +163,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                 ville: coords.ville || undefined,
                 pays: coords.pays || undefined,
             });
-            toast.success("Coordonnees mises a jour");
+            toast.success("Coordonnées mises à jour");
             onFieldSaved?.();
         } catch (err) {
             toast.error(
@@ -188,12 +188,12 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                 pays: siteForm.pays || "Gabon",
                 estSiege: siteForm.type === "siege",
             });
-            toast.success("Site cree avec succes");
+            toast.success("Site créé avec succès");
             setSiteForm({ ...EMPTY_SITE_FORM });
             setShowSiteForm(false);
         } catch (err) {
             toast.error(
-                `Erreur : ${err instanceof Error ? err.message : "Impossible de creer le site"}`
+                `Erreur : ${err instanceof Error ? err.message : "Impossible de créer le site"}`
             );
         } finally {
             setCreatingSite(false);
@@ -226,7 +226,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                 ville: editSiteForm.ville,
                 pays: editSiteForm.pays,
             });
-            toast.success("Site mis a jour");
+            toast.success("Site mis à jour");
             setEditingSiteId(null);
         } catch (err) {
             toast.error(
@@ -242,7 +242,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
         async (siteId: string) => {
             try {
                 await removeSite({ id: siteId as never });
-                toast.success("Site supprime");
+                toast.success("Site supprimé");
                 setDeletingSiteId(null);
             } catch (err) {
                 toast.error(
@@ -258,10 +258,10 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
         async (siteId: string) => {
             try {
                 await setSiege({ id: siteId as never });
-                toast.success("Siege mis a jour");
+                toast.success("Siège mis à jour");
             } catch (err) {
                 toast.error(
-                    `Erreur : ${err instanceof Error ? err.message : "Impossible de definir le siege"}`
+                    `Erreur : ${err instanceof Error ? err.message : "Impossible de définir le siège"}`
                 );
             }
         },
@@ -279,7 +279,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-violet-400" />
-                            Identite
+                            Identité
                             <InfoButton {...HELP_PROFIL.identite} />
                         </h3>
                         <Button
@@ -336,7 +336,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                             onChange={(e) =>
                                 setIdentity((prev) => ({ ...prev, sector: e.target.value }))
                             }
-                            placeholder="Secteur d'activite"
+                            placeholder="Secteur d'activité"
                             className="bg-white/[0.03] border-white/5 text-xs h-9"
                         />
                     </div>
@@ -351,7 +351,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                             onChange={(e) =>
                                 setIdentity((prev) => ({ ...prev, rccm: e.target.value }))
                             }
-                            placeholder="Numero RCCM"
+                            placeholder="Numéro RCCM"
                             className="bg-white/[0.03] border-white/5 text-xs h-9"
                         />
                     </div>
@@ -366,7 +366,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                             onChange={(e) =>
                                 setIdentity((prev) => ({ ...prev, nif: e.target.value }))
                             }
-                            placeholder="Numero d'identification fiscale"
+                            placeholder="Numéro d'identification fiscale"
                             className="bg-white/[0.03] border-white/5 text-xs h-9"
                         />
                     </div>
@@ -377,7 +377,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-violet-400" />
-                            Coordonnees
+                            Coordonnées
                             <InfoButton {...HELP_PROFIL.coordonnees} />
                         </h3>
                         <Button
@@ -428,11 +428,11 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                         />
                     </div>
 
-                    {/* Telephone */}
+                    {/* Téléphone */}
                     <div>
                         <label className="text-[10px] text-muted-foreground mb-1 block">
                             <Phone className="h-3 w-3 inline mr-1" />
-                            Telephone *
+                            Téléphone *
                         </label>
                         <Input
                             value={coords.telephone}
@@ -454,7 +454,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                             onChange={(e) =>
                                 setCoords((prev) => ({ ...prev, adresse: e.target.value }))
                             }
-                            placeholder="Adresse du siege social"
+                            placeholder="Adresse du siège social"
                             className="bg-white/[0.03] border-white/5 text-xs h-9"
                         />
                     </div>
@@ -649,10 +649,10 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                     <div className="text-center py-8">
                         <MapPin className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                         <p className="text-xs text-muted-foreground">
-                            Aucun site enregistre
+                            Aucun site enregistré
                         </p>
                         <p className="text-[10px] text-muted-foreground/60 mt-1">
-                            Ajoutez le siege et les sites secondaires de cette organisation.
+                            Ajoutez le siège et les sites secondaires de cette organisation.
                         </p>
                     </div>
                 )}
@@ -794,7 +794,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                                                     variant="secondary"
                                                     className="text-[9px] bg-violet-500/15 text-violet-400 border-0 gap-1 shrink-0"
                                                 >
-                                                    <Star className="h-2.5 w-2.5" /> Siege
+                                                    <Star className="h-2.5 w-2.5" /> Siège
                                                 </Badge>
                                             )}
                                         </div>
@@ -805,7 +805,7 @@ export default function ProfilTab({ org, onFieldSaved }: ProfilTabProps) {
                                                     variant="ghost"
                                                     onClick={() => handleSetSiege(site._id)}
                                                     className="h-6 px-2 text-[9px] text-muted-foreground hover:text-violet-400"
-                                                    title="Definir comme siege"
+                                                    title="Définir comme siège"
                                                 >
                                                     <Star className="h-3 w-3" />
                                                 </Button>

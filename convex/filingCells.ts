@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
 // ═══════════════════════════════════════════════
@@ -106,6 +107,7 @@ export const create = mutation({
         couleur: v.optional(v.string()),
         tags: v.optional(v.array(v.string())),
         ordre: v.optional(v.number()),
+        retentionCategoryId: v.optional(v.id("archive_categories")),
     },
     handler: async (ctx, args) => {
         const now = Date.now();
@@ -172,6 +174,7 @@ export const create = mutation({
             couleur: args.couleur,
             tags: args.tags ?? [],
             ordre,
+            retentionCategoryId: args.retentionCategoryId,
             estActif: true,
             createdAt: now,
             updatedAt: now,
@@ -238,6 +241,15 @@ export const create = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "filingCells.update",
+            entiteType: "filing_cells",
+            entiteId: "system",
+            userId: "system",
+        });
         return cellId;
     },
 });
@@ -254,6 +266,7 @@ export const update = mutation({
         couleur: v.optional(v.string()),
         tags: v.optional(v.array(v.string())),
         ordre: v.optional(v.number()),
+        retentionCategoryId: v.optional(v.id("archive_categories")),
         estActif: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
@@ -307,6 +320,15 @@ export const update = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "filingCells.remove",
+            entiteType: "filing_cells",
+            entiteId: "system",
+            userId: "system",
+        });
         return id;
     },
 });
@@ -376,6 +398,7 @@ export const bulkCreate = mutation({
                 couleur: v.optional(v.string()),
                 tags: v.optional(v.array(v.string())),
                 ordre: v.number(),
+                retentionCategoryId: v.optional(v.string()),
             })
         ),
     },
@@ -442,6 +465,9 @@ export const bulkCreate = mutation({
                 couleur: cell.couleur,
                 tags: cell.tags ?? [],
                 ordre: cell.ordre,
+                retentionCategoryId: cell.retentionCategoryId
+                    ? (cell.retentionCategoryId as Id<"archive_categories">)
+                    : undefined,
                 estActif: true,
                 createdAt: now,
                 updatedAt: now,
@@ -501,6 +527,15 @@ export const bulkCreate = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "filingCells.bulkCreate",
+            entiteType: "filing_cells",
+            entiteId: "system",
+            userId: "system",
+        });
         return { created: tempIdMap.size };
     },
 });
@@ -583,6 +618,15 @@ export const syncFoldersFromCells = mutation({
             synced++;
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "filingCells.syncFoldersFromCells",
+            entiteType: "filing_cells",
+            entiteId: "system",
+            userId: "system",
+        });
         return { synced, total: cells.length };
     },
 });

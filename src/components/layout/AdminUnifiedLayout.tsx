@@ -779,7 +779,11 @@ export default function AdminUnifiedLayout({
 
                             {/* Page Info */}
                             {(() => {
-                                const segment = pathname === "/admin" ? "dashboard" : pathname.replace("/admin/", "");
+                                let segment = pathname === "/admin" ? "dashboard" : pathname.replace("/admin/", "");
+                                // Map dynamic org detail routes to the static page-info key
+                                if (/^organizations\/(?!new$)[^/]+$/.test(segment)) {
+                                    segment = "organizations/detail";
+                                }
                                 const info = ADMIN_PAGE_INFO[segment];
                                 return info ? <><PageArchitectButton info={info} accentColor={theme.pageInfoAccent} /><PageInfoButton info={info} accentColor={theme.pageInfoAccent} /></> : null;
                             })()}

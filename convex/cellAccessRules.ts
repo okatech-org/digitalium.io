@@ -6,6 +6,7 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id, Doc } from "./_generated/dataModel";
 import { generateDemoEmail } from "./demoAccounts";
 
@@ -197,6 +198,15 @@ export const bulkSet = mutation({
             count++;
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "cellAccessRules.bulkSet",
+            entiteType: "cell_access_rules",
+            entiteId: "system",
+            userId: "system",
+        });
         return { count };
     },
 });
@@ -252,6 +262,15 @@ export const bulkUpsert = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "cellAccessRules.bulkUpsert",
+            entiteType: "cell_access_rules",
+            entiteId: "system",
+            userId: "system",
+        });
         return { upserted: args.upserts.length, removed: args.removals.length };
     },
 });

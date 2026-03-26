@@ -26,6 +26,10 @@ import {
     TrendingUp,
     ChevronRight,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
 
 // ─── Types ──────────────────────────────────────
 
@@ -73,14 +77,6 @@ function getAIResponse(input: string): string {
     return `Je comprends votre demande.\n\n🔄 Cette fonctionnalité sera connectée à l'IA prochainement. Essayez :\n• « document » · « archive » · « signature »\n• « conformité » · « statistiques » · « résumé »`;
 }
 
-// ─── Mock Conversations ─────────────────────────
-
-const MOCK_CONVERSATIONS: Conversation[] = [
-    { id: "c1", title: "Archives fiscales 2025", lastMessage: "12 certificats expirent bientôt", timestamp: Date.now() - 2 * 3600 * 1000, messageCount: 8 },
-    { id: "c2", title: "Conformité OHADA", lastMessage: "Score actuel : 87/100", timestamp: Date.now() - 24 * 3600 * 1000, messageCount: 5 },
-    { id: "c3", title: "Signatures en retard", lastMessage: "4 signatures en attente", timestamp: Date.now() - 3 * 24 * 3600 * 1000, messageCount: 12 },
-];
-
 // ─── Quick Actions ──────────────────────────────
 
 const QUICK_ACTIONS = [
@@ -95,23 +91,57 @@ const QUICK_ACTIONS = [
 // ─── Component ─────────────────────────────────
 
 export default function IAstedPage() {
-    const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
+    const { user } = useAuth();
+    const { orgId } = useOrganization();
+
+    const conversationsQuery = useQuery(api.iasted.listConversations, 
+        // @ts-expect-error
+        user ? { userId: user.uid, organizationId: orgId as any } : "skip"
+    );
+
     const [activeConv, setActiveConv] = useState<string | null>(null);
+    const activeData = useQuery(api.iasted.getConversation, 
+        // @ts-expect-error
+        activeConv ? { id: activeConv as any } : "skip"
+    );
+
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const [showSidebar] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const addMessageMutation = useMutation(api.iasted.addMessage);
+
+    const rawConversations = conversationsQuery || [];
+    const conversations: Conversation[] = rawConversations.map((c: any) => ({
+        id: c._id,
+        title: c.title || "Nouvelle conversation",
+        lastMessage: c.messages[c.messages.length - 1]?.content || "",
+        timestamp: c.updatedAt || c.createdAt,
+        messageCount: c.messages.length,
+    }));
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    }, [messages, isTyping]);
+
+    // sync active messages
+    useEffect(() => {
+        if (activeData) {
+            setMessages(activeData.messages.map((m: any, i: number) => ({
+                id: `${m.timestamp}-${i}`,
+                role: m.role,
+                content: m.content,
+                timestamp: m.timestamp
+            })));
+        }
+    }, [activeData]);
 
     const startNewConversation = (initialMessage?: string) => {
-        const convId = `conv-${Date.now()}`;
-        setActiveConv(convId);
+        setActiveConv(null);
         const welcomeMsg: ChatMessage = {
-            id: `msg-welcome-${convId}`,
+            id: "msg-welcome-new",
             role: "assistant",
             content: "Bonjour ! 👋 Comment puis-je vous aider ?",
             timestamp: Date.now(),
@@ -124,7 +154,7 @@ export default function IAstedPage() {
     };
 
     const sendMessage = async (text: string) => {
-        if (!text.trim()) return;
+        if (!text.trim() || !user) return;
 
         const userMsg: ChatMessage = {
             id: `msg-${Date.now()}`,
@@ -136,33 +166,35 @@ export default function IAstedPage() {
         setInput("");
         setIsTyping(true);
 
+        const title = text.slice(0, 40);
+        // @ts-expect-error
+        const newConvId = await addMessageMutation({
+            id: activeConv ? (activeConv as any) : undefined,
+            userId: user.uid,
+            organizationId: orgId as any,
+            role: "user",
+            content: text,
+            title: !activeConv ? title : undefined
+        });
+
+        if (!activeConv) {
+            setActiveConv(newConvId);
+        }
+
         await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
 
-        const aiMsg: ChatMessage = {
-            id: `msg-${Date.now()}-ai`,
-            role: "assistant",
-            content: getAIResponse(text),
-            timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
-        setIsTyping(false);
+        const aiResponse = getAIResponse(text);
 
-        // Update conversation list
-        if (activeConv) {
-            const existing = conversations.find((c) => c.id === activeConv);
-            if (!existing) {
-                setConversations((prev) => [
-                    {
-                        id: activeConv,
-                        title: text.slice(0, 40),
-                        lastMessage: aiMsg.content.slice(0, 60),
-                        timestamp: Date.now(),
-                        messageCount: 2,
-                    },
-                    ...prev,
-                ]);
-            }
-        }
+        // @ts-expect-error
+        await addMessageMutation({
+            id: newConvId as any,
+            userId: user.uid,
+            organizationId: orgId as any,
+            role: "assistant",
+            content: aiResponse,
+        });
+
+        setIsTyping(false);
     };
 
     const formatContent = (text: string) => {
@@ -216,12 +248,7 @@ export default function IAstedPage() {
                         {conversations.map((conv) => (
                             <button
                                 key={conv.id}
-                                onClick={() => {
-                                    setActiveConv(conv.id);
-                                    setMessages([
-                                        { id: "loaded", role: "assistant", content: conv.lastMessage, timestamp: conv.timestamp },
-                                    ]);
-                                }}
+                                onClick={() => setActiveConv(conv.id)}
                                 className={`w-full text-left p-2.5 rounded-lg transition-all ${
                                     activeConv === conv.id
                                         ? "bg-violet-500/10 border border-violet-500/20"

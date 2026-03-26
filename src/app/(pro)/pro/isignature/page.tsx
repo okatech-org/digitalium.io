@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo, useCallback } from "react";
-import Link from "next/link";
+
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import { useAuth } from "@/hooks/useAuth";
 import {
     PenTool,
     Plus,
@@ -45,7 +48,6 @@ import type {
     ViewMode,
     FileManagerFolder,
     FileManagerFile,
-    DragMoveEvent,
     ListColumn,
 } from "@/components/modules/file-manager";
 
@@ -108,134 +110,7 @@ interface SignatureRequest {
 
 // ─── Mock data ──────────────────────────────────────────────────
 
-const INITIAL_REQUESTS: SignatureRequest[] = [
-    // À signer
-    {
-        id: "sig-1",
-        title: "Contrat prestation SOGARA — Q2 2026",
-        requester: { name: "Daniel Nguema", avatar: "DN" },
-        requestedAt: Date.now() - 2 * 3600 * 1000,
-        deadline: Date.now() + 3 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "pending" },
-            { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", status: "signed" },
-        ],
-        status: "in_progress",
-        folderId: "to_sign",
-    },
-    {
-        id: "sig-2",
-        title: "Avenant bail Immeuble Triomphal 2026",
-        requester: { name: "Marie Obame", avatar: "MO" },
-        requestedAt: Date.now() - 24 * 3600 * 1000,
-        deadline: Date.now() + 7 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "pending" },
-        ],
-        status: "pending",
-        folderId: "to_sign",
-    },
-    {
-        id: "sig-3",
-        title: "Procuration générale — Mission Afrique du Sud",
-        requester: { name: "Aimée Gondjout", avatar: "AG" },
-        requestedAt: Date.now() - 3 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "pending" },
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "pending" },
-        ],
-        status: "pending",
-        folderId: "to_sign",
-    },
-    // Brouillon
-    {
-        id: "sig-draft-1",
-        title: "Protocole d'accord — Extension bureaux",
-        requester: { name: "Ornella Doumba", avatar: "OD" },
-        requestedAt: Date.now() - 12 * 3600 * 1000,
-        signers: [
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "pending" },
-        ],
-        status: "draft",
-        folderId: "drafts",
-    },
-    // En attente (envoyées)
-    {
-        id: "sig-4",
-        title: "NDA — Partenariat COMILOG",
-        requester: { name: "Ornella Doumba", avatar: "OD" },
-        requestedAt: Date.now() - 4 * 3600 * 1000,
-        deadline: Date.now() + 5 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "signed" },
-            { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", status: "pending" },
-        ],
-        status: "in_progress",
-        folderId: "sent",
-    },
-    {
-        id: "sig-5",
-        title: "Attestation de conformité — Audit 2025",
-        requester: { name: "Ornella Doumba", avatar: "OD" },
-        requestedAt: Date.now() - 2 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Marie Obame", email: "m.obame@digitalium.io", status: "pending" },
-            { name: "Aimée Gondjout", email: "a.gondjout@digitalium.io", status: "pending" },
-        ],
-        status: "pending",
-        folderId: "sent",
-    },
-    // Signés
-    {
-        id: "sig-6",
-        title: "Contrat CDI — Recrutement IT Senior",
-        requester: { name: "Daniel Nguema", avatar: "DN" },
-        requestedAt: Date.now() - 10 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "signed" },
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "signed" },
-        ],
-        status: "completed",
-        folderId: "completed",
-    },
-    {
-        id: "sig-7",
-        title: "Convention de stage — 2026-S1",
-        requester: { name: "Marie Obame", avatar: "MO" },
-        requestedAt: Date.now() - 15 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "signed" },
-            { name: "Marie Obame", email: "m.obame@digitalium.io", status: "signed" },
-            { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", status: "signed" },
-        ],
-        status: "completed",
-        folderId: "completed",
-    },
-    {
-        id: "sig-8",
-        title: "Devis accepté — Infrastructure Cloud",
-        requester: { name: "Aimée Gondjout", avatar: "AG" },
-        requestedAt: Date.now() - 20 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "signed" },
-        ],
-        status: "completed",
-        folderId: "completed",
-    },
-    // Refusé
-    {
-        id: "sig-9",
-        title: "Contrat sous-traitance — IT Consulting",
-        requester: { name: "Claude Mboumba", avatar: "CM" },
-        requestedAt: Date.now() - 5 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "declined" },
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "signed" },
-        ],
-        status: "declined",
-        folderId: "declined",
-    },
-];
+
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -408,7 +283,50 @@ export default function ISignaturePage() {
     const [search, setSearch] = useState("");
     const [sortBy, setSortBy] = useState("name");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-    const [requests, setRequests] = useState<SignatureRequest[]>(INITIAL_REQUESTS);
+    
+    const { user } = useAuth();
+    const rawSignatures = useQuery(api.signatures.listByRequester, user?.email ? { requestedBy: user.email } : "skip");
+
+    const requests: SignatureRequest[] = useMemo(() => {
+        if (!rawSignatures) return [];
+        return rawSignatures.map((sig) => {
+            let folderId = "to_sign";
+            if (sig.status === "completed") {
+                folderId = "completed";
+            } else if (sig.status === "cancelled") {
+                folderId = "declined";
+            } else if (sig.requestedBy === user?.email) {
+                folderId = "sent";
+            } else if (sig.signers.some(s => s.email === user?.email && s.status === "pending")) {
+                folderId = "to_sign";
+            } else {
+                folderId = "sent"; // Default for pros not directly involved as current signers
+            }
+
+            return {
+                id: sig._id,
+                title: ((sig as Record<string, unknown>).title as string) || "Document sans titre",
+                requester: { 
+                    name: sig.requestedBy || "Inconnu", 
+                    avatar: (sig.requestedBy || "?").substring(0, 1).toUpperCase() 
+                },
+                requestedAt: sig._creationTime,
+                deadline: sig.dueDate,
+                signers: sig.signers.map(s => {
+                    const email = "email" in s ? (s as { email: string }).email : "";
+                    const sName = ((s as Record<string, unknown>).name as string) || email || "Inconnu";
+                    return {
+                        name: sName,
+                        email: email,
+                        status: s.status as SignatureRequest["signers"][0]["status"]
+                    };
+                }),
+                status: sig.status as SignatureRequest["status"],
+                folderId,
+            };
+        });
+    }, [rawSignatures, user?.email]);
+
     const [showModal, setShowModal] = useState(false);
 
     // ─── Folders (status-based, all system) ─────────────────────
@@ -486,16 +404,9 @@ export default function ISignaturePage() {
         setCurrentFolderId(folderId);
     }, []);
 
-    const handleMoveItem = useCallback((event: DragMoveEvent) => {
-        const { itemId, itemType, targetFolderId } = event;
-        // Only allow moving requests to "drafts" folder (reporter la demande)
-        if (itemType === "file" && targetFolderId === "drafts") {
-            setRequests((prev) =>
-                prev.map((r) =>
-                    r.id === itemId ? { ...r, folderId: "drafts", status: "draft" as const } : r
-                )
-            );
-        }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleMoveItem = useCallback((_event: any) => {
+        toast.info("Fonctionnalité de déplacement en cours de connexion au backend.");
     }, []);
 
     const handleSort = useCallback((column: string) => {

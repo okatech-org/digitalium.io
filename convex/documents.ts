@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 // ═══════════════════════════════════════════════
@@ -15,6 +16,15 @@ export const generateUploadUrl = mutation(async (ctx) => {
 export const getFileUrl = query({
     args: { storageId: v.id("_storage") },
     handler: async (ctx, args) => {
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.generateUploadUrl",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.storage.getUrl(args.storageId);
     },
 });
@@ -184,6 +194,15 @@ export const list = query({
 export const get = query({
     args: { id: v.id("documents") },
     handler: async (ctx, args) => {
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_CREE",
+            action: "documents.createFromImport",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return ctx.db.get(args.id);
     },
 });
@@ -280,6 +299,15 @@ export const create = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.update",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return docId;
     },
 });
@@ -381,6 +409,15 @@ export const createVersion = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_CREE",
+            action: "documents.createVersion",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return nextVersion;
     },
 });
@@ -429,6 +466,15 @@ export const restoreVersion = mutation({
             createdAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.restoreVersion",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return nextVersion;
     },
 });
@@ -444,6 +490,15 @@ export const addComment = mutation({
         selection: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_CREE",
+            action: "documents.addComment",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return ctx.db.insert("document_comments", {
             documentId: args.documentId,
             userId: args.userId,
@@ -621,6 +676,15 @@ export const listTrashed = query({
                 )
                 .collect();
         }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.archiveDocument",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return ctx.db
             .query("documents")
             .withIndex("by_status", (q) => q.eq("status", "trashed"))
@@ -769,6 +833,15 @@ export const createFromTemplate = mutation({
     },
     handler: async (ctx, args) => {
         const now = Date.now();
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_CREE",
+            action: "documents.createFromTemplate",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.db.insert("documents", {
             title: args.title,
             content: args.content,
@@ -858,6 +931,15 @@ export const batchMoveToFolder = mutation({
             }
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.batchMoveToFolder",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: "system",
+        });
         return { moved };
     },
 });

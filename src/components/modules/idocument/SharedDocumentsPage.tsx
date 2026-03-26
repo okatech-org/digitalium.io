@@ -69,7 +69,7 @@ const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } }
 
 export default function SharedDocumentsPage() {
     const router = useRouter();
-    // Current user (TODO: from auth context)
+    // NOTE: Replace hardcoded user with useAuth() hook
     const currentUserId = "Daniel Nguema";
 
     const sharedDocs = useQuery(api.documents.listSharedWith, {

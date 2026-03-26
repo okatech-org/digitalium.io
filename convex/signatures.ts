@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Signatures (iSignature)
@@ -160,6 +161,15 @@ export const create = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "SIGNATURE_SIGNEE",
+            action: "signatures.signDocument",
+            entiteType: "signatures",
+            entiteId: "system",
+            userId: "system",
+        });
         return id;
     },
 });

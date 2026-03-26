@@ -124,7 +124,6 @@ export default function InstitutionalContactForm() {
         try {
             // TODO: Save lead to Convex (leads table)
             // TODO: Send notification email via Cloud Function
-            console.log("[InstitutionalContactForm] Submitting lead:", form);
 
             // Simulate API delay
             await new Promise((r) => setTimeout(r, 1500));

@@ -15,6 +15,8 @@ import {
     Save,
     Loader2,
     Calendar,
+    CalendarDays,
+    History,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -35,6 +37,9 @@ import { toast } from "sonner";
 import type { Id } from "../../../../../../convex/_generated/dataModel";
 import LifecyclePipeline from "./LifecyclePipeline";
 import RetentionCategoryTable from "./RetentionCategoryTable";
+import RetentionCalendar from "./RetentionCalendar";
+import PolicyChangelogPanel from "./PolicyChangelogPanel";
+import ComplianceReportExport from "./ComplianceReportExport";
 
 // ─── Types ────────────────────────────────────
 
@@ -64,6 +69,8 @@ interface IArchiveFullConfig {
     // v5: Alignement année & mois fiscal
     yearAlignmentMode: string; // "jan_1_next_year" | "exact_date" | "fiscal_year_end"
     fiscalYearEndMonth: number; // 1-12
+    // v8: OCR
+    ocrEnabled: boolean;
 }
 
 interface IArchiveConfigPanelProps {
@@ -97,6 +104,7 @@ const DEFAULT_CONFIG: IArchiveFullConfig = {
     },
     yearAlignmentMode: "jan_1_next_year",
     fiscalYearEndMonth: 12,
+    ocrEnabled: false,
 };
 
 // ─── Sub-tabs meta ────────────────────────────
@@ -106,6 +114,8 @@ const SUB_TABS = [
     { key: "lifecycle", label: "Cycle de Vie", icon: Clock },
     { key: "alertes", label: "Alertes", icon: Bell },
     { key: "coffre", label: "Coffre-Fort", icon: Lock },
+    { key: "calendrier", label: "Calendrier", icon: CalendarDays },
+    { key: "historique", label: "Historique", icon: History },
 ];
 
 // ─── Toggle Row (reused pattern) ──────────────
@@ -240,7 +250,7 @@ export default function IArchiveConfigPanel({ orgId }: IArchiveConfigPanelProps)
     return (
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="bg-white/[0.03] border border-white/5 p-1 rounded-xl w-full grid grid-cols-4 gap-1">
+                <TabsList className="bg-white/[0.03] border border-white/5 p-1 rounded-xl w-full grid grid-cols-6 gap-1">
                     {SUB_TABS.map((tab) => {
                         const Icon = tab.icon;
                         return (
@@ -276,7 +286,9 @@ export default function IArchiveConfigPanel({ orgId }: IArchiveConfigPanelProps)
                                 <SelectContent>
                                     <SelectItem value="5">5 ans</SelectItem>
                                     <SelectItem value="10">10 ans (recommandé)</SelectItem>
+                                    <SelectItem value="15">15 ans</SelectItem>
                                     <SelectItem value="30">30 ans</SelectItem>
+                                    <SelectItem value="99">Perpétuel</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -287,15 +299,24 @@ export default function IArchiveConfigPanel({ orgId }: IArchiveConfigPanelProps)
                             checked={config.archivageAutomatique}
                             onCheckedChange={(val) => updateConfig("archivageAutomatique", val)}
                         />
+
+                        <ToggleRow
+                            label="OCR automatique à l'archivage"
+                            description="Extraire le texte des documents PDF et images lors de l'archivage pour la recherche plein texte"
+                            checked={config.ocrEnabled}
+                            onCheckedChange={(val) => updateConfig("ocrEnabled", val)}
+                        />
                     </div>
 
                     {/* Per-category table */}
                     <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
                         <RetentionCategoryTable
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             categories={(categories ?? []) as any[]}
                             onUpsert={handleUpsertCategory}
                             onDelete={handleDeleteCategory}
                             onSeedDefaults={handleSeedDefaults}
+                            organizationId={orgId}
                         />
                     </div>
                 </TabsContent>
@@ -734,10 +755,26 @@ export default function IArchiveConfigPanel({ orgId }: IArchiveConfigPanelProps)
                         )}
                     </div>
                 </TabsContent>
+
+                {/* ───── Calendrier ───── */}
+                <TabsContent value="calendrier" className="mt-4 space-y-4">
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        <RetentionCalendar categories={(categories ?? []) as any[]} />
+                    </div>
+                </TabsContent>
+
+                {/* ───── Historique ───── */}
+                <TabsContent value="historique" className="mt-4 space-y-4">
+                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
+                        <PolicyChangelogPanel orgId={orgId} />
+                    </div>
+                </TabsContent>
             </Tabs>
 
-            {/* Global Save Button */}
-            <div className="flex justify-end pt-2">
+            {/* Global Save + Export Buttons */}
+            <div className="flex items-center justify-between pt-2">
+                <ComplianceReportExport orgId={orgId} />
                 <Button
                     onClick={handleSave}
                     disabled={saving}

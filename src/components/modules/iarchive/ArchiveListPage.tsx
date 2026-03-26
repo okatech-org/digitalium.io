@@ -436,7 +436,7 @@ export default function ArchiveListPage() {
             await createFolderMutation({
                 name: newFolderName.trim(),
                 organizationId: convexOrgId,
-                createdBy: "admin", // TODO: from auth context
+                // NOTE: Replace hardcoded user with useAuth() hook
             });
         } catch (err) {
             console.error("Folder creation error:", err);

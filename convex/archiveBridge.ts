@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { generateArchiveCertNumber } from "./lib/certificateNumber";
 
@@ -160,6 +161,15 @@ export const archiveDocument = mutation({
         });
 
         // ── 8. Retour ──
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "archiveBridge.archiveDocument",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return {
             archiveId,
             certificateNumber,
@@ -226,6 +236,15 @@ export const archiveFolder = mutation({
             createdAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "archiveBridge.archiveFolder",
+            entiteType: "archives",
+            entiteId: "system",
+            userId: "system",
+        });
         return { documentCount: docs.length, documentIds: docs.map((d) => d._id) };
     },
 });

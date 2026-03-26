@@ -39,106 +39,10 @@ interface SignatureRequest {
     status: "pending" | "in_progress" | "completed" | "cancelled";
 }
 
-// ─── Mock data ──────────────────────────────────
-
-const MOCK_TO_SIGN: SignatureRequest[] = [
-    {
-        id: "sig-1",
-        title: "Contrat prestation SOGARA — Q2 2026",
-        requester: { name: "Daniel Nguema", avatar: "DN" },
-        requestedAt: Date.now() - 2 * 3600 * 1000,
-        deadline: Date.now() + 3 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "pending" },
-            { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", status: "signed" },
-        ],
-        status: "in_progress",
-    },
-    {
-        id: "sig-2",
-        title: "Avenant bail Immeuble Triomphal 2026",
-        requester: { name: "Marie Obame", avatar: "MO" },
-        requestedAt: Date.now() - 24 * 3600 * 1000,
-        deadline: Date.now() + 7 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "pending" },
-        ],
-        status: "pending",
-    },
-    {
-        id: "sig-3",
-        title: "Procuration générale — Mission Afrique du Sud",
-        requester: { name: "Aimée Gondjout", avatar: "AG" },
-        requestedAt: Date.now() - 3 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "pending" },
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "pending" },
-        ],
-        status: "pending",
-    },
-];
-
-const MOCK_SENT: SignatureRequest[] = [
-    {
-        id: "sig-4",
-        title: "NDA — Partenariat COMILOG",
-        requester: { name: "Ornella Doumba", avatar: "OD" },
-        requestedAt: Date.now() - 4 * 3600 * 1000,
-        deadline: Date.now() + 5 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "signed" },
-            { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", status: "pending" },
-        ],
-        status: "in_progress",
-    },
-    {
-        id: "sig-5",
-        title: "Attestation de conformité — Audit 2025",
-        requester: { name: "Ornella Doumba", avatar: "OD" },
-        requestedAt: Date.now() - 2 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Marie Obame", email: "m.obame@digitalium.io", status: "pending" },
-            { name: "Aimée Gondjout", email: "a.gondjout@digitalium.io", status: "pending" },
-        ],
-        status: "pending",
-    },
-];
-
-const MOCK_COMPLETED: SignatureRequest[] = [
-    {
-        id: "sig-6",
-        title: "Contrat CDI — Recrutement IT Senior",
-        requester: { name: "Daniel Nguema", avatar: "DN" },
-        requestedAt: Date.now() - 10 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "signed" },
-            { name: "Daniel Nguema", email: "d.nguema@digitalium.io", status: "signed" },
-        ],
-        status: "completed",
-    },
-    {
-        id: "sig-7",
-        title: "Convention de stage — 2026-S1",
-        requester: { name: "Marie Obame", avatar: "MO" },
-        requestedAt: Date.now() - 15 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "signed" },
-            { name: "Marie Obame", email: "m.obame@digitalium.io", status: "signed" },
-            { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", status: "signed" },
-        ],
-        status: "completed",
-    },
-    {
-        id: "sig-8",
-        title: "Devis accepté — Infrastructure Cloud",
-        requester: { name: "Aimée Gondjout", avatar: "AG" },
-        requestedAt: Date.now() - 20 * 24 * 3600 * 1000,
-        signers: [
-            { name: "Ornella Doumba", email: "o.doumba@digitalium.io", status: "signed" },
-        ],
-        status: "completed",
-    },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../../convex/_generated/api";
 
 // ─── Helpers ────────────────────────────────────
 
@@ -180,14 +84,48 @@ function SignerStatusIcon({ status }: { status: string }) {
 // ═════════════════════════════════════════════════
 
 export default function DigitaliumIsignaturePage() {
+    const { user } = useAuth();
+    const { orgId } = useOrganization();
     const [activeTab, setActiveTab] = useState<TabKey>("to_sign");
     const [search, setSearch] = useState("");
     const [showModal, setShowModal] = useState(false);
 
+    // Fetch live signatures for the org
+    const signaturesQuery = useQuery(api.signatures.listByOrganization, 
+        orgId ? { organizationId: orgId as any } : "skip"
+    );
+
+    // Format & categorize live data
+    const getInitials = (str: string) => str ? str.substring(0, 2).toUpperCase() : "?";
+    
+    const formattedSignatures: SignatureRequest[] = (signaturesQuery || []).map((sig: any) => ({
+        id: sig._id,
+        title: sig.title || "Demande de signature (Sans titre)",
+        requester: { name: "Demandeur", avatar: getInitials("Demandeur") }, // would need user lookup for exact name
+        requestedAt: sig.createdAt,
+        deadline: sig.dueDate,
+        signers: sig.signers.map((s: any) => ({
+            name: s.name || s.email.split("@")[0],
+            email: s.email,
+            status: s.status
+        })),
+        status: sig.status,
+    }));
+
+    const userEmail = user?.email || "";
+    
     const tabData: Record<TabKey, SignatureRequest[]> = {
-        to_sign: MOCK_TO_SIGN,
-        sent: MOCK_SENT,
-        completed: MOCK_COMPLETED,
+        to_sign: formattedSignatures.filter(s => 
+            s.status !== "completed" && 
+            s.status !== "cancelled" && 
+            s.signers.some(signer => signer.email === userEmail && signer.status === "pending")
+        ),
+        sent: formattedSignatures.filter(s => 
+            s.status !== "completed" && 
+            s.status !== "cancelled" && 
+            s.requester.name !== "" // ideally: s.requestedBy === user.id
+        ),
+        completed: formattedSignatures.filter(s => s.status === "completed"),
     };
 
     const items = tabData[activeTab].filter(
@@ -195,6 +133,8 @@ export default function DigitaliumIsignaturePage() {
             item.title.toLowerCase().includes(search.toLowerCase()) ||
             item.requester.name.toLowerCase().includes(search.toLowerCase())
     );
+
+    const isLoading = signaturesQuery === undefined;
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
@@ -233,9 +173,9 @@ export default function DigitaliumIsignaturePage() {
                 className="grid grid-cols-3 gap-3"
             >
                 {[
-                    { label: "À signer", value: MOCK_TO_SIGN.length, icon: Inbox, color: "text-amber-400" },
-                    { label: "En attente", value: MOCK_SENT.length, icon: Send, color: "text-blue-400" },
-                    { label: "Complétés", value: MOCK_COMPLETED.length, icon: CheckCircle2, color: "text-emerald-400" },
+                    { label: "À signer", value: isLoading ? "-" : tabData.to_sign.length, icon: Inbox, color: "text-amber-400" },
+                    { label: "En attente", value: isLoading ? "-" : tabData.sent.length, icon: Send, color: "text-blue-400" },
+                    { label: "Complétés", value: isLoading ? "-" : tabData.completed.length, icon: CheckCircle2, color: "text-emerald-400" },
                 ].map((stat, i) => {
                     const StatIcon = stat.icon;
                     return (
@@ -304,7 +244,13 @@ export default function DigitaliumIsignaturePage() {
             {/* ═══ LIST ═══ */}
             <div className="space-y-2">
                 <AnimatePresence mode="wait">
-                    {items.length === 0 ? (
+                    {isLoading ? (
+                        <div className="space-y-2 py-4">
+                            {[1, 2, 3].map((k) => (
+                                <div key={k} className="h-20 w-full rounded-xl bg-white/5 animate-pulse" />
+                            ))}
+                        </div>
+                    ) : items.length === 0 ? (
                         <motion.div
                             key="empty"
                             initial={{ opacity: 0 }}

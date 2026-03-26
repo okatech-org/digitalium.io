@@ -256,7 +256,6 @@ export default function RegisterPage() {
             const personaData = PERSONAS.find((p) => p.id === persona);
             if (!personaData) return;
 
-            // TODO: Save persona to Supabase/Convex
             // For now just redirect
             toast.success(`Bienvenue sur DIGITALIUM ! Persona : ${personaData.title}`);
 

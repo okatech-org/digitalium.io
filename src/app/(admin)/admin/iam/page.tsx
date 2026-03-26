@@ -24,6 +24,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -39,30 +42,13 @@ const fadeUp = {
     visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
 };
 
-/* ─── Mock data ──────────────────────────────────── */
+/* ─── Role mapping & config ──────────────────────────── */
 
 const ROLES = [
     { key: "system_admin", label: "System Admin", level: 0, color: "text-red-400 bg-red-500/15" },
     { key: "platform_admin", label: "Platform Admin", level: 1, color: "text-orange-400 bg-orange-500/15" },
     { key: "admin", label: "Admin Org", level: 2, color: "text-violet-400 bg-violet-500/15" },
     { key: "membre", label: "Membre", level: 4, color: "text-emerald-400 bg-emerald-500/15" },
-];
-
-const ORGANIZATIONS = [
-    "DGDI", "Port-Gentil Logistique", "Ministère de l'Intérieur", "Gabon Télécom", "SEEG", "Okoumé Capital",
-];
-
-const MOCK_USERS = [
-    { id: "1", name: "Jean-Pierre Ondo", email: "jp.ondo@dgdi.ga", role: "system_admin", org: "DGDI", status: "active" as const, lastActive: "En ligne", mfa: true },
-    { id: "2", name: "Marie Nzé", email: "m.nze@dgdi.ga", role: "platform_admin", org: "DGDI", status: "active" as const, lastActive: "Il y a 5 min", mfa: true },
-    { id: "3", name: "Patrick Obiang", email: "p.obiang@minterieur.ga", role: "admin", org: "Ministère de l'Intérieur", status: "active" as const, lastActive: "Il y a 1h", mfa: true },
-    { id: "4", name: "Sylvie Moussavou", email: "s.moussavou@pgl.ga", role: "membre", org: "Port-Gentil Logistique", status: "active" as const, lastActive: "Il y a 3h", mfa: false },
-    { id: "5", name: "David Mba", email: "d.mba@gabtelecom.ga", role: "membre", org: "Gabon Télécom", status: "active" as const, lastActive: "Hier", mfa: true },
-    { id: "6", name: "Chantal Ayo", email: "c.ayo@seeg.ga", role: "admin", org: "SEEG", status: "active" as const, lastActive: "Il y a 2h", mfa: true },
-    { id: "7", name: "Robert Ndong", email: "r.ndong@okcapital.ga", role: "membre", org: "Okoumé Capital", status: "suspended" as const, lastActive: "Il y a 7j", mfa: false },
-    { id: "8", name: "Alice Bekale", email: "a.bekale@dgdi.ga", role: "membre", org: "DGDI", status: "active" as const, lastActive: "Il y a 30 min", mfa: true },
-    { id: "9", name: "François Engonga", email: "f.engonga@minterieur.ga", role: "membre", org: "Ministère de l'Intérieur", status: "invited" as const, lastActive: "Jamais", mfa: false },
-    { id: "10", name: "Isabelle Mounanga", email: "i.mounanga@pgl.ga", role: "membre", org: "Port-Gentil Logistique", status: "active" as const, lastActive: "Il y a 4h", mfa: true },
 ];
 
 const statusCfg = {
@@ -80,8 +66,32 @@ export default function IAMPage() {
     const [roleFilter, setRoleFilter] = useState<string>("all");
     const [orgFilter, setOrgFilter] = useState<string>("all");
 
+    // ─── Fetch real data from Convex ───
+    const membersQuery = useQuery(api.orgMembers.listAll);
+    const orgsQuery = useQuery(api.organizations.list);
+
+    const members = membersQuery ?? [];
+    const orgsList = useMemo(() => {
+        if (!orgsQuery) return [];
+        return Array.from(new Set(orgsQuery.map((o: any) => o.name))).sort();
+    }, [orgsQuery]);
+
+    // Format member data to match the UI expectations
+    const usersList = useMemo(() => {
+        return members.map((m: any) => ({
+            id: m._id,
+            name: m.nom || m.email?.split("@")[0] || "Inconnu",
+            email: m.email || "—",
+            role: m.role || "membre",
+            org: m.organisationName || "—",
+            status: m.status || "active",
+            lastActive: "—", // Would need a presence system to be accurate
+            mfa: false, // Would need to fetch from Clerk/auth provider
+        }));
+    }, [members]);
+
     const filtered = useMemo(() => {
-        return MOCK_USERS.filter((u) => {
+        return usersList.filter((u: any) => {
             const matchSearch =
                 search === "" ||
                 u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -90,11 +100,15 @@ export default function IAMPage() {
             const matchOrg = orgFilter === "all" || u.org === orgFilter;
             return matchSearch && matchRole && matchOrg;
         });
-    }, [search, roleFilter, orgFilter]);
+    }, [usersList, search, roleFilter, orgFilter]);
 
     const getRoleBadge = (roleKey: string) => {
         const r = ROLES.find((r) => r.key === roleKey);
-        if (!r) return null;
+        if (!r) return (
+            <Badge variant="secondary" className="text-[9px] border-0 bg-white/10 text-white/50">
+                {roleKey}
+            </Badge>
+        );
         return (
             <Badge variant="secondary" className={`text-[9px] border-0 ${r.color}`}>
                 L{r.level} · {r.label}
@@ -104,11 +118,11 @@ export default function IAMPage() {
 
     const stats = useMemo(() => {
         const byRole: Record<string, number> = {};
-        MOCK_USERS.forEach((u) => {
+        usersList.forEach((u: any) => {
             byRole[u.role] = (byRole[u.role] || 0) + 1;
         });
-        return { total: MOCK_USERS.length, byRole, mfaEnabled: MOCK_USERS.filter((u) => u.mfa).length };
-    }, []);
+        return { total: usersList.length, byRole, mfaEnabled: usersList.filter((u: any) => u.mfa).length };
+    }, [usersList]);
 
     return (
         <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6 max-w-[1400px] mx-auto">
@@ -136,11 +150,11 @@ export default function IAMPage() {
                     <p className="text-[10px] text-muted-foreground">Administrateurs</p>
                 </div>
                 <div className="glass-card rounded-xl p-4">
-                    <p className="text-2xl font-bold text-emerald-400">{stats.mfaEnabled}</p>
+                    <p className="text-2xl font-bold">{stats.mfaEnabled}</p>
                     <p className="text-[10px] text-muted-foreground">MFA activé</p>
                 </div>
                 <div className="glass-card rounded-xl p-4">
-                    <p className="text-2xl font-bold">{ORGANIZATIONS.length}</p>
+                    <p className="text-2xl font-bold">{orgsList.length}</p>
                     <p className="text-[10px] text-muted-foreground">Organisations</p>
                 </div>
             </motion.div>
@@ -211,7 +225,7 @@ export default function IAMPage() {
                             Toutes les organisations
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {ORGANIZATIONS.map((org) => (
+                        {orgsList.map((org: string) => (
                             <DropdownMenuItem key={org} className="text-xs" onClick={() => setOrgFilter(org)}>
                                 {org}
                             </DropdownMenuItem>
@@ -238,14 +252,32 @@ export default function IAMPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((user) => {
-                                const st = statusCfg[user.status];
+                            {membersQuery === undefined ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <tr key={i} className="border-b border-white/5">
+                                        <td className="py-2.5 px-2"><Skeleton className="h-8 w-40 bg-white/5" /></td>
+                                        <td className="py-2.5 px-2"><Skeleton className="h-4 w-24 bg-white/5" /></td>
+                                        <td className="py-2.5 px-2"><Skeleton className="h-4 w-20 bg-white/5" /></td>
+                                        <td className="py-2.5 px-2"><Skeleton className="h-4 w-16 bg-white/5 mx-auto" /></td>
+                                        <td className="py-2.5 px-2 hidden md:table-cell"><Skeleton className="h-4 w-4 bg-white/5 mx-auto" /></td>
+                                        <td className="py-2.5 px-2 hidden lg:table-cell"><Skeleton className="h-4 w-16 bg-white/5" /></td>
+                                        <td className="py-2.5 px-2"><Skeleton className="h-6 w-6 bg-white/5 mx-auto rounded-full" /></td>
+                                    </tr>
+                                ))
+                            ) : filtered.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="py-12 text-center text-muted-foreground text-xs">
+                                        Aucun utilisateur trouvé correspondant à vos critères.
+                                    </td>
+                                </tr>
+                            ) : filtered.map((user: any) => {
+                                const st = (statusCfg as any)[user.status] || { label: user.status, color: "bg-white/10 text-white/50" };
                                 return (
                                     <tr key={user.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                                         <td className="py-2.5 px-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="h-7 w-7 rounded-full bg-gradient-to-br from-red-600/30 to-orange-500/30 flex items-center justify-center text-[10px] font-bold text-orange-300">
-                                                    {user.name.split(" ").map((n) => n[0]).join("")}
+                                                    {user.name.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-[11px]">{user.name}</p>
@@ -254,7 +286,7 @@ export default function IAMPage() {
                                             </div>
                                         </td>
                                         <td className="py-2.5 px-2">
-                                            <span className="text-[11px]">{user.org}</span>
+                                            <span className="text-[11px] text-white/70">{user.org}</span>
                                         </td>
                                         <td className="py-2.5 px-2">{getRoleBadge(user.role)}</td>
                                         <td className="py-2.5 px-2 text-center">

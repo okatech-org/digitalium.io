@@ -146,4 +146,71 @@ export const PRO_PAGE_INFO: PageInfoMap = injectArchitecture({
             { page: "Dashboard", relation: "KPIs résumés", route: "/pro" },
         ],
     },
+    clients: {
+        pageId: "pro-clients",
+        titre: "Clients",
+        but: "Gérer le portefeuille clients de votre organisation.",
+        description: "Liste complète de vos clients avec fiches détaillées, historique des interactions, documents associés et suivi commercial.",
+        elements: [
+            { nom: "Liste des clients", type: "tableau", description: "Clients avec nom, statut, date de création, chiffre d'affaires" },
+            { nom: "Recherche et filtres", type: "filtre", description: "Filtrage par statut, secteur, date" },
+            { nom: "Bouton Ajouter", type: "bouton", description: "Crée une nouvelle fiche client" },
+            { nom: "Fiche client", type: "carte", description: "Vue détaillée avec informations et documents" },
+        ],
+        tachesDisponibles: ["Ajouter un client", "Consulter une fiche client", "Rechercher un client", "Exporter la liste"],
+        liens: [
+            { page: "Leads", relation: "Prospects à convertir en clients", route: "/pro/leads" },
+            { page: "iDocument", relation: "Documents associés aux clients", route: "/pro/idocument" },
+        ],
+        conseil: "Convertissez vos leads qualifiés en clients depuis la page Leads pour conserver l'historique de la relation.",
+    },
+    leads: {
+        pageId: "pro-leads",
+        titre: "Leads & Prospects",
+        but: "Suivre et convertir vos prospects commerciaux.",
+        description: "Pipeline de prospection avec suivi des leads, scoring, et conversion en clients. Gestion du cycle commercial complet.",
+        elements: [
+            { nom: "Pipeline", type: "tableau", description: "Leads organisés par étape du cycle commercial" },
+            { nom: "Scoring", type: "carte", description: "Score de qualification des prospects" },
+            { nom: "Bouton Ajouter", type: "bouton", description: "Crée un nouveau lead" },
+            { nom: "Filtres statut", type: "filtre", description: "Filtrage par phase, source, score" },
+        ],
+        tachesDisponibles: ["Ajouter un lead", "Qualifier un prospect", "Convertir en client", "Planifier un suivi"],
+        liens: [
+            { page: "Clients", relation: "Leads convertis en clients", route: "/pro/clients" },
+            { page: "Analytics", relation: "Analyse du pipeline", route: "/pro/analytics" },
+        ],
+    },
+    organization: {
+        pageId: "pro-organization",
+        titre: "Organisation",
+        but: "Configurer la structure organisationnelle de votre entreprise.",
+        description: "Structure hiérarchique, départements, sites et paramètres de l'organisation. Configuration des unités organisationnelles.",
+        elements: [
+            { nom: "Organigramme", type: "carte", description: "Visualisation de la structure hiérarchique" },
+            { nom: "Départements", type: "tableau", description: "Liste des départements et services" },
+            { nom: "Bouton Ajouter", type: "bouton", description: "Créer un nouveau département ou site" },
+        ],
+        tachesDisponibles: ["Configurer la structure", "Ajouter un département", "Gérer les sites", "Modifier l'organigramme"],
+        liens: [
+            { page: "Équipe", relation: "Membres assignés aux départements", route: "/pro/team" },
+            { page: "Paramètres", relation: "Configuration générale", route: "/pro/settings" },
+        ],
+    },
+    api: {
+        pageId: "pro-api",
+        titre: "Intégrations API",
+        but: "Gérer les intégrations et clés d'API de votre organisation.",
+        description: "Clés d'API, webhooks, intégrations tierces et documentation technique pour connecter vos outils existants à DIGITALIUM.",
+        elements: [
+            { nom: "Clés d'API", type: "tableau", description: "Liste des clés avec permissions et usage" },
+            { nom: "Webhooks", type: "tableau", description: "Endpoints configurés pour les notifications" },
+            { nom: "Bouton Générer", type: "bouton", description: "Génère une nouvelle clé d'API" },
+        ],
+        tachesDisponibles: ["Générer une clé API", "Configurer un webhook", "Consulter la documentation", "Révoquer une clé"],
+        liens: [
+            { page: "Paramètres", relation: "Configuration de l'organisation", route: "/pro/settings" },
+        ],
+        conseil: "Conservez vos clés API en lieu sûr. Utilisez des clés dédiées par intégration pour faciliter la révocation si nécessaire.",
+    },
 });

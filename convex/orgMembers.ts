@@ -5,6 +5,7 @@
 
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const memberRole = v.union(
     v.literal("admin"),
@@ -125,6 +126,15 @@ export const add = mutation({
         const forceAdmin = !firstMember;
         const isAdmin = forceAdmin || args.estAdmin === true;
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.add",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.db.insert("organization_members", {
             organizationId: args.organizationId,
             userId: args.userId ?? args.email ?? `member_${now}`,
@@ -180,6 +190,15 @@ export const bulkAdd = mutation({
             });
             count++;
         }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.bulkAdd",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return { created: count };
     },
 });
@@ -229,6 +248,15 @@ export const update = mutation({
         }
 
         await ctx.db.patch(args.id, patch);
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.update",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -254,6 +282,15 @@ export const remove = mutation({
         }
 
         await ctx.db.delete(args.id);
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.remove",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -343,6 +380,15 @@ export const depart = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.depart",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -368,6 +414,15 @@ export const bulkAssignRole = mutation({
             await ctx.db.patch(id, patch);
             updated++;
         }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.bulkAssignRole",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return { updated };
     },
 });
@@ -400,6 +455,15 @@ export const setModuleOverrides = mutation({
         // Pass overrides=undefined to reset all overrides
         await ctx.db.patch(args.id, {
             moduleOverrides: args.overrides,
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.setModuleOverrides",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
         });
         return args.id;
     },
@@ -463,6 +527,15 @@ export const addAssignment = mutation({
             level: bestLevel,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.addAssignment",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -512,6 +585,15 @@ export const updateAssignment = mutation({
             level: bestLevel,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.updateAssignment",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -584,6 +666,15 @@ export const listAssignments = query({
             });
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgMembers.removeAssignment",
+            entiteType: "organization_members",
+            entiteId: "system",
+            userId: "system",
+        });
         return enriched;
     },
 });

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Subscriptions
@@ -118,6 +119,15 @@ export const create = mutation({
         const pricePerUser = PLAN_PRICING[args.plan] ?? 49000;
         const maxUsers = args.maxUsers ?? org.quota?.maxUsers ?? 25;
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "subscriptions.create",
+            entiteType: "subscriptions",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.db.insert("subscriptions", {
             organizationId: args.organizationId,
             plan: args.plan,

@@ -15,14 +15,12 @@ import {
     ArrowLeft,
     PenTool,
     FileText,
-    User,
     Calendar,
     Clock,
     CheckCircle2,
     XCircle,
     MessageSquare,
     Send,
-    Shield,
     Forward,
     Loader2,
     AlertTriangle,
@@ -32,29 +30,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// ─── Mock data (simulates fetching by ID) ───────
-
-const MOCK_SIGNATURE = {
-    id: "sig-1",
-    title: "Contrat prestation SOGARA — Q2 2026",
-    requester: { name: "Daniel Nguema", email: "d.nguema@digitalium.io", avatar: "DN" },
-    requestedAt: Date.now() - 2 * 3600 * 1000,
-    deadline: Date.now() + 3 * 24 * 3600 * 1000,
-    message: "Merci de bien vouloir signer ce contrat avant vendredi. Le client attend notre retour rapidement.",
-    sequential: false,
-    signers: [
-        { name: "Ornella Doumba", email: "o.doumba@digitalium.io", role: "signer" as const, status: "pending" as const, signedAt: null, order: 1 },
-        { name: "Claude Mboumba", email: "c.mboumba@digitalium.io", role: "signer" as const, status: "signed" as const, signedAt: Date.now() - 3600 * 1000, order: 2 },
-        { name: "Marie Obame", email: "m.obame@digitalium.io", role: "approver" as const, status: "pending" as const, signedAt: null, order: 3 },
-    ],
-    status: "in_progress" as const,
-    comments: [
-        { id: "c1", user: "Claude Mboumba", text: "Document vérifié et signé. RAS.", createdAt: Date.now() - 3600 * 1000 },
-        { id: "c2", user: "Daniel Nguema", text: "Merci Claude. En attente des autres signatures.", createdAt: Date.now() - 1800 * 1000 },
-    ],
-    documentContent: "Ce contrat de prestation de services est conclu entre DIGITALIUM SAS et SOGARA pour une durée de 12 mois à compter de la date de signature. Le prestataire s'engage à fournir les services définis dans l'annexe technique ci-jointe...",
-};
-
+import { useParams } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../../convex/_generated/api";
 // ─── Helpers ────────────────────────────────────
 
 function formatDateTime(ts: number): string {
@@ -86,6 +64,16 @@ const STATUS_ICON = {
 // ─── Component ──────────────────────────────────
 
 export default function SignatureDetailPage() {
+    const params = useParams();
+    const id = params?.id as string;
+    
+    const rawSigData = useQuery(api.signatures.getEnriched, 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        id ? { id: id as any } : "skip"
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sigData = rawSigData as any;
+
     const [signatureMode, setSignatureMode] = useState<"type" | "draw" | null>(null);
     const [typedSignature, setTypedSignature] = useState("");
     const [comment, setComment] = useState("");
@@ -96,8 +84,44 @@ export default function SignatureDetailPage() {
     const [isSigning, setIsSigning] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    const sig = MOCK_SIGNATURE;
-    const signedCount = sig.signers.filter((s) => s.status === "signed").length;
+    const sig = sigData;
+
+    if (sigData === undefined) {
+        return (
+            <div className="flex h-[60vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+            </div>
+        );
+    }
+
+    if (sigData === null) {
+        return (
+            <div className="flex h-[60vh] flex-col items-center justify-center space-y-4">
+                <div className="rounded-full bg-red-500/10 p-4">
+                    <AlertTriangle className="h-8 w-8 text-red-500" />
+                </div>
+                <div className="text-center">
+                    <h2 className="text-lg font-semibold">Signature introuvable</h2>
+                    <p className="text-sm text-zinc-400 mt-1">
+                        Le processus de signature demandé n&apos;existe pas ou vous n&apos;y avez pas accès.
+                    </p>
+                </div>
+                <Link href="/institutional/isignature">
+                    <Button variant="outline" className="mt-4">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Retour aux signatures
+                    </Button>
+                </Link>
+            </div>
+        );
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const signers: any[] = sig.signers || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const comments: any[] = sig.comments || [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const signedCount = signers.filter((s: any) => s.status === "signed").length;
     const daysLeft = Math.ceil((sig.deadline - Date.now()) / (24 * 3600 * 1000));
 
     const handleSign = async () => {
@@ -140,7 +164,7 @@ export default function SignatureDetailPage() {
                     <h1 className="text-lg font-bold truncate">{sig.title}</h1>
                     <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant="outline" className="text-[9px] h-5 border-blue-500/20 text-blue-400">
-                            {(sig.status as string) === "completed" ? "Complété" : sig.status === "in_progress" ? "En cours" : "En attente"}
+                            {sig.document.status === "completed" ? "Complété" : sig.document.status === "in_progress" ? "En cours" : "En attente"}
                         </Badge>
                         <span className="text-[10px] text-zinc-500">
                             {signedCount}/{sig.signers.length} signatures
@@ -509,9 +533,9 @@ export default function SignatureDetailPage() {
                             <span className="text-xs font-semibold">Signataires</span>
                         </div>
                         <div className="p-3 space-y-2">
-                            {sig.signers.map((signer, i) => {
-                                const roleCfg = ROLE_CONFIG[signer.role];
-                                const statusCfg = STATUS_ICON[signer.status];
+                            {signers.map((signer, i) => {
+                                const roleCfg = ROLE_CONFIG[signer.role as keyof typeof ROLE_CONFIG];
+                                const statusCfg = STATUS_ICON[signer.status as keyof typeof STATUS_ICON];
                                 const StatusIcon = statusCfg.icon;
                                 return (
                                     <motion.div
@@ -527,7 +551,7 @@ export default function SignatureDetailPage() {
                                         <div className="relative">
                                             <div className="h-8 w-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center">
                                                 <span className="text-[9px] font-bold text-zinc-400">
-                                                    {signer.name.split(" ").map((n) => n[0]).join("")}
+                                                    {signer.name.split(" ").map((n: string) => n[0]).join("")}
                                                 </span>
                                             </div>
                                             <div className="absolute -bottom-0.5 -right-0.5">
@@ -568,7 +592,7 @@ export default function SignatureDetailPage() {
                             </span>
                         </div>
                         <div className="p-3 space-y-2">
-                            {sig.comments.map((c) => (
+                            {comments.map((c) => (
                                 <div key={c.id} className="space-y-0.5">
                                     <div className="flex items-center gap-1.5">
                                         <span className="text-[10px] font-medium text-zinc-300">{c.user}</span>

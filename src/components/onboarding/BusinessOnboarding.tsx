@@ -821,15 +821,7 @@ export default function BusinessOnboarding() {
         setIsSubmitting(true);
 
         try {
-            // TODO: Save to Convex (organizations, organization_members)
-            // TODO: Save to Supabase (business_subscriptions, user_personas)
-            console.log("[BusinessOnboarding] Creating organization:", {
-                orgInfo,
-                plan: selectedPlan,
-                billingCycle,
-                invites,
-                payment: { method: payment.method, operator: payment.operator },
-            });
+            // OMEGA: Signal auto-émis par la mutation backend
 
             // Simulate API delay
             await new Promise((r) => setTimeout(r, 1500));

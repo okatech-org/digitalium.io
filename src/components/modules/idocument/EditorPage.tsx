@@ -437,7 +437,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
             try {
                 const result = await archiveDocumentMutation({
                     documentId: documentId as Id<"documents">,
-                    userId: "Daniel Nguema", // TODO: from auth context
+                    // NOTE: Replace hardcoded user with useAuth() hook
                     categorySlug: data.categorySlug,
                     tags: data.tags,
                     confidentiality: data.confidentiality,

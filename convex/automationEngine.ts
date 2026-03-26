@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 /**
@@ -189,6 +190,15 @@ export const archiveFromAutomation = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "automationEngine.archiveFromAutomation",
+            entiteType: "automationEngine",
+            entiteId: "system",
+            userId: "system",
+        });
         return { documentId: args.documentId, categorySlug, triggeredBy: args.triggeredBy };
     },
 });

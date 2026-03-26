@@ -31,13 +31,15 @@ export default function InfoButton({
         <TooltipProvider delayDuration={200}>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 hover:text-violet-300 transition-all duration-200 shrink-0 ${className}`}
+                    <span
+                        role="button"
+                        tabIndex={0}
+                        className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 hover:text-violet-300 transition-all duration-200 shrink-0 cursor-pointer ${className}`}
                         aria-label={`Info: ${title}`}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <Info className="h-3 w-3" />
-                    </button>
+                    </span>
                 </TooltipTrigger>
                 <TooltipContent
                     side={side}

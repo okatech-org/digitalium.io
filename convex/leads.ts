@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Leads (Prospects)
@@ -114,6 +115,15 @@ export const create = mutation({
     },
     handler: async (ctx, args) => {
         const now = Date.now();
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "LEAD_CREE",
+            action: "leads.create",
+            entiteType: "leads",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.db.insert("leads", {
             ...args,
             status: "new",
@@ -142,6 +152,15 @@ export const updateStatus = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "LEAD_MODIFIE",
+            action: "leads.updateStatus",
+            entiteType: "leads",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -289,6 +308,15 @@ export const convert = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "LEAD_MODIFIE",
+            action: "leads.convert",
+            entiteType: "leads",
+            entiteId: "system",
+            userId: "system",
+        });
         return { organizationId: orgId, leadId: args.id };
     },
 });

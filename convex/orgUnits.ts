@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 
 // ═══════════════════════════════════════════════
@@ -153,6 +154,15 @@ export const update = mutation({
         );
 
         await ctx.db.patch(id, { ...clean, updatedAt: Date.now() });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgUnits.remove",
+            entiteType: "org_units",
+            entiteId: "system",
+            userId: "system",
+        });
         return id;
     },
 });
@@ -278,6 +288,15 @@ export const bulkCreate = mutation({
             tempIdMap.set(unit.tempId, result);
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "orgUnits.bulkCreate",
+            entiteType: "org_units",
+            entiteId: "system",
+            userId: "system",
+        });
         return { created: tempIdMap.size };
     },
 });

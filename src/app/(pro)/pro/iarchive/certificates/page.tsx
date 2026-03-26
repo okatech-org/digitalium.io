@@ -6,8 +6,7 @@
 // ═══════════════════════════════════════════════
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,90 +17,13 @@ import {
     ShieldCheck,
     ShieldAlert,
     FileText,
-    Hash,
-    Calendar,
-    User,
     Download,
     Eye,
-    CheckCircle2,
-    XCircle,
-    Loader2,
-    Copy,
-    Check,
-    QrCode,
-    Filter,
 } from "lucide-react";
 import CertificateViewer from "@/components/modules/iarchive/CertificateViewer";
-
-// ─── Mock data ──────────────────────────────────
-
-const MOCK_CERTIFICATES = [
-    {
-        id: "cert-1",
-        certificateNumber: "CERT-2026-07997",
-        documentTitle: "Contrat SOGARA — Prestation IT",
-        sha256Hash: "5854a1eb3c2f8d4e6a7b9c0d1f2e3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d47a5",
-        archivedAt: Date.now() - 2 * 3600 * 1000,
-        archivedBy: "Daniel Nguema",
-        organization: "DIGITALIUM SAS",
-        retentionYears: 10,
-        retentionExpiresAt: Date.now() + 10 * 365.25 * 24 * 3600 * 1000,
-        status: "valid" as const,
-        category: "fiscal",
-    },
-    {
-        id: "cert-2",
-        certificateNumber: "CERT-2026-07996",
-        documentTitle: "Convention collective 2026",
-        sha256Hash: "a3e8b12c4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f01",
-        archivedAt: Date.now() - 5 * 3600 * 1000,
-        archivedBy: "Aimée Gondjout",
-        organization: "DIGITALIUM SAS",
-        retentionYears: 5,
-        retentionExpiresAt: Date.now() + 5 * 365.25 * 24 * 3600 * 1000,
-        status: "valid" as const,
-        category: "social",
-    },
-    {
-        id: "cert-3",
-        certificateNumber: "CERT-2026-07995",
-        documentTitle: "Bail commercial — Immeuble Triomphal",
-        sha256Hash: "7c6f2d8e4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a5b43",
-        archivedAt: Date.now() - 24 * 3600 * 1000,
-        archivedBy: "Claude Mboumba",
-        organization: "DIGITALIUM SAS",
-        retentionYears: 30,
-        retentionExpiresAt: Date.now() + 30 * 365.25 * 24 * 3600 * 1000,
-        status: "valid" as const,
-        category: "legal",
-    },
-    {
-        id: "cert-4",
-        certificateNumber: "CERT-2026-07994",
-        documentTitle: "Facture N°2026-0042 — SEEG",
-        sha256Hash: "d1f4e6a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b62c78",
-        archivedAt: Date.now() - 2 * 24 * 3600 * 1000,
-        archivedBy: "Marie Obame",
-        organization: "DIGITALIUM SAS",
-        retentionYears: 10,
-        retentionExpiresAt: Date.now() + 10 * 365.25 * 24 * 3600 * 1000,
-        status: "valid" as const,
-        category: "fiscal",
-    },
-    {
-        id: "cert-5",
-        certificateNumber: "CERT-2025-04112",
-        documentTitle: "Procès-verbal AG 2024 — révoqué",
-        sha256Hash: "92b5c8d14e6a7b9c0d1f2e3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a4e",
-        archivedAt: Date.now() - 90 * 24 * 3600 * 1000,
-        archivedBy: "Daniel Nguema",
-        organization: "DIGITALIUM SAS",
-        retentionYears: 30,
-        retentionExpiresAt: Date.now() + 29 * 365.25 * 24 * 3600 * 1000,
-        status: "revoked" as const,
-        category: "legal",
-    },
-];
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../../convex/_generated/api";
 
 // ─── Helpers ────────────────────────────────────
 
@@ -111,11 +33,6 @@ function formatDate(ts: number): string {
         month: "2-digit",
         year: "numeric",
     });
-}
-
-function formatDateTime(ts: number): string {
-    const d = new Date(ts);
-    return `${d.toLocaleDateString("fr-FR")} ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: string }> = {
@@ -128,12 +45,45 @@ const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: strin
 
 // ─── Component ──────────────────────────────────
 
+interface CertificateRow {
+    id: string;
+    certificateNumber: string;
+    documentTitle: string;
+    sha256Hash: string;
+    archivedAt: number;
+    archivedBy: string;
+    organization: string;
+    retentionYears: number;
+    retentionExpiresAt: number;
+    status: string;
+    category: string;
+}
+
 export default function CertificatesPage() {
+    const { orgId, orgName } = useOrganization();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "revoked">("all");
-    const [selectedCert, setSelectedCert] = useState<typeof MOCK_CERTIFICATES[0] | null>(null);
+    const [selectedCert, setSelectedCert] = useState<CertificateRow | null>(null);
 
-    const filtered = MOCK_CERTIFICATES.filter((cert) => {
+    const certsQuery = useQuery(api.archives.listCertificates, 
+        orgId ? { organizationId: orgId as any } : "skip"
+    );
+
+    const certificates: CertificateRow[] = certsQuery === undefined ? [] : certsQuery.map((data: any) => ({
+        id: data.archive._id,            // use archiveId as the id for CertificateViewer
+        certificateNumber: data.certificateNumber,
+        documentTitle: data.archive.title || "Document sans titre",
+        sha256Hash: data.sha256Hash,
+        archivedAt: data.issuedAt,
+        archivedBy: data.issuedBy,
+        organization: orgName,
+        retentionYears: data.archive.retentionYears,
+        retentionExpiresAt: data.archive.retentionExpiresAt,
+        status: data.status,             // "valid" | "revoked"
+        category: data.archive.categorySlug,
+    }));
+
+    const filtered = certificates.filter((cert: CertificateRow) => {
         const matchSearch =
             cert.certificateNumber.toLowerCase().includes(search.toLowerCase()) ||
             cert.documentTitle.toLowerCase().includes(search.toLowerCase()) ||
@@ -142,6 +92,8 @@ export default function CertificatesPage() {
         const matchStatus = statusFilter === "all" || cert.status === statusFilter;
         return matchSearch && matchStatus;
     });
+
+    const isLoading = certsQuery === undefined;
 
     if (selectedCert) {
         return (
@@ -191,7 +143,7 @@ export default function CertificatesPage() {
                     <div>
                         <h1 className="text-xl font-bold">Certificats d&apos;archivage</h1>
                         <p className="text-xs text-muted-foreground">
-                            {MOCK_CERTIFICATES.length} certificats émis · Vérification d&apos;intégrité SHA-256
+                            {isLoading ? "-" : certificates.length} certificats émis · Vérification d&apos;intégrité SHA-256
                         </p>
                     </div>
                 </div>
@@ -257,13 +209,17 @@ export default function CertificatesPage() {
 
                 {/* Rows */}
                 <div className="divide-y divide-white/[0.03]">
-                    {filtered.length === 0 && (
+                    {isLoading ? (
+                        <div className="space-y-2 p-4">
+                            {[1, 2, 3].map((k) => (
+                                <div key={k} className="h-12 w-full rounded bg-white/5 animate-pulse" />
+                            ))}
+                        </div>
+                    ) : filtered.length === 0 ? (
                         <div className="px-4 py-12 text-center text-xs text-zinc-500">
                             Aucun certificat trouvé.
                         </div>
-                    )}
-
-                    {filtered.map((cert, i) => {
+                    ) : filtered.map((cert: CertificateRow, i: number) => {
                         const catColor = CATEGORY_COLORS[cert.category] ?? CATEGORY_COLORS.fiscal;
                         const isValid = cert.status === "valid";
 
@@ -360,8 +316,8 @@ export default function CertificatesPage() {
             <div className="flex items-center justify-between text-[10px] text-zinc-500">
                 <span>{filtered.length} certificat{filtered.length > 1 ? "s" : ""}</span>
                 <span>
-                    {MOCK_CERTIFICATES.filter((c) => c.status === "valid").length} valides ·{" "}
-                    {MOCK_CERTIFICATES.filter((c) => c.status === "revoked").length} révoqués
+                    {certificates.filter((c: CertificateRow) => c.status === "valid").length} valides ·{" "}
+                    {certificates.filter((c: CertificateRow) => c.status === "revoked").length} révoqués
                 </span>
             </div>
         </div>

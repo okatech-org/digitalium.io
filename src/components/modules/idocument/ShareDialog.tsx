@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -27,11 +27,13 @@ interface ShareDialogProps {
     itemType: "folder" | "document" | null;
 }
 
+type VisibilityType = "private" | "team" | "shared";
+
 export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogProps) {
-    const convexOrgId = useConvexOrgId();
+    const { convexOrgId } = useConvexOrgId();
     const { user } = useAuth();
     const [search, setSearch] = useState("");
-    const [visibility, setVisibility] = useState<"private" | "team" | "shared">("team");
+    const [visibility, setVisibility] = useState<VisibilityType>("team");
     const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
 
@@ -43,44 +45,48 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
 
     // Get current item to pre-fill state
     const folders = useQuery(api.folders.listByOrgFlat, convexOrgId ? { organizationId: convexOrgId } : "skip");
-    const documents = useQuery(api.documents.listByOrg, convexOrgId ? { organizationId: convexOrgId } : "skip");
+    const documents = useQuery(api.documents.list, convexOrgId ? { organizationId: convexOrgId } : "skip");
 
     const currentItem = useMemo(() => {
         if (!itemId || !itemType) return null;
         if (itemType === "folder" && folders) {
-            return folders.find((f: any) => f._id === itemId);
+            return folders.find((f) => f._id === itemId);
         }
         if (itemType === "document" && documents) {
-            return documents.find((d: any) => d._id === itemId);
+            return documents.find((d) => d._id === itemId);
         }
         return null;
     }, [itemId, itemType, folders, documents]);
 
     // Mutations
     const shareFolderMut = useMutation(api.folders.shareFolder);
-    // Note: documents.ts uses shareDocument with sharedUserIds and userId
     const shareDocumentMut = useMutation(api.documents.shareDocument);
+    const unshareDocumentMut = useMutation(api.documents.unshareDocument);
 
     // Reset state when opening/changing item
     useEffect(() => {
         if (isOpen && currentItem) {
             setSearch("");
-            
+
             // Extract shared users
             const uids = new Set<string>();
             if (itemType === "folder") {
-                const folder = currentItem as any;
-                setVisibility(folder.permissions?.visibility || "team");
-                if (Array.isArray(folder.permissions?.sharedWith)) {
-                    folder.permissions.sharedWith.forEach((id: string) => uids.add(id));
+                const folder = currentItem as typeof folders extends (infer U)[] | undefined ? U : never;
+                if (folder && "permissions" in folder) {
+                    const perms = folder.permissions as { visibility?: string; sharedWith?: string[] } | undefined;
+                    setVisibility((perms?.visibility as VisibilityType) || "team");
+                    if (Array.isArray(perms?.sharedWith)) {
+                        perms.sharedWith.forEach((id: string) => uids.add(id));
+                    }
                 }
             } else if (itemType === "document") {
-                const doc = currentItem as any;
-                // documents don't have visibility at root level (it's inside permissions which we didn't add to schema)
-                // Defaulting to "shared" if there are specific users, else "team"
-                setVisibility(doc.sharedWith?.length ? "shared" : "team");
-                if (Array.isArray(doc.sharedWith)) {
-                    doc.sharedWith.forEach((sw: any) => uids.add(sw.userId));
+                const doc = currentItem as typeof documents extends (infer U)[] | undefined ? U : never;
+                if (doc && "sharedWith" in doc) {
+                    const shared = doc.sharedWith as { userId: string; permission: string }[] | undefined;
+                    setVisibility(shared?.length ? "shared" : "team");
+                    if (Array.isArray(shared)) {
+                        shared.forEach((sw) => uids.add(sw.userId));
+                    }
                 }
             }
             setSelectedUserIds(uids);
@@ -91,7 +97,7 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
         if (!orgMembers) return [];
         if (!search) return orgMembers;
         const q = search.toLowerCase();
-        return orgMembers.filter((m: any) =>
+        return orgMembers.filter((m) =>
             m.nom?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q)
         );
     }, [orgMembers, search]);
@@ -118,11 +124,33 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
                     visibility,
                 });
             } else {
-                await shareDocumentMut({
-                    id: itemId as Id<"documents">,
-                    sharedUserIds: Array.from(selectedUserIds),
-                    userId: user.email,
-                });
+                // shareDocument works per-user; we need to add new users and remove old ones
+                const docId = itemId as Id<"documents">;
+                const currentShared = new Set<string>();
+                const doc = currentItem as typeof documents extends (infer U)[] | undefined ? U : never;
+                if (doc && "sharedWith" in doc && Array.isArray(doc.sharedWith)) {
+                    (doc.sharedWith as { userId: string }[]).forEach((sw) => currentShared.add(sw.userId));
+                }
+
+                // Add newly selected users
+                const toAdd = Array.from(selectedUserIds).filter((uid) => !currentShared.has(uid));
+                for (const uid of toAdd) {
+                    await shareDocumentMut({
+                        id: docId,
+                        userId: uid,
+                        permission: "read",
+                        sharedBy: user.email,
+                    });
+                }
+
+                // Remove unselected users
+                const toRemove = Array.from(currentShared).filter((uid) => !selectedUserIds.has(uid));
+                for (const uid of toRemove) {
+                    await unshareDocumentMut({
+                        id: docId,
+                        userId: uid,
+                    });
+                }
             }
             toast.success("Permissions de partage mises à jour");
             onClose();
@@ -145,7 +173,7 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
                         Partager {itemType === "folder" ? "le dossier" : "le document"}
                     </DialogTitle>
                     <DialogDescription>
-                        {currentItem ? (currentItem as any).name || (currentItem as any).title : "..."}
+                        {currentItem ? ("name" in currentItem ? currentItem.name : "title" in currentItem ? currentItem.title : "...") : "..."}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -157,7 +185,7 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
                         </label>
                         <Select
                             value={visibility}
-                            onValueChange={(val: any) => setVisibility(val)}
+                            onValueChange={(val: string) => setVisibility(val as VisibilityType)}
                         >
                             <SelectTrigger className="bg-slate-800/50 border-white/5 h-12">
                                 <SelectValue placeholder="Sélectionner la visibilité" />
@@ -181,7 +209,7 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
                                         </div>
                                         <div>
                                             <p className="font-medium">Équipe (Interne)</p>
-                                            <p className="text-xs text-muted-foreground">Membres de l'organisation</p>
+                                            <p className="text-xs text-muted-foreground">Membres de l&apos;organisation</p>
                                         </div>
                                     </div>
                                 </SelectItem>
@@ -224,7 +252,7 @@ export function ShareDialog({ isOpen, onClose, itemId, itemType }: ShareDialogPr
                                     </div>
                                 ) : (
                                     <div className="space-y-1">
-                                        {filteredMembers?.map((m: any) => {
+                                        {filteredMembers?.map((m) => {
                                             const isSelected = selectedUserIds.has(m.userId);
                                             return (
                                                 <div

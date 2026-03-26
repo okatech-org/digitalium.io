@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // ─── Queries ─────────────────────────────────────
@@ -226,6 +227,15 @@ export const setMetadata = mutation({
             createdAt: now,
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "folderArchiveMetadata.setMetadata",
+            entiteType: "folder_archive_metadata",
+            entiteId: "system",
+            userId: "system",
+        });
         return metaId;
     },
 });

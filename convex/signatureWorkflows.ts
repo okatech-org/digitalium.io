@@ -5,6 +5,7 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /* ─── Queries ────────────────────────────────── */
 
@@ -130,6 +131,15 @@ export const duplicate = mutation({
         const original = await ctx.db.get(args.id);
         if (!original) throw new Error("Workflow introuvable");
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "signatureWorkflows.duplicate",
+            entiteType: "signature_workflows",
+            entiteId: "system",
+            userId: "system",
+        });
         return await ctx.db.insert("signature_workflows", {
             name: args.newName,
             description: original.description,

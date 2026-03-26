@@ -1,9 +1,10 @@
-// ═══════════════════════════════════════════════
-// DIGITALIUM.IO — SysAdmin: Monitoring
-// Real-time charts (simulated), uptime SLA
-// ═══════════════════════════════════════════════
-
 "use client";
+
+// ═══════════════════════════════════════════════
+// DIGITALIUM.IO — Admin: NEOCORTEX Monitoring
+// Real-time system health dashboard
+// Connected to neocortex_monitoring + hippocampe queries
+// ═══════════════════════════════════════════════
 
 import React from "react";
 import { motion } from "framer-motion";
@@ -13,21 +14,17 @@ import {
     CheckCircle2,
     Clock,
     TrendingUp,
-    Gauge,
+    Brain,
     BarChart3,
+    Zap,
+    Shield,
+    RefreshCcw,
+    Loader2,
 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    LineChart,
-    Line,
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-} from "recharts";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 const fadeUp = {
@@ -35,218 +32,335 @@ const fadeUp = {
     visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
 };
 
-/* ─── Mock data ──────────────────────────────────── */
+/* ─── Status badge ─────────────────────────────── */
 
-const REQUESTS_60 = Array.from({ length: 60 }, (_, i) => ({
-    time: `${60 - i}s`,
-    value: Math.floor(80 + Math.random() * 120),
-}));
-
-const ERRORS_60 = Array.from({ length: 60 }, (_, i) => ({
-    time: `${60 - i}s`,
-    value: Math.floor(Math.random() * 8),
-}));
-
-const LATENCY_60 = Array.from({ length: 60 }, (_, i) => ({
-    time: `${60 - i}s`,
-    p50: Math.floor(15 + Math.random() * 20),
-    p95: Math.floor(80 + Math.random() * 60),
-    p99: Math.floor(150 + Math.random() * 100),
-}));
-
-const UPTIME_SERVICES = [
-    { name: "API Gateway", uptime: 99.99, incidents: 0, lastDowntime: "N/A" },
-    { name: "Convex Backend", uptime: 99.98, incidents: 1, lastDowntime: "2 fév — 2min" },
-    { name: "Firebase Auth", uptime: 99.99, incidents: 0, lastDowntime: "N/A" },
-    { name: "Supabase DB", uptime: 99.95, incidents: 2, lastDowntime: "8 fév — 12min" },
-    { name: "Supabase Storage", uptime: 99.72, incidents: 4, lastDowntime: "Aujourd'hui — 8min" },
-    { name: "Edge Functions", uptime: 99.97, incidents: 1, lastDowntime: "1 fév — 5min" },
-    { name: "Redis Cache", uptime: 100, incidents: 0, lastDowntime: "N/A" },
-    { name: "DNS / CDN", uptime: 99.99, incidents: 0, lastDowntime: "N/A" },
-];
-
-const UPTIME_30D = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
-    return {
-        date: `${d.getDate()}/${d.getMonth() + 1}`,
-        uptime: 99.5 + Math.random() * 0.5,
+function StatusBadge({ status }: { status: string }) {
+    const config: Record<string, { label: string; className: string; icon: React.ElementType }> = {
+        healthy: { label: "Opérationnel", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: CheckCircle2 },
+        degraded: { label: "Dégradé", className: "bg-amber-500/15 text-amber-400 border-amber-500/30", icon: AlertTriangle },
+        critical: { label: "Critique", className: "bg-red-500/15 text-red-400 border-red-500/30", icon: AlertTriangle },
+        unknown: { label: "Inconnu", className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30", icon: Clock },
     };
-});
-
-function uptimeColor(v: number) {
-    if (v >= 99.99) return "text-emerald-400";
-    if (v >= 99.9) return "text-green-400";
-    if (v >= 99.5) return "text-amber-400";
-    return "text-red-400";
+    const c = config[status] ?? config.unknown;
+    const Icon = c.icon;
+    return (
+        <Badge className={`${c.className} gap-1.5 px-3 py-1 text-xs font-semibold`}>
+            <Icon className="h-3.5 w-3.5" /> {c.label}
+        </Badge>
+    );
 }
 
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
-    if (!active || !payload) return null;
+/* ─── Mini health bar ──────────────────────────── */
+
+function HealthTimeline({ history }: { history: { valeur: number; createdAt: number }[] }) {
+    if (history.length === 0) return <p className="text-xs text-muted-foreground">Pas de données</p>;
     return (
-        <div className="glass-card rounded-lg p-3 border border-white/10 text-xs shadow-xl">
-            <p className="font-semibold text-foreground mb-1">{label}</p>
-            {payload.map((p) => (
-                <div key={p.name} className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-                    <span className="text-muted-foreground">{p.name}</span>
-                    <span className="ml-auto font-medium">{p.value}</span>
-                </div>
+        <div className="flex items-end gap-1 h-8">
+            {history.map((h, i) => (
+                <div
+                    key={i}
+                    className={`flex-1 rounded-sm min-w-[6px] ${h.valeur === 2 ? "bg-emerald-500" : h.valeur === 1 ? "bg-amber-500" : "bg-red-500"}`}
+                    style={{ height: `${((h.valeur + 1) / 3) * 100}%` }}
+                    title={new Date(h.createdAt).toLocaleTimeString("fr-FR")}
+                />
             ))}
         </div>
     );
 }
 
-export default function MonitoringPage() {
-    const overallUptime = (UPTIME_SERVICES.reduce((a, s) => a + s.uptime, 0) / UPTIME_SERVICES.length).toFixed(3);
+/* ═══════════════════════════════════════════════
+   MONITORING PAGE
+   ═══════════════════════════════════════════════ */
+
+export default function NeocortexMonitoringPage() {
+    // Real Convex queries
+    const dashboard = useQuery(api.neocortex_monitoring.dashboard);
+    const stats = useQuery(api.neocortex_monitoring.stats);
+    const alertes = useQuery(api.auditif.resumeAlertes, { heures: 24 });
+
+    const isLoading = dashboard === undefined;
 
     return (
-        <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6 max-w-[1400px] mx-auto">
+        <motion.div
+            className="space-y-6 max-w-7xl mx-auto"
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+        >
+            {/* ── Header ── */}
+            <motion.div variants={fadeUp} className="flex items-center justify-between">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <Brain className="h-6 w-6 text-violet-400" />
+                        Monitoring NEOCORTEX
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Système nerveux de la plateforme — santé, signaux et métriques en temps réel
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : (
+                        <StatusBadge status={dashboard?.sante?.status ?? "unknown"} />
+                    )}
+                </div>
+            </motion.div>
+
+            {/* ── KPI Row ── */}
             <motion.div variants={fadeUp}>
-                <h1 className="text-2xl font-bold">Monitoring</h1>
-                <p className="text-sm text-muted-foreground mt-1">Performances en temps réel & SLA</p>
-            </motion.div>
-
-            {/* Summary KPIs */}
-            <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                    { label: "Requêtes/min", value: "1,247", icon: TrendingUp, color: "text-orange-400" },
-                    { label: "Erreurs/min", value: "4.2", icon: AlertTriangle, color: "text-amber-400" },
-                    { label: "Latence P95", value: "112ms", icon: Gauge, color: "text-cyan-400" },
-                    { label: "Uptime SLA", value: `${overallUptime}%`, icon: CheckCircle2, color: "text-emerald-400" },
-                ].map((kpi) => {
-                    const Icon = kpi.icon;
-                    return (
-                        <motion.div key={kpi.label} variants={fadeUp} className="glass-card rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Icon className={`h-4 w-4 ${kpi.color}`} />
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">{kpi.label}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {/* Signaux Total */}
+                    <Card className="glass border-white/5">
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 flex items-center justify-center">
+                                    <Zap className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold">
+                                        {isLoading ? "—" : dashboard?.signaux?.dernieres24h ?? 0}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Signaux (24h)</p>
+                                </div>
                             </div>
-                            <p className="text-xl font-bold">{kpi.value}</p>
-                        </motion.div>
-                    );
-                })}
-            </motion.div>
+                        </CardContent>
+                    </Card>
 
-            {/* Real-time charts */}
-            <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Requests */}
-                <div className="glass-card rounded-2xl p-5">
-                    <h2 className="text-sm font-semibold mb-1">Requêtes / sec</h2>
-                    <p className="text-[10px] text-muted-foreground mb-3">60 dernières secondes</p>
-                    <div className="h-[180px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={REQUESTS_60} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="gReq" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.3} />
-                                        <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                                <XAxis dataKey="time" tick={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 9, fill: "hsl(215,16%,57%)" }} tickLine={false} axisLine={false} />
-                                <Area type="monotone" dataKey="value" stroke="#f97316" fill="url(#gReq)" strokeWidth={1.5} name="req/s" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+                    {/* Non traités */}
+                    <Card className="glass border-white/5">
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-600 to-orange-500 flex items-center justify-center">
+                                    <Clock className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold">
+                                        {isLoading ? "—" : stats?.nonTraites ?? 0}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Non traités</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                {/* Errors */}
-                <div className="glass-card rounded-2xl p-5">
-                    <h2 className="text-sm font-semibold mb-1">Erreurs / sec</h2>
-                    <p className="text-[10px] text-muted-foreground mb-3">60 dernières secondes</p>
-                    <div className="h-[180px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={ERRORS_60} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="gErr" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
-                                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                                <XAxis dataKey="time" tick={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 9, fill: "hsl(215,16%,57%)" }} tickLine={false} axisLine={false} />
-                                <Area type="monotone" dataKey="value" stroke="#ef4444" fill="url(#gErr)" strokeWidth={1.5} name="err/s" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+                    {/* Critiques */}
+                    <Card className="glass border-white/5">
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${(stats?.critiques ?? 0) > 0 ? "bg-gradient-to-br from-red-600 to-pink-500" : "bg-gradient-to-br from-emerald-600 to-teal-500"}`}>
+                                    <Shield className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold">
+                                        {isLoading ? "—" : stats?.critiques ?? 0}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Alertes critiques</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                {/* Latency Percentiles */}
-                <div className="glass-card rounded-2xl p-5">
-                    <h2 className="text-sm font-semibold mb-1">Latence (ms)</h2>
-                    <p className="text-[10px] text-muted-foreground mb-3">P50 · P95 · P99</p>
-                    <div className="h-[180px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={LATENCY_60} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                                <XAxis dataKey="time" tick={false} axisLine={false} />
-                                <YAxis tick={{ fontSize: 9, fill: "hsl(215,16%,57%)" }} tickLine={false} axisLine={false} />
-                                <Tooltip content={<ChartTooltip />} />
-                                <Line type="monotone" dataKey="p50" stroke="#22c55e" strokeWidth={1.5} dot={false} name="P50" />
-                                <Line type="monotone" dataKey="p95" stroke="#f97316" strokeWidth={1.5} dot={false} name="P95" />
-                                <Line type="monotone" dataKey="p99" stroke="#ef4444" strokeWidth={1.5} dot={false} name="P99" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {/* Actions 24h */}
+                    <Card className="glass border-white/5">
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center">
+                                    <Activity className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold">
+                                        {isLoading ? "—" : dashboard?.actions?.dernieres24h ?? 0}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Actions (24h)</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </motion.div>
 
-            {/* Uptime SLA */}
-            <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4">
-                <div className="glass-card rounded-2xl p-5 overflow-x-auto">
-                    <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-orange-400" />
-                        Uptime SLA par service — 30 jours
-                    </h2>
-                    <table className="w-full text-xs">
-                        <thead>
-                            <tr className="border-b border-white/5 text-muted-foreground">
-                                <th className="text-left py-2 px-2 font-medium">Service</th>
-                                <th className="text-right py-2 px-2 font-medium">Uptime</th>
-                                <th className="text-right py-2 px-2 font-medium">Incidents</th>
-                                <th className="text-left py-2 px-2 font-medium hidden sm:table-cell">Dernier downtime</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {UPTIME_SERVICES.map((svc) => (
-                                <tr key={svc.name} className="border-b border-white/5 hover:bg-white/[0.02]">
-                                    <td className="py-2.5 px-2 font-medium">{svc.name}</td>
-                                    <td className={`py-2.5 px-2 text-right font-mono font-bold ${uptimeColor(svc.uptime)}`}>
-                                        {svc.uptime.toFixed(2)}%
-                                    </td>
-                                    <td className={`py-2.5 px-2 text-right ${svc.incidents > 2 ? "text-red-400" : svc.incidents > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                                        {svc.incidents}
-                                    </td>
-                                    <td className="py-2.5 px-2 text-muted-foreground hidden sm:table-cell">{svc.lastDowntime}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            {/* ── Health Timeline + Cortex Grid ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Health Timeline */}
+                <motion.div variants={fadeUp} className="lg:col-span-2">
+                    <Card className="glass border-white/5">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <TrendingUp className="h-4 w-4 text-emerald-400" />
+                                        Historique Santé
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Dernière heure — Intervalle 5 min
+                                    </CardDescription>
+                                </div>
+                                <StatusBadge status={dashboard?.sante?.status ?? "unknown"} />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? (
+                                <div className="h-8 animate-pulse bg-white/5 rounded" />
+                            ) : (
+                                <HealthTimeline history={dashboard?.healthHistory ?? []} />
+                            )}
+                            <div className="flex gap-4 mt-3 text-[11px] text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                    <span className="h-2 w-2 rounded-sm bg-emerald-500" /> Sain
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <span className="h-2 w-2 rounded-sm bg-amber-500" /> Dégradé
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <span className="h-2 w-2 rounded-sm bg-red-500" /> Critique
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
-                {/* Uptime trend */}
-                <div className="glass-card rounded-2xl p-5">
-                    <h2 className="text-sm font-semibold mb-3">Uptime global — 30j</h2>
-                    <div className="h-[240px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={UPTIME_30D} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="gUptime" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
-                                        <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(215,16%,57%)" }} tickLine={false} axisLine={false} interval={4} />
-                                <YAxis domain={[99, 100]} tick={{ fontSize: 9, fill: "hsl(215,16%,57%)" }} tickLine={false} axisLine={false} />
-                                <Area type="monotone" dataKey="uptime" stroke="#22c55e" fill="url(#gUptime)" strokeWidth={2} name="Uptime %" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+                {/* System Config Summary */}
+                <motion.div variants={fadeUp}>
+                    <Card className="glass border-white/5 h-full">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Système</CardTitle>
+                            <CardDescription className="text-xs">Métriques globales</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">Configurations</span>
+                                <span className="text-sm font-semibold">{isLoading ? "—" : dashboard?.configs ?? 0}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">Poids adaptatifs</span>
+                                <span className="text-sm font-semibold">{isLoading ? "—" : dashboard?.poidsAdaptatifs ?? 0}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">Signaux totaux</span>
+                                <span className="text-sm font-semibold">{isLoading ? "—" : dashboard?.signaux?.total ?? 0}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">Actions totales</span>
+                                <span className="text-sm font-semibold">{isLoading ? "—" : dashboard?.actions?.total ?? 0}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
+            </div>
+
+            {/* ── Cortex Activity Grid ── */}
+            <motion.div variants={fadeUp}>
+                <Card className="glass border-white/5">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4 text-violet-400" />
+                            Activité par Cortex (24h)
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoading ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {Array.from({ length: 8 }).map((_, i) => (
+                                    <div key={i} className="h-16 rounded-lg bg-white/5 animate-pulse" />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {(dashboard?.cortex ?? []).map((c) => {
+                                    const icons: Record<string, string> = {
+                                        limbique: "💓", hippocampe: "📚", plasticite: "🔧", prefrontal: "🎯",
+                                        sensoriel: "📡", visuel: "👁️", auditif: "👂", moteur: "🏃",
+                                    };
+                                    return (
+                                        <div key={c.nom} className="p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-lg">{icons[c.nom] ?? "🧠"}</span>
+                                                <span className="text-xs font-semibold capitalize">{c.nom}</span>
+                                            </div>
+                                            <p className="text-xl font-bold">{c.signaux}</p>
+                                            <p className="text-[10px] text-muted-foreground">signaux</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </motion.div>
+
+            {/* ── Alertes Critiques ── */}
+            <motion.div variants={fadeUp}>
+                <Card className="glass border-white/5">
+                    <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-amber-400" />
+                                    Alertes Critiques (24h)
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    {alertes ? `${alertes.total} alerte(s) depuis ${alertes.depuis}` : "Chargement…"}
+                                </CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {!alertes || alertes.total === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                                <CheckCircle2 className="h-8 w-8 mb-2 text-emerald-400 opacity-40" />
+                                <p className="text-sm">Aucune alerte critique</p>
+                                <p className="text-xs opacity-60">Le système fonctionne normalement</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {alertes.alertes.slice(0, 10).map((a: any) => (
+                                    <div key={a._id} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                                        <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm truncate">{a.action}</p>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                {new Date(a.createdAt).toLocaleString("fr-FR")}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </motion.div>
+
+            {/* ── Actions par Catégorie ── */}
+            <motion.div variants={fadeUp}>
+                <Card className="glass border-white/5">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Répartition des Actions (24h)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoading ? (
+                            <div className="h-20 animate-pulse bg-white/5 rounded" />
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {Object.entries(dashboard?.actions?.parCategorie ?? {}).map(([cat, count]) => {
+                                    const catConfig: Record<string, { label: string; color: string }> = {
+                                        metier: { label: "Métier", color: "text-violet-400" },
+                                        systeme: { label: "Système", color: "text-blue-400" },
+                                        utilisateur: { label: "Utilisateur", color: "text-emerald-400" },
+                                        securite: { label: "Sécurité", color: "text-red-400" },
+                                    };
+                                    const cc = catConfig[cat] ?? { label: cat, color: "text-muted-foreground" };
+                                    return (
+                                        <div key={cat} className="p-3 rounded-lg border border-white/5">
+                                            <p className={`text-xs font-semibold ${cc.color}`}>{cc.label}</p>
+                                            <p className="text-2xl font-bold mt-1">{count as number}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </motion.div>
         </motion.div>
     );

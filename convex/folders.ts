@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════
 
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // ─── Queries ─────────────────────────────────────
@@ -253,6 +254,15 @@ export const getTreeWithPaths = query({
             return 1 + getDepth(folder.parentFolderId.toString());
         };
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOSSIER_CREE",
+            action: "folders.getOrCreateByName",
+            entiteType: "folders",
+            entiteId: "system",
+            userId: "system",
+        });
         return folders.map((f) => ({
             id: f._id,
             name: f.name,
@@ -296,6 +306,15 @@ export const shareFolder = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOSSIER_MODIFIE",
+            action: "folders.shareFolder",
+            entiteType: "folders",
+            entiteId: "system",
+            userId: "system",
+        });
         return { success: true };
     },
 });

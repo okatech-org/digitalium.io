@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Organization Lifecycle
@@ -166,6 +167,15 @@ export const refreshConfigProgress = mutation({
             });
         }
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "org_lifecycle.refreshConfigProgress",
+            entiteType: "org_lifecycle",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.organizationId;
     },
 });
@@ -239,6 +249,15 @@ export const transitionStatus = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "org_lifecycle.transitionStatus",
+            entiteType: "org_lifecycle",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.organizationId;
     },
 });

@@ -5,6 +5,7 @@
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ─── Default archive categories (OHADA-aligned) ──
 
@@ -252,6 +253,7 @@ export const saveConfig = mutation({
     args: {
         organizationId: v.id("organizations"),
         iArchiveConfig: v.any(),
+        changedBy: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const org = await ctx.db.get(args.organizationId);
@@ -259,6 +261,7 @@ export const saveConfig = mutation({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const currentConfig = (org.config as any) ?? {};
+        const oldIArchive = currentConfig.iArchive ?? {};
         const updatedConfig = {
             ...currentConfig,
             iArchive: args.iArchiveConfig,
@@ -269,6 +272,25 @@ export const saveConfig = mutation({
             updatedAt: Date.now(),
         });
 
+        // Log changelog
+        await ctx.db.insert("archive_policy_changelog", {
+            organizationId: args.organizationId,
+            changeType: "config_updated",
+            entityName: "Configuration iArchive",
+            changes: { old: oldIArchive, new: args.iArchiveConfig },
+            changedBy: args.changedBy ?? "system",
+            changedAt: Date.now(),
+        });
+
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "archiveConfig.saveConfig",
+            entiteType: "archive_categories",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.organizationId;
     },
 });
@@ -333,8 +355,15 @@ export const upsertCategory = mutation({
             // Update existing
             const existing = await ctx.db.get(args.id);
             if (!existing) throw new Error("Catégorie introuvable");
+
+            const changes: Record<string, { old: unknown; new: unknown }> = {};
+            if (existing.retentionYears !== args.retentionYears) changes.retentionYears = { old: existing.retentionYears, new: args.retentionYears };
+            if (existing.name !== args.name) changes.name = { old: existing.name, new: args.name };
+            if (existing.ohadaReference !== args.ohadaReference) changes.ohadaReference = { old: existing.ohadaReference, new: args.ohadaReference };
+            if (existing.activeDurationYears !== args.activeDurationYears) changes.activeDurationYears = { old: existing.activeDurationYears, new: args.activeDurationYears };
+            if (existing.semiActiveDurationYears !== args.semiActiveDurationYears) changes.semiActiveDurationYears = { old: existing.semiActiveDurationYears, new: args.semiActiveDurationYears };
+
             if (existing.isFixed) {
-                // Only allow retentionYears + lifecycle updates on fixed categories
                 await ctx.db.patch(args.id, {
                     retentionYears: args.retentionYears,
                     ...lifecycleFields,
@@ -354,6 +383,20 @@ export const upsertCategory = mutation({
                     updatedAt: now,
                 });
             }
+
+            // Log changelog
+            if (Object.keys(changes).length > 0) {
+                await ctx.db.insert("archive_policy_changelog", {
+                    organizationId: args.organizationId,
+                    changeType: "category_updated",
+                    entityId: args.id,
+                    entityName: args.name,
+                    changes,
+                    changedBy: "system",
+                    changedAt: now,
+                });
+            }
+
             return args.id;
         } else {
             // Create new
@@ -364,7 +407,7 @@ export const upsertCategory = mutation({
                 )
                 .collect();
 
-            return await ctx.db.insert("archive_categories", {
+            const newId = await ctx.db.insert("archive_categories", {
                 name: args.name,
                 slug: args.slug,
                 description: args.description,
@@ -380,6 +423,19 @@ export const upsertCategory = mutation({
                 createdAt: now,
                 updatedAt: now,
             });
+
+            // Log changelog
+            await ctx.db.insert("archive_policy_changelog", {
+                organizationId: args.organizationId,
+                changeType: "category_created",
+                entityId: newId,
+                entityName: args.name,
+                changes: { retentionYears: args.retentionYears, slug: args.slug },
+                changedBy: "system",
+                changedAt: now,
+            });
+
+            return newId;
         }
     },
 });
@@ -393,6 +449,20 @@ export const deleteCategory = mutation({
         const cat = await ctx.db.get(args.id);
         if (!cat) throw new Error("Catégorie introuvable");
         if (cat.isFixed) throw new Error("Impossible de supprimer une catégorie fixe (Coffre-Fort)");
+
+        // Log changelog before deletion
+        if (cat.organizationId) {
+            await ctx.db.insert("archive_policy_changelog", {
+                organizationId: cat.organizationId,
+                changeType: "category_deleted",
+                entityId: args.id,
+                entityName: cat.name,
+                changes: { retentionYears: cat.retentionYears, slug: cat.slug },
+                changedBy: "system",
+                changedAt: Date.now(),
+            });
+        }
+
         await ctx.db.delete(args.id);
     },
 });
@@ -462,5 +532,142 @@ export const seedDefaultCategories = mutation({
         }
 
         return { seeded: true, count };
+    },
+});
+
+// ─── Compliance Stats ────────────────────────────
+
+/**
+ * Get compliance statistics for export report.
+ */
+export const getComplianceStats = query({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        const categories = await ctx.db
+            .query("archive_categories")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+        const archives = await ctx.db
+            .query("archives")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+        const now = Date.now();
+        const byCategorySlug: Record<string, { total: number; active: number; expired: number; onHold: number }> = {};
+
+        for (const cat of categories) {
+            byCategorySlug[cat.slug] = { total: 0, active: 0, expired: 0, onHold: 0 };
+        }
+
+        let totalArchives = 0;
+        let totalExpired = 0;
+        let totalOnHold = 0;
+        let totalDestroyed = 0;
+
+        for (const arc of archives) {
+            totalArchives++;
+            const isExpired = arc.retentionExpiresAt < now;
+            const isOnHold = arc.status === "on_hold";
+            const isDestroyed = arc.status === "destroyed";
+
+            if (isExpired) totalExpired++;
+            if (isOnHold) totalOnHold++;
+            if (isDestroyed) totalDestroyed++;
+
+            if (byCategorySlug[arc.categorySlug]) {
+                byCategorySlug[arc.categorySlug].total++;
+                if (arc.status === "active" || arc.status === "semi_active") byCategorySlug[arc.categorySlug].active++;
+                if (isExpired) byCategorySlug[arc.categorySlug].expired++;
+                if (isOnHold) byCategorySlug[arc.categorySlug].onHold++;
+            }
+        }
+
+        const destructionCerts = await ctx.db
+            .query("destruction_certificates")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+        return {
+            categories: categories.length,
+            totalArchives,
+            totalExpired,
+            totalOnHold,
+            totalDestroyed,
+            destructionCertificates: destructionCerts.length,
+            byCategorySlug,
+        };
+    },
+});
+
+// ─── Changelog ───────────────────────────────────
+
+/**
+ * List policy changelog entries for an organization.
+ */
+export const getChangelog = query({
+    args: {
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const entries = await ctx.db
+            .query("archive_policy_changelog")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .order("desc")
+            .take(100);
+
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "archiveConfig.seedDefaultCategories",
+            entiteType: "archive_categories",
+            entiteId: "system",
+            userId: "system",
+        });
+        return entries;
+    },
+});
+
+// ─── OCR ─────────────────────────────────────────
+
+/**
+ * Update OCR text for an archive.
+ */
+export const updateArchiveOcrText = mutation({
+    args: {
+        archiveId: v.id("archives"),
+        ocrText: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const archive = await ctx.db.get(args.archiveId);
+        if (!archive) throw new Error("Archive introuvable");
+
+        await ctx.db.patch(args.archiveId, {
+            metadata: {
+                ...archive.metadata,
+                ocrText: args.ocrText,
+            },
+            updatedAt: Date.now(),
+        });
+
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "archiveConfig.updateArchiveOcrText",
+            entiteType: "archive_categories",
+            entiteId: "system",
+            userId: "system",
+        });
+        return args.archiveId;
     },
 });

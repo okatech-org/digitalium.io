@@ -174,7 +174,7 @@ export default function DocumentTemplatesPage() {
             const docId = await createFromTemplate({
                 title: template.title,
                 content: template.content,
-                createdBy: "Daniel Nguema", // TODO: from auth context
+                // NOTE: Replace hardcoded user with useAuth() hook
                 tags: [template.category],
                 templateId: template.id,
             });

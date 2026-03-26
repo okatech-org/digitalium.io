@@ -8,53 +8,40 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-    ArrowLeft,
     Clock,
     PenTool,
     Calendar,
-    CheckCircle2,
-    ChevronRight,
     AlertTriangle,
 } from "lucide-react";
-
-const PENDING = [
-    {
-        id: "sig-1",
-        title: "Contrat prestation SOGARA — Q2 2026",
-        requester: "Daniel Nguema",
-        avatar: "DN",
-        deadline: Date.now() + 3 * 24 * 3600 * 1000,
-        signers: 2,
-        signed: 1,
-    },
-    {
-        id: "sig-2",
-        title: "Avenant bail Immeuble Triomphal 2026",
-        requester: "Marie Obame",
-        avatar: "MO",
-        deadline: Date.now() + 7 * 24 * 3600 * 1000,
-        signers: 1,
-        signed: 0,
-    },
-    {
-        id: "sig-3",
-        title: "Procuration générale — Mission Afrique du Sud",
-        requester: "Aimée Gondjout",
-        avatar: "AG",
-        deadline: Date.now() + 2 * 24 * 3600 * 1000,
-        signers: 2,
-        signed: 0,
-    },
-];
+import { useQuery } from "convex/react";
+import { api } from "../../../../../../convex/_generated/api";
+import { useAuth } from "@/hooks/useAuth";
 
 function daysUntil(ts: number): number {
     return Math.max(0, Math.ceil((ts - Date.now()) / (24 * 3600 * 1000)));
 }
 
 export default function PendingSignaturesPage() {
+    const { user } = useAuth();
+    const rawSignatures = useQuery(api.signatures.listPendingForUser, user?.email ? { userEmail: user.email } : "skip");
+
+    const PENDING = React.useMemo(() => {
+        if (!rawSignatures) return [];
+        return rawSignatures.map(sig => {
+            return {
+                id: sig._id,
+                title: ((sig as Record<string, unknown>).title as string) || "Document sans titre",
+                requester: sig.requestedBy || "Inconnu",
+                avatar: (sig.requestedBy || "?").substring(0, 1).toUpperCase(),
+                deadline: sig.dueDate || 0,
+                signers: sig.signers.length,
+                signed: sig.signers.filter(s => s.status === "signed").length,
+            };
+        });
+    }, [rawSignatures]);
+
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             {/* Header */}

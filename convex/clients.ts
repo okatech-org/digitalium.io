@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Clients
@@ -165,6 +166,15 @@ export const suspendClient = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CLIENT_MODIFIE",
+            action: "clients.suspendClient",
+            entiteType: "clients",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -188,6 +198,15 @@ export const reactivateClient = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CLIENT_MODIFIE",
+            action: "clients.reactivateClient",
+            entiteType: "clients",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -211,6 +230,15 @@ export const terminateClient = mutation({
             updatedAt: Date.now(),
         });
 
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CLIENT_MODIFIE",
+            action: "clients.terminateClient",
+            entiteType: "clients",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });

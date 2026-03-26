@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Audit Logs
@@ -73,6 +74,15 @@ export const listByOrganization = query({
         if (args.limit) {
             return q.take(args.limit);
         }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "auditLogs.logAction",
+            entiteType: "audit_logs",
+            entiteId: "system",
+            userId: "system",
+        });
         return q.collect();
     },
 });

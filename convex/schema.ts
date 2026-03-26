@@ -1008,6 +1008,8 @@ export default defineSchema({
         couleur: v.optional(v.string()),
         tags: v.array(v.string()),
         ordre: v.number(),
+        // v8: Lien vers catégorie de rétention (héritage politique d'archivage)
+        retentionCategoryId: v.optional(v.id("archive_categories")),
         estActif: v.boolean(),
         createdAt: v.number(),
         updatedAt: v.number(),
@@ -1178,4 +1180,122 @@ export default defineSchema({
     })
         .index("by_organizationId", ["organizationId"])
         .index("by_org_actif", ["organizationId", "estActif"]),
+
+    // ═══════════════════════════════════════════
+    // 24. ARCHIVE POLICY CHANGELOG (v8 — historique des politiques)
+    // ═══════════════════════════════════════════
+    archive_policy_changelog: defineTable({
+        organizationId: v.id("organizations"),
+        changeType: v.union(
+            v.literal("category_created"),
+            v.literal("category_updated"),
+            v.literal("category_deleted"),
+            v.literal("config_updated")
+        ),
+        entityId: v.optional(v.string()),       // ID de la catégorie ou config concernée
+        entityName: v.optional(v.string()),      // Nom lisible (ex: "Fiscal")
+        changes: v.optional(v.any()),            // JSON diff { field: { old, new } }
+        changedBy: v.string(),                   // userId
+        changedAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_org_date", ["organizationId", "changedAt"]),
+
+    // ═══════════════════════════════════════════
+    // N1. NEOCORTEX — SIGNAUX (bus de signaux pondérés)
+    // ═══════════════════════════════════════════
+    signaux: defineTable({
+        type: v.string(),                    // SignalType
+        source: v.string(),                  // CortexType émetteur
+        destination: v.string(),             // CortexType destinataire
+        payload: v.any(),                    // Données du signal
+        confiance: v.number(),               // 0.0 - 1.0
+        priorite: v.number(),                // 0=basse, 1=normale, 2=haute, 3=critique
+        correlationId: v.string(),           // Traçabilité inter-signaux
+        ttl: v.number(),                     // Durée de vie en ms
+        traite: v.boolean(),                 // Signal traité ?
+        emetteurId: v.optional(v.string()),  // userId déclencheur
+        entiteId: v.optional(v.string()),    // ID de l'entité concernée
+        entiteType: v.optional(v.string()),  // Table de l'entité
+        organisationId: v.optional(v.string()), // Contexte organisation
+        createdAt: v.number(),
+    })
+        .index("by_type", ["type"])
+        .index("by_traite", ["traite"])
+        .index("by_destination", ["destination"])
+        .index("by_correlationId", ["correlationId"])
+        .index("by_priorite", ["priorite"])
+        .index("by_organisationId", ["organisationId"])
+        .index("by_createdAt", ["createdAt"]),
+
+    // ═══════════════════════════════════════════
+    // N2. NEOCORTEX — HISTORIQUE ACTIONS (audit trail)
+    // ═══════════════════════════════════════════
+    historiqueActions: defineTable({
+        action: v.string(),                  // ex: "organizations.create"
+        categorie: v.union(
+            v.literal("metier"),
+            v.literal("systeme"),
+            v.literal("utilisateur"),
+            v.literal("securite")
+        ),
+        entiteType: v.string(),              // Table Convex
+        entiteId: v.string(),                // _id de l'entité
+        userId: v.string(),                  // Qui a fait l'action
+        organisationId: v.optional(v.string()),
+        details: v.object({
+            avant: v.optional(v.any()),      // Snapshot avant modification
+            apres: v.optional(v.any()),      // Snapshot après modification
+            description: v.optional(v.string()),
+            metadata: v.optional(v.any()),
+        }),
+        createdAt: v.number(),
+    })
+        .index("by_action", ["action"])
+        .index("by_entiteType", ["entiteType"])
+        .index("by_entiteId", ["entiteId"])
+        .index("by_userId", ["userId"])
+        .index("by_organisationId", ["organisationId"])
+        .index("by_createdAt", ["createdAt"])
+        .index("by_categorie", ["categorie"]),
+
+    // ═══════════════════════════════════════════
+    // N3. NEOCORTEX — CONFIG SYSTÈME (plasticité)
+    // ═══════════════════════════════════════════
+    configSysteme: defineTable({
+        cle: v.string(),                     // Clé unique de config
+        valeur: v.any(),                     // Valeur (type libre)
+        description: v.optional(v.string()), // Description humaine
+        updatedAt: v.number(),
+    })
+        .index("by_cle", ["cle"]),
+
+    // ═══════════════════════════════════════════
+    // N4. NEOCORTEX — MÉTRIQUES (hippocampe)
+    // ═══════════════════════════════════════════
+    metriques: defineTable({
+        nom: v.string(),                     // Nom de la métrique
+        valeur: v.number(),                  // Valeur numérique
+        unite: v.string(),                   // "count", "ms", "%", "bytes"
+        periode: v.string(),                 // "5min", "1h", "24h", "7d"
+        dimensions: v.optional(v.any()),     // { cortex: "limbique", org: "xxx" }
+        createdAt: v.number(),
+    })
+        .index("by_nom", ["nom"])
+        .index("by_periode", ["periode"])
+        .index("by_createdAt", ["createdAt"]),
+
+    // ═══════════════════════════════════════════
+    // N5. NEOCORTEX — POIDS ADAPTATIFS (plasticité)
+    // ═══════════════════════════════════════════
+    poidsAdaptatifs: defineTable({
+        signal: v.string(),                  // Type de signal
+        regle: v.string(),                   // Nom de la règle
+        poids: v.number(),                   // Poids actuel (0-10)
+        executions: v.number(),              // Nombre d'exécutions
+        derniereExecution: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_signal", ["signal"])
+        .index("by_regle", ["regle"]),
 });

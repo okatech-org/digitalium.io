@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Payments
@@ -185,6 +186,15 @@ export const updateStatus = mutation({
         if (args.status === "completed") updates.completedAt = now;
 
         await ctx.db.patch(args.id, updates);
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "PAIEMENT_STATUT_CHANGE",
+            action: "payments.updateStatus",
+            entiteType: "payments",
+            entiteId: "system",
+            userId: "system",
+        });
         return args.id;
     },
 });
@@ -208,6 +218,15 @@ export const simulateComplete = mutation({
             externalStatus: "approved",
             completedAt: now,
             updatedAt: now,
+        });
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "PAIEMENT_STATUT_CHANGE",
+            action: "payments.simulateComplete",
+            entiteType: "payments",
+            entiteId: "system",
+            userId: "system",
         });
         return args.id;
     },
