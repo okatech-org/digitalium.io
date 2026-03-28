@@ -49,6 +49,9 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Inject .env.production to be loaded at runtime by standalone Next.js server
+COPY --from=builder --chown=nextjs:nodejs /app/.env.production ./
+
 USER nextjs
 
 EXPOSE 3000
