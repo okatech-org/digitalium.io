@@ -101,6 +101,7 @@ export const update = mutation({
         name: v.optional(v.string()),
         description: v.optional(v.string()),
         tags: v.optional(v.array(v.string())),
+        parentFolderId: v.optional(v.union(v.id("folders"), v.null())),
         archiveSchedule: v.optional(v.object({
             scheduledDate: v.number(),
             targetCategory: v.string(),
@@ -109,21 +110,159 @@ export const update = mutation({
     },
     handler: async (ctx, args) => {
         const { id, ...updates } = args;
-        const cleaned = Object.fromEntries(
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            Object.entries(updates).filter(([_, v]) => v !== undefined)
-        );
-        await ctx.db.patch(id, { ...cleaned, updatedAt: Date.now() });
+        const patchObj: Record<string, any> = { updatedAt: Date.now() };
+
+        if (updates.name !== undefined) patchObj.name = updates.name;
+        if (updates.description !== undefined) patchObj.description = updates.description;
+        if (updates.tags !== undefined) patchObj.tags = updates.tags;
+        if (updates.archiveSchedule !== undefined) patchObj.archiveSchedule = updates.archiveSchedule;
+        if (updates.parentFolderId !== undefined) {
+            patchObj.parentFolderId = updates.parentFolderId === null ? undefined : updates.parentFolderId;
+        }
+
+        await ctx.db.patch(id, patchObj);
     },
 });
 
 export const remove = mutation({
-    args: { id: v.id("folders") },
+    args: {
+        id: v.id("folders"),
+        trashedBy: v.optional(v.string()),
+    },
     handler: async (ctx, args) => {
+        const folder = await ctx.db.get(args.id);
+        if (!folder) throw new Error("Dossier introuvable");
+
+        const now = Date.now();
+
+        // Soft-delete the folder itself
         await ctx.db.patch(args.id, {
             status: "trashed",
+            updatedAt: now,
+        });
+
+        // Also soft-delete all child folders recursively
+        const trashChildren = async (parentId: typeof args.id) => {
+            const children = await ctx.db
+                .query("folders")
+                .withIndex("by_parentFolderId", (q) => q.eq("parentFolderId", parentId))
+                .filter((q) => q.eq(q.field("status"), "active"))
+                .collect();
+            for (const child of children) {
+                await ctx.db.patch(child._id, { status: "trashed", updatedAt: now });
+                await trashChildren(child._id);
+            }
+        };
+        await trashChildren(args.id);
+
+        // Also trash documents inside this folder
+        const docs = await ctx.db
+            .query("documents")
+            .filter((q) =>
+                q.and(
+                    q.or(
+                        q.eq(q.field("folderId"), args.id),
+                        q.eq(q.field("parentFolderId"), args.id)
+                    ),
+                    q.neq(q.field("status"), "trashed")
+                )
+            )
+            .collect();
+        for (const doc of docs) {
+            await ctx.db.patch(doc._id, {
+                previousStatus: doc.status,
+                status: "trashed",
+                trashedAt: now,
+                trashedBy: args.trashedBy ?? doc.createdBy,
+                updatedAt: now,
+            });
+        }
+    },
+});
+
+// ─── Trash: list trashed folders ────────────────
+
+export const listTrashed = query({
+    args: {
+        organizationId: v.optional(v.id("organizations")),
+    },
+    handler: async (ctx, args) => {
+        if (args.organizationId) {
+            return ctx.db
+                .query("folders")
+                .withIndex("by_org_status", (q) =>
+                    q.eq("organizationId", args.organizationId!).eq("status", "trashed")
+                )
+                .collect();
+        }
+        return ctx.db
+            .query("folders")
+            .withIndex("by_status", (q) => q.eq("status", "trashed"))
+            .collect();
+    },
+});
+
+// ─── Trash: restore folder ─────────────────────
+
+export const restore = mutation({
+    args: { id: v.id("folders") },
+    handler: async (ctx, args) => {
+        const folder = await ctx.db.get(args.id);
+        if (!folder) throw new Error("Dossier introuvable");
+        if (folder.status !== "trashed") throw new Error("Le dossier n'est pas dans la corbeille");
+
+        // If the parent folder is also trashed, move to root instead
+        let newParentFolderId = folder.parentFolderId;
+        if (newParentFolderId) {
+            const parent = await ctx.db.get(newParentFolderId);
+            if (!parent || parent.status === "trashed") {
+                newParentFolderId = undefined;
+            }
+        }
+
+        await ctx.db.patch(args.id, {
+            status: "active",
+            parentFolderId: newParentFolderId,
             updatedAt: Date.now(),
         });
+    },
+});
+
+// ─── Trash: permanent delete folder ─────────────
+
+export const permanentDelete = mutation({
+    args: { id: v.id("folders") },
+    handler: async (ctx, args) => {
+        const folder = await ctx.db.get(args.id);
+        if (!folder) {
+            // Dossier déjà supprimé (ex: suppression en masse) → rien à faire
+            return;
+        }
+
+        // Recursively delete child folders
+        const deleteChildren = async (parentId: typeof args.id) => {
+            const children = await ctx.db
+                .query("folders")
+                .withIndex("by_parentFolderId", (q) => q.eq("parentFolderId", parentId))
+                .collect();
+            for (const child of children) {
+                await deleteChildren(child._id);
+                await ctx.db.delete(child._id);
+            }
+        };
+        await deleteChildren(args.id);
+
+        // Delete folder archive metadata
+        const metas = await ctx.db
+            .query("folder_archive_metadata")
+            .filter((q) => q.eq(q.field("folderId"), args.id))
+            .collect();
+        for (const m of metas) {
+            await ctx.db.delete(m._id);
+        }
+
+        // Delete the folder itself
+        await ctx.db.delete(args.id);
     },
 });
 
@@ -255,14 +394,6 @@ export const getTreeWithPaths = query({
         };
 
 
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "DOSSIER_CREE",
-            action: "folders.getOrCreateByName",
-            entiteType: "folders",
-            entiteId: "system",
-            userId: "system",
-        });
         return folders.map((f) => ({
             id: f._id,
             name: f.name,

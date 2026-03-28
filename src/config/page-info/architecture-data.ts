@@ -799,7 +799,7 @@ export const ARCHITECTURE_DATA: Record<string, ArchitectureInfo> = {
         dataFlow: "KPIs depuis Convex. Score conformité calculé côté serveur. Alertes temps réel.",
         diagram: DIAGRAMS.dashboard,
         keyComponents: ["InstitutionalDashboard", "ComplianceScore", "AlertCards"],
-        apiEndpoints: ["convex/institutional.getStats", "convex/compliance.getScore"],
+        apiEndpoints: ["convex/inst.getStats", "convex/compliance.getScore"],
     },
     "inst-idocument": {
         stack: [...CONVEX_STACK, "Firebase Storage"],

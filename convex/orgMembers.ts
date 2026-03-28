@@ -667,14 +667,6 @@ export const listAssignments = query({
         }
 
 
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "CONFIG_MODIFIEE",
-            action: "orgMembers.removeAssignment",
-            entiteType: "organization_members",
-            entiteId: "system",
-            userId: "system",
-        });
         return enriched;
     },
 });

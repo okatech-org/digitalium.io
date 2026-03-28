@@ -611,7 +611,7 @@ function InstitutionTemplate({ org }: { org: OrgData }) {
                 </div>
             </header>
 
-            {/* ── Hero (institutional) ── */}
+            {/* ── Hero (inst) ── */}
             <motion.section
                 {...fadeIn}
                 className="relative py-20 md:py-28"

@@ -10,13 +10,9 @@ import { motion } from "framer-motion";
 import {
     Building2,
     Search,
-    Filter,
-    Users,
-    TrendingUp,
     AlertTriangle,
     XCircle,
     CheckCircle2,
-    ChevronRight,
     MoreHorizontal,
     Pause,
     Play,

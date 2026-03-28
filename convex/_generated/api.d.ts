@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as aiAutoTag from "../aiAutoTag.js";
 import type * as aiSmartImport from "../aiSmartImport.js";
 import type * as archiveBridge from "../archiveBridge.js";
 import type * as archiveConfig from "../archiveConfig.js";
@@ -74,6 +75,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiAutoTag: typeof aiAutoTag;
   aiSmartImport: typeof aiSmartImport;
   archiveBridge: typeof archiveBridge;
   archiveConfig: typeof archiveConfig;

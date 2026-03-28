@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — File Manager: FinderGridView
 // Grille DnD style macOS Finder — Vue Icônes
+// Multi-sélection avec Cmd/Ctrl+Click et Shift+Click
 // ═══════════════════════════════════════════════
 
 "use client";
@@ -64,10 +65,16 @@ function DraggableFolderCard({
         data: { type: "folder", id: folder.id },
     });
 
-    const combinedRef = (node: HTMLDivElement | null) => {
-        setDragRef(node);
-        setDropRef(node);
-    };
+    const combinedRef = React.useCallback(
+        (node: HTMLDivElement | null) => {
+            setDragRef(node);
+            setDropRef(node);
+        },
+        [setDragRef, setDropRef]
+    );
+
+    const isDragOver = isOver || isDragOverTarget;
+    const content = React.useMemo(() => children(isDragOver), [children, isDragOver]);
 
     return (
         <div
@@ -77,7 +84,7 @@ function DraggableFolderCard({
             className={`transition-opacity ${isDragging ? "opacity-30" : ""}`}
             style={{ touchAction: "none" }}
         >
-            {children(isOver || isDragOverTarget)}
+            {content}
         </div>
     );
 }
@@ -124,7 +131,13 @@ interface FinderGridViewProps {
     renderFolderCard: (folder: FileManagerFolder, isDragOver: boolean) => React.ReactNode;
     renderFileCard: (file: FileManagerFile) => React.ReactNode;
     emptyState?: React.ReactNode;
-    columns?: 2 | 3;
+    columns?: 2 | 3 | 4 | 5;
+    /** Multi-sélection : callback quand un item est cliqué (avec modificateurs) */
+    onItemClick?: (id: string, type: "file" | "folder", event: React.MouseEvent) => void;
+    /** Set des IDs sélectionnés */
+    selectedIds?: Set<string>;
+    /** Double-clic sur un fichier : ouvrir */
+    onOpenFile?: (fileId: string) => void;
 }
 
 export default function FinderGridView({
@@ -136,6 +149,9 @@ export default function FinderGridView({
     renderFileCard,
     emptyState,
     columns = 3,
+    onItemClick,
+    selectedIds,
+    onOpenFile,
 }: FinderGridViewProps) {
     const [activeItem, setActiveItem] = useState<{ id: string; type: "file" | "folder"; name: string } | null>(null);
     const [overFolderId, setOverFolderId] = useState<string | null>(null);
@@ -144,6 +160,11 @@ export default function FinderGridView({
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor)
     );
+
+    // Nombre d'items sélectionnés pour l'overlay drag multi
+    const dragCount = selectedIds && activeItem && selectedIds.has(activeItem.id)
+        ? selectedIds.size
+        : 1;
 
     const handleDragStart = (event: DragStartEvent) => {
         const data = event.active.data.current;
@@ -173,8 +194,20 @@ export default function FinderGridView({
         if (activeData && overData && overData.type === "folder") {
             const activeId = activeData.id as string;
             const targetId = overData.id as string;
-            // Don't drop on self
-            if (activeId !== targetId) {
+
+            // Multi-sélection drag : déplacer tous les items sélectionnés
+            if (selectedIds && selectedIds.has(activeId) && selectedIds.size > 1) {
+                for (const itemId of Array.from(selectedIds)) {
+                    if (itemId !== targetId) {
+                        const isFolder = folders.some(f => f.id === itemId);
+                        onMoveItem({
+                            itemId,
+                            itemType: isFolder ? "folder" : "file",
+                            targetFolderId: targetId,
+                        });
+                    }
+                }
+            } else if (activeId !== targetId) {
                 onMoveItem({
                     itemId: activeId,
                     itemType: activeData.type as "file" | "folder",
@@ -192,9 +225,30 @@ export default function FinderGridView({
         setOverFolderId(null);
     };
 
+    // ─── Clic simple = sélection · Double-clic = ouvrir ──────
+    const handleFolderClick = (e: React.MouseEvent, folder: FileManagerFolder) => {
+        e.stopPropagation();
+        if (onItemClick) {
+            onItemClick(folder.id, "folder", e);
+        }
+    };
+
+    const handleFolderDoubleClick = (folder: FileManagerFolder) => {
+        onOpenFolder(folder.id);
+    };
+
+    const handleFileClick = (e: React.MouseEvent, file: FileManagerFile) => {
+        e.stopPropagation();
+        if (onItemClick) {
+            onItemClick(file.id, "file", e);
+        }
+    };
+
     const gridCols = columns === 2
-        ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
-        : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4";
+        ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+        : columns === 5
+        ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+        : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3";
 
     const hasFolders = folders.length > 0;
     const hasFiles = files.length > 0;
@@ -229,7 +283,8 @@ export default function FinderGridView({
                             {(isDragOver) => (
                                 <motion.div
                                     variants={fadeUp}
-                                    onClick={() => onOpenFolder(folder.id)}
+                                    onClick={(e) => handleFolderClick(e, folder)}
+                                    onDoubleClick={() => handleFolderDoubleClick(folder)}
                                     className="cursor-pointer"
                                 >
                                     {renderFolderCard(folder, isDragOver)}
@@ -256,7 +311,12 @@ export default function FinderGridView({
                     >
                         {files.map((file) => (
                             <DraggableFileCard key={file.id} file={file}>
-                                <motion.div variants={fadeUp}>
+                                <motion.div
+                                    variants={fadeUp}
+                                    onClick={(e) => handleFileClick(e, file)}
+                                    onDoubleClick={() => onOpenFile?.(file.id)}
+                                    className="cursor-pointer"
+                                >
                                     {renderFileCard(file)}
                                 </motion.div>
                             </DraggableFileCard>
@@ -265,13 +325,20 @@ export default function FinderGridView({
                 </>
             )}
 
-            {/* Drag Overlay */}
+            {/* Drag Overlay — affiche le nombre si multi-sélection */}
             <DragOverlay dropAnimation={null}>
                 {activeItem && (
-                    <DragOverlayCard
-                        name={activeItem.name}
-                        type={activeItem.type}
-                    />
+                    <div className="relative">
+                        <DragOverlayCard
+                            name={dragCount > 1 ? `${dragCount} éléments` : activeItem.name}
+                            type={activeItem.type}
+                        />
+                        {dragCount > 1 && (
+                            <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                                {dragCount}
+                            </div>
+                        )}
+                    </div>
                 )}
             </DragOverlay>
         </DndContext>

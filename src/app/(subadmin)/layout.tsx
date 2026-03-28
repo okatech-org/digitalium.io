@@ -29,7 +29,7 @@ export default function SubAdminRouteLayout({
 
     // Only level ≤ 2 (admin and above) can access subadmin
     if (user.level !== undefined && user.level > 2) {
-        const redirect = user.personaType === "institutional" ? "/institutional" : "/pro";
+        const redirect = user.personaType === "institutional" ? "/inst" : "/pro";
         router.replace(redirect);
         return null;
     }

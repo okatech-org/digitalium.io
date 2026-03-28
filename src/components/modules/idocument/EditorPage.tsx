@@ -382,6 +382,9 @@ export default function EditorPage({ documentId }: EditorPageProps) {
     const archiveDocumentMutation = useMutation(api.archiveBridge.archiveDocument);
     const saveContentMut = useMutation(api.documents.saveContent);
     const updateDocMut = useMutation(api.documents.update);
+    const submitForReviewMut = useMutation(api.documents.submitForReview);
+    const approveDocumentMut = useMutation(api.documents.approveDocument);
+    const rejectDocumentMut = useMutation(api.documents.rejectDocument);
 
     // ─── Workflow state ────────────────────────
     const [userLevel] = useState(2); // Demo: admin level
@@ -414,21 +417,58 @@ export default function EditorPage({ documentId }: EditorPageProps) {
         setApprovalModal({ open: true, action });
     }, []);
 
-    const handleApprovalConfirm = useCallback((data: { assignee?: string; comment: string; deadline?: number }) => {
+    const handleApprovalConfirm = useCallback(async (data: { assignee?: string; comment: string; deadline?: number }) => {
         const action = approvalModal.action;
         setApprovalModal({ open: false, action: "submit_review" });
 
-        if (action === "submit_review") {
-            setMeta((m) => ({ ...m, status: "review" as DocStatus, workflowReason: data.comment }));
-            showToast("Document soumis pour révision", "success");
-        } else if (action === "approve") {
-            setMeta((m) => ({ ...m, status: "approved" as DocStatus }));
-            showToast("Document approuvé ✓", "success");
-        } else if (action === "reject" || action === "request_changes") {
-            setMeta((m) => ({ ...m, status: "draft" as DocStatus, workflowReason: data.comment }));
-            showToast(action === "reject" ? "Document rejeté" : "Modifications demandées", "info");
+        // Persist workflow transition to Convex if we have a real document
+        if (isConvexId && documentId) {
+            try {
+                if (action === "submit_review") {
+                    await submitForReviewMut({
+                        id: documentId as Id<"documents">,
+                        userId: meta.author || "unknown",
+                        assignee: data.assignee,
+                        deadline: data.deadline,
+                        comment: data.comment,
+                    });
+                    setMeta((m) => ({ ...m, status: "review" as DocStatus, workflowReason: data.comment }));
+                    showToast("Document soumis pour révision", "success");
+                } else if (action === "approve") {
+                    await approveDocumentMut({
+                        id: documentId as Id<"documents">,
+                        userId: meta.author || "unknown",
+                        comment: data.comment || undefined,
+                    });
+                    setMeta((m) => ({ ...m, status: "approved" as DocStatus }));
+                    showToast("Document approuvé", "success");
+                } else if (action === "reject" || action === "request_changes") {
+                    await rejectDocumentMut({
+                        id: documentId as Id<"documents">,
+                        userId: meta.author || "unknown",
+                        reason: data.comment || (action === "reject" ? "Rejeté" : "Modifications demandées"),
+                    });
+                    setMeta((m) => ({ ...m, status: "draft" as DocStatus, workflowReason: data.comment }));
+                    showToast(action === "reject" ? "Document rejeté" : "Modifications demandées", "info");
+                }
+            } catch (err) {
+                console.error("Workflow transition error:", err);
+                showToast(`Erreur: ${err instanceof Error ? err.message : "Transition échouée"}`, "error");
+            }
+        } else {
+            // Demo mode: only local state
+            if (action === "submit_review") {
+                setMeta((m) => ({ ...m, status: "review" as DocStatus, workflowReason: data.comment }));
+                showToast("Document soumis pour révision", "success");
+            } else if (action === "approve") {
+                setMeta((m) => ({ ...m, status: "approved" as DocStatus }));
+                showToast("Document approuvé", "success");
+            } else if (action === "reject" || action === "request_changes") {
+                setMeta((m) => ({ ...m, status: "draft" as DocStatus, workflowReason: data.comment }));
+                showToast(action === "reject" ? "Document rejeté" : "Modifications demandées", "info");
+            }
         }
-    }, [approvalModal.action, showToast]);
+    }, [approvalModal.action, showToast, isConvexId, documentId, meta.author, submitForReviewMut, approveDocumentMut, rejectDocumentMut]);
 
     const handleArchiveConfirm = useCallback(async (data: ArchiveConfirmData) => {
         setArchiveModalOpen(false);
@@ -437,7 +477,7 @@ export default function EditorPage({ documentId }: EditorPageProps) {
             try {
                 const result = await archiveDocumentMutation({
                     documentId: documentId as Id<"documents">,
-                    // NOTE: Replace hardcoded user with useAuth() hook
+                    userId: meta.author || "unknown",
                     categorySlug: data.categorySlug,
                     tags: data.tags,
                     confidentiality: data.confidentiality,

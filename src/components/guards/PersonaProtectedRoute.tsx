@@ -29,7 +29,7 @@ function getPersonaRedirect(persona: PersonaType | null | undefined): string {
         case "business":
             return "/pro";
         case "institutional":
-            return "/institutional";
+            return "/inst";
         default:
             return "/onboarding";
     }

@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import {
     PenTool,
     Plus,
@@ -285,7 +286,8 @@ export default function ISignaturePage() {
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
     
     const { user } = useAuth();
-    const rawSignatures = useQuery(api.signatures.listByRequester, user?.email ? { requestedBy: user.email } : "skip");
+    const { convexOrgId } = useConvexOrgId();
+    const rawSignatures = useQuery(api.signatures.listByOrganization, convexOrgId ? { organizationId: convexOrgId } : "skip");
 
     const requests: SignatureRequest[] = useMemo(() => {
         if (!rawSignatures) return [];
@@ -404,8 +406,7 @@ export default function ISignaturePage() {
         setCurrentFolderId(folderId);
     }, []);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleMoveItem = useCallback((_event: any) => {
+    const handleMoveItem = useCallback(() => {
         toast.info("Fonctionnalité de déplacement en cours de connexion au backend.");
     }, []);
 

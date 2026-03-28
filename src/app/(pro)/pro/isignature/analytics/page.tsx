@@ -6,12 +6,9 @@
 // ═══════════════════════════════════════════════
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
-    ArrowLeft,
     BarChart3,
     ArrowUpRight,
     ArrowDownRight,

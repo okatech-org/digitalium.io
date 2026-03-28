@@ -39,14 +39,6 @@ export const getByUserId = query({
     args: { userId: v.string() },
     handler: async (ctx, args) => {
 
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "CONFIG_MODIFIEE",
-            action: "users.migrateUser",
-            entiteType: "users",
-            entiteId: "system",
-            userId: "system",
-        });
         return await ctx.db
             .query("users")
             .withIndex("by_userId", (q) => q.eq("userId", args.userId))

@@ -494,3 +494,290 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown.`;
         }
     },
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// DIGITALIUM.IO — Deep Reorganization v2
+// Réorganisation intelligente avec expertise métier documentaire
+// Comprend le métier, l'activité, le contexte et applique:
+//   - Déplacement intelligent avec sous-dossiers
+//   - Tags métier automatiques
+//   - Catégorie de rétention (OHADA)
+//   - Confidentialité par nature de document
+//   - Type de document automatique
+//   - Restrictions d'accès recommandées
+// ═══════════════════════════════════════════════════════════════════
+
+export const deepReorganize = action({
+    args: {
+        documents: v.array(v.object({
+            id: v.string(),
+            title: v.string(),
+            fileName: v.optional(v.string()),
+            excerpt: v.optional(v.string()),
+            tags: v.array(v.string()),
+            currentFolderId: v.union(v.string(), v.null()),
+            currentFolderName: v.union(v.string(), v.null()),
+            status: v.optional(v.string()),
+            mimeType: v.optional(v.string()),
+            fileSize: v.optional(v.number()),
+            createdBy: v.optional(v.string()),
+            createdAt: v.optional(v.number()),
+            documentTypeCode: v.optional(v.string()),
+            archiveCategorySlug: v.optional(v.string()),
+        })),
+        folderTree: v.array(v.object({
+            id: v.string(),
+            name: v.string(),
+            path: v.string(),
+            depth: v.number(),
+            parentFolderId: v.union(v.string(), v.null()),
+            tags: v.array(v.string()),
+            description: v.string(),
+        })),
+        // Catégories d'archive disponibles dans l'organisation
+        archiveCategories: v.array(v.object({
+            slug: v.string(),
+            name: v.string(),
+            retentionYears: v.number(),
+            scope: v.string(),
+        })),
+        // Types de documents configurés
+        documentTypes: v.array(v.object({
+            id: v.string(),
+            code: v.string(),
+            nom: v.string(),
+            retentionCategorySlug: v.optional(v.string()),
+        })),
+        // Contexte organisationnel
+        orgContext: v.object({
+            name: v.string(),
+            sector: v.optional(v.string()),
+            country: v.optional(v.string()),
+            totalDocuments: v.number(),
+            totalFolders: v.number(),
+        }),
+        mode: v.union(
+            v.literal("classify"),        // Classer dans l'existant
+            v.literal("reorganize"),       // Restructurer + créer dossiers
+            v.literal("deep_audit"),       // Audit complet: move + tags + rétention + confidentialité
+        ),
+    },
+    handler: async (_ctx, args) => {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error("GEMINI_API_KEY non configurée");
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        // ── Construire la représentation de l'arborescence ──
+        const treeStr = args.folderTree.length > 0
+            ? args.folderTree
+                .sort((a, b) => a.path.localeCompare(b.path))
+                .map((f) => `  ${"  ".repeat(f.depth)}📁 "${f.path}" (id: ${f.id}) [tags: ${f.tags.join(", ") || "-"}]`)
+                .join("\n")
+            : "  (Aucun dossier existant)";
+
+        // ── Construire la liste de documents enrichie ──
+        const docsStr = args.documents
+            .map((d, i) => {
+                const parts = [
+                    `${i + 1}. "${d.title}"`,
+                    d.fileName ? `[fichier: ${d.fileName}]` : "",
+                    `[type: ${d.documentTypeCode || "non défini"}]`,
+                    `[tags: ${d.tags.join(", ") || "aucun"}]`,
+                    `[rétention: ${d.archiveCategorySlug || "non définie"}]`,
+                    `[statut: ${d.status || "?"}]`,
+                    d.excerpt ? `[extrait: ${d.excerpt.slice(0, 120)}...]` : "",
+                    `→ Dossier: ${d.currentFolderName ?? "Aucun"} (id: ${d.currentFolderId ?? "null"})`,
+                ];
+                return `  ${parts.filter(Boolean).join(" ")}`;
+            })
+            .join("\n");
+
+        // ── Catégories d'archive OHADA disponibles ──
+        const categoriesStr = args.archiveCategories
+            .map((c) => `  - "${c.slug}" (${c.name}) → ${c.retentionYears} ans [scope: ${c.scope}]`)
+            .join("\n");
+
+        // ── Types de documents disponibles ──
+        const typesStr = args.documentTypes
+            .map((t) => `  - ${t.code}: ${t.nom}${t.retentionCategorySlug ? ` → rétention: ${t.retentionCategorySlug}` : ""}`)
+            .join("\n");
+
+        // ── Instructions par mode ──
+        const modeInstructions: Record<string, string> = {
+            classify: `MODE CLASSEMENT:
+- Range chaque document dans un dossier EXISTANT uniquement
+- "newFoldersToCreate" = toujours []
+- Applique les tags, types et catégories de rétention recommandés`,
+
+            reorganize: `MODE RÉORGANISATION:
+- Crée de nouveaux sous-dossiers quand nécessaire
+- Organise par TYPE puis par CLIENT/PROJET
+- "newFoldersToCreate" ordonné du parent au plus profond
+- Applique aussi tags, types et catégories de rétention`,
+
+            deep_audit: `MODE AUDIT PROFOND:
+- Restructure l'arborescence de façon optimale
+- Crée des dossiers métier cohérents
+- Applique tags, types de document, catégories de rétention
+- Définit la confidentialité selon la nature du document
+- Recommande les restrictions d'accès (visibilité du dossier)
+- Corrige les tags existants (retire les incorrects, ajoute les manquants)
+- Identifie les documents mal classés, les doublons potentiels
+- Applique la logique OHADA pour les durées de conservation`,
+        };
+
+        const prompt = `Tu es un expert en gestion documentaire, archivistique et records management pour l'organisation "${args.orgContext.name}"${args.orgContext.sector ? ` (secteur: ${args.orgContext.sector})` : ""}${args.orgContext.country ? ` basée au/en ${args.orgContext.country}` : ""}.
+
+Tu maîtrises parfaitement:
+- Le plan de classement documentaire professionnel (séries, sous-séries, dossiers)
+- La norme OHADA et la réglementation archivistique africaine
+- Le cycle de vie du document: création → validation → conservation active → semi-active → archivage définitif → destruction
+- Les principes de respect des fonds et de provenance
+- La confidentialité par nature de document (public, interne, confidentiel, secret)
+
+═══ CONTEXTE ORGANISATIONNEL ═══
+Organisation: ${args.orgContext.name}
+${args.orgContext.sector ? `Secteur d'activité: ${args.orgContext.sector}` : ""}
+${args.orgContext.country ? `Pays: ${args.orgContext.country}` : ""}
+Volume: ${args.orgContext.totalDocuments} documents dans ${args.orgContext.totalFolders} dossiers
+
+═══ ARBORESCENCE ACTUELLE ═══
+${treeStr}
+
+═══ CATÉGORIES DE RÉTENTION DISPONIBLES (OHADA) ═══
+${categoriesStr || "  (Aucune catégorie configurée — utilise les slugs: fiscal, social, juridique, client, coffre, general)"}
+
+═══ TYPES DE DOCUMENTS CONFIGURÉS ═══
+${typesStr || "  (Aucun type configuré — utilise les codes: CORR, RAPP, PV, NOTE, CONT, FACT, DECIS, AUTRE)"}
+
+═══ DOCUMENTS À ANALYSER ═══
+${docsStr}
+
+═══ ${modeInstructions[args.mode]} ═══
+
+═══ EXPERTISE MÉTIER — RÈGLES DE CLASSIFICATION INTELLIGENTE ═══
+
+1. ANALYSE SÉMANTIQUE DU TITRE ET CONTENU:
+   - "Devis", "Proposition commerciale", "Offre" → type FACT, catégorie "client", confidentiel
+   - "Facture", "Bon de commande", "Avoir" → type FACT, catégorie "fiscal"
+   - "Contrat", "Convention", "Avenant", "Protocole" → type CONT, catégorie "juridique", confidentiel
+   - "PV", "Procès-verbal", "Délibération", "Compte-rendu" → type PV, catégorie "juridique"
+   - "Note de service", "Circulaire", "Instruction" → type NOTE, catégorie "general"
+   - "Rapport", "Étude", "Audit", "Bilan" → type RAPP, catégorie selon contexte
+   - "CV", "Fiche de paie", "Contrat de travail", "Attestation" → type AUTRE, catégorie "social", confidentiel
+   - "Statuts", "Règlement intérieur", "Acte constitutif" → type DECIS, catégorie "coffre", secret
+   - "Plan", "Cahier des charges", "CCTP", "Spécifications" → type RAPP, catégorie "client"
+
+2. DÉTECTION D'ENTITÉS:
+   - Extraire noms de CLIENTS (entreprises, personnes morales)
+   - Extraire noms de PROJETS identifiables
+   - Extraire des DATES significatives (année fiscale, trimestre)
+   - Regrouper les documents du même client/projet dans un sous-dossier dédié
+
+3. COHÉRENCE DE LA RÉTENTION (OHADA):
+   - Documents fiscaux: minimum 10 ans (Art. 22 AUDCG)
+   - Documents sociaux/RH: minimum 5 ans
+   - Documents juridiques: minimum 30 ans pour actes constitutifs
+   - Contrats commerciaux: durée du contrat + 5 ans
+   - Correspondance: 5 ans minimum
+
+4. CONFIDENTIALITÉ:
+   - "public": Documents à usage externe (rapports annuels, marketing)
+   - "internal": Documents internes standards (notes, rapports internes)
+   - "confidential": Données personnelles, contrats, devis, infos financières
+   - "secret": Actes constitutifs, PV stratégiques, données RH sensibles
+
+5. VISIBILITÉ DOSSIER:
+   - "team": Tous les membres de l'org
+   - "shared": Personnes autorisées uniquement
+   - "private": Gestionnaires et admins
+
+6. TAGS MÉTIER:
+   - Maximum 6 tags par document
+   - Tags normalisés en français, capitalisés (ex: "Fiscal", "Contrat", "RH")
+
+═══ FORMAT DE RÉPONSE JSON STRICT ═══
+{
+  "organizationAnalysis": {
+    "detectedSector": "secteur détecté",
+    "detectedClients": ["Client A", "Client B"],
+    "detectedProjects": ["Projet X"],
+    "keyInsights": "Résumé de l'analyse métier"
+  },
+  "moves": [
+    {
+      "docId": "id_du_document",
+      "docTitle": "titre",
+      "currentFolderId": "id_ou_null",
+      "targetFolderId": "id_dossier_existant_le_plus_profond",
+      "targetFolderPath": "Chemin > Complet > Final",
+      "newFoldersToCreate": ["Sous-dossier1"],
+      "parentFolderIdForNew": "id_parent_existant",
+      "shouldMove": true,
+      "reasoning": "Explication métier en français",
+      "confidence": 0.92,
+      "recommendations": {
+        "suggestedTags": ["Tag1", "Tag2"],
+        "suggestedDocTypeCode": "CONT",
+        "suggestedRetentionSlug": "juridique",
+        "suggestedConfidentiality": "confidential",
+        "suggestedFolderVisibility": "shared",
+        "retentionReasoning": "Justification OHADA ou métier"
+      }
+    }
+  ],
+  "folderRecommendations": [
+    {
+      "folderId": "id_dossier_existant",
+      "suggestedRetentionSlug": "fiscal",
+      "suggestedConfidentiality": "internal",
+      "suggestedVisibility": "team",
+      "suggestedTags": ["Finances"],
+      "reasoning": "Justification"
+    }
+  ],
+  "summary": "Résumé global en français",
+  "stats": {
+    "totalDocuments": 10,
+    "documentsToMove": 7,
+    "documentsAlreadyCorrect": 3,
+    "newFoldersToCreate": 2,
+    "tagsToApply": 25,
+    "retentionToSet": 8,
+    "confidentialityToSet": 6
+  }
+}
+
+═══ RÈGLES CRITIQUES ═══
+- "shouldMove" = false si déjà au bon endroit
+- "targetFolderId" = toujours un ID EXISTANT
+- "newFoldersToCreate" ordonné du parent au plus profond
+- Inclure TOUS les documents, même ceux qui ne bougent pas
+- Utilise les VRAIS IDs fournis ci-dessus
+- "suggestedDocTypeCode" = un code parmi les types configurés
+- "suggestedRetentionSlug" = un slug parmi les catégories configurées
+
+Réponds UNIQUEMENT avec l'objet JSON, sans markdown, sans commentaires.`;
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().trim();
+
+        let jsonText = text;
+        if (jsonText.startsWith("```")) {
+            jsonText = jsonText.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "");
+        }
+
+        try {
+            const parsed = JSON.parse(jsonText);
+            return { plan: parsed, rawResponse: jsonText };
+        } catch {
+            return {
+                plan: null,
+                rawResponse: text,
+                error: "Impossible de parser le plan IA",
+            };
+        }
+    },
+});

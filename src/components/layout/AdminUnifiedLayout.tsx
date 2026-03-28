@@ -34,7 +34,6 @@ import {
     Building,
     UserCircle,
     Terminal,
-    ChevronLeft,
     ChevronRight as ChevronRightIcon,
     ChevronDown,
     Search,
@@ -56,7 +55,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
@@ -177,6 +175,7 @@ const BUSINESS_NAV: NavSection[] = [
             { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
             { label: "Facturation", href: "/admin/billing", icon: Receipt },
             { label: "Formation", href: "/admin/formation", icon: GraduationCap, appModuleId: "formation" },
+            { label: "Sécurité & Conformité", href: "/admin/compliance", icon: Shield, appModuleId: "parametres" },
             { label: "Paramètres", href: "/admin/parametres", icon: Settings, appModuleId: "parametres" },
         ],
     },
@@ -215,6 +214,7 @@ const DIGITALIUM_NAV: NavSection[] = [
         items: [
             { label: "Formation", href: "/admin/digitalium/formation", icon: GraduationCap, appModuleId: "formation" },
             { label: "Abonnements", href: "/admin/digitalium/subscriptions", icon: CreditCard, appModuleId: "abonnements" },
+            { label: "Sécurité & Conformité", href: "/admin/digitalium/compliance", icon: Shield, appModuleId: "parametres" },
             { label: "Paramètres", href: "/admin/digitalium/settings", icon: Settings, appModuleId: "parametres" },
         ],
     },
@@ -642,6 +642,8 @@ export default function AdminUnifiedLayout({
 
     const handleSignOut = useCallback(async () => {
         try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             const { auth } = await import("@/lib/firebase");
             const { signOut } = await import("firebase/auth");
             await signOut(auth);

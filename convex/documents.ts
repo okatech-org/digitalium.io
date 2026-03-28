@@ -17,14 +17,6 @@ export const getFileUrl = query({
     args: { storageId: v.id("_storage") },
     handler: async (ctx, args) => {
 
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "DOCUMENT_MODIFIE",
-            action: "documents.generateUploadUrl",
-            entiteType: "documents",
-            entiteId: "system",
-            userId: "system",
-        });
         return await ctx.storage.getUrl(args.storageId);
     },
 });
@@ -194,15 +186,6 @@ export const list = query({
 export const get = query({
     args: { id: v.id("documents") },
     handler: async (ctx, args) => {
-
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "DOCUMENT_CREE",
-            action: "documents.createFromImport",
-            entiteType: "documents",
-            entiteId: "system",
-            userId: "system",
-        });
         return ctx.db.get(args.id);
     },
 });
@@ -677,14 +660,6 @@ export const listTrashed = query({
                 .collect();
         }
 
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "DOCUMENT_MODIFIE",
-            action: "documents.archiveDocument",
-            entiteType: "documents",
-            entiteId: "system",
-            userId: "system",
-        });
         return ctx.db
             .query("documents")
             .withIndex("by_status", (q) => q.eq("status", "trashed"))
@@ -941,5 +916,180 @@ export const batchMoveToFolder = mutation({
             userId: "system",
         });
         return { moved };
+    },
+});
+
+// ─── Batch Apply AI Recommendations (Deep Reorganization v2) ────
+// Applique en masse: déplacement, tags, type de document, rétention, confidentialité
+
+export const batchApplyAIRecommendations = mutation({
+    args: {
+        recommendations: v.array(v.object({
+            docId: v.string(),
+            targetFolderId: v.optional(v.string()),
+            tags: v.optional(v.array(v.string())),
+            documentTypeId: v.optional(v.string()),
+            archiveCategorySlug: v.optional(v.string()),
+        })),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        let moved = 0;
+        let tagged = 0;
+        let typed = 0;
+        let archived = 0;
+
+        for (const rec of args.recommendations) {
+            try {
+                const docId = rec.docId as Id<"documents">;
+                const doc = await ctx.db.get(docId);
+                if (!doc) continue;
+
+                const updates: Record<string, unknown> = { updatedAt: now };
+
+                // ── Déplacer ──
+                if (rec.targetFolderId) {
+                    const targetFolderId = rec.targetFolderId as Id<"folders">;
+                    const oldFolderId = doc.folderId as Id<"folders"> | undefined;
+
+                    if (oldFolderId && String(oldFolderId) !== String(targetFolderId)) {
+                        updates.folderId = targetFolderId;
+                        updates.parentFolderId = undefined;
+
+                        // Decrement old folder fileCount
+                        const oldFolder = await ctx.db.get(oldFolderId);
+                        if (oldFolder && "fileCount" in oldFolder) {
+                            await ctx.db.patch(oldFolderId, {
+                                fileCount: Math.max(0, ((oldFolder.fileCount as number) ?? 1) - 1),
+                                updatedAt: now,
+                            });
+                        }
+                        // Increment new folder fileCount
+                        const newFolder = await ctx.db.get(targetFolderId);
+                        if (newFolder && "fileCount" in newFolder) {
+                            await ctx.db.patch(targetFolderId, {
+                                fileCount: ((newFolder.fileCount as number) ?? 0) + 1,
+                                updatedAt: now,
+                            });
+                        }
+                        moved++;
+                    } else if (!oldFolderId) {
+                        updates.folderId = targetFolderId;
+                        const newFolder = await ctx.db.get(targetFolderId);
+                        if (newFolder && "fileCount" in newFolder) {
+                            await ctx.db.patch(targetFolderId, {
+                                fileCount: ((newFolder.fileCount as number) ?? 0) + 1,
+                                updatedAt: now,
+                            });
+                        }
+                        moved++;
+                    }
+                }
+
+                // ── Tags ──
+                if (rec.tags && rec.tags.length > 0) {
+                    // Fusionner avec les tags existants (sans doublons)
+                    const existingTags = (doc.tags as string[]) ?? [];
+                    const mergedTags = Array.from(new Set([...existingTags, ...rec.tags]));
+                    updates.tags = mergedTags;
+                    tagged++;
+                }
+
+                // ── Type de document ──
+                if (rec.documentTypeId) {
+                    updates.documentTypeId = rec.documentTypeId;
+                    typed++;
+                }
+
+                // ── Catégorie de rétention ──
+                if (rec.archiveCategorySlug) {
+                    updates.archiveCategorySlug = rec.archiveCategorySlug;
+                    archived++;
+                }
+
+                await ctx.db.patch(docId, updates);
+
+                // Audit log
+                if (doc.organizationId) {
+                    await ctx.db.insert("audit_logs", {
+                        organizationId: doc.organizationId,
+                        userId: args.userId,
+                        action: "document.ai_deep_reorganize",
+                        resourceType: "document",
+                        resourceId: docId,
+                        details: {
+                            moved: !!rec.targetFolderId,
+                            tagsApplied: rec.tags,
+                            documentTypeId: rec.documentTypeId,
+                            archiveCategorySlug: rec.archiveCategorySlug,
+                        },
+                        createdAt: now,
+                    });
+                }
+            } catch (e) {
+                console.warn(`[batchApplyAI] Skipped docId=${rec.docId}:`, e);
+            }
+        }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.batchApplyAIRecommendations",
+            entiteType: "documents",
+            entiteId: "system",
+            userId: args.userId,
+        });
+
+        return { moved, tagged, typed, archived };
+    },
+});
+
+// ─── Archive Policy for documents ────────────────
+
+/** Définir la politique d'archivage directement sur un document */
+export const setArchivePolicy = mutation({
+    args: {
+        id: v.id("documents"),
+        archiveCategorySlug: v.string(),
+        archiveCategoryId: v.optional(v.string()),
+        confidentiality: v.optional(v.string()),
+        countingStartEvent: v.optional(v.string()),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const doc = await ctx.db.get(args.id);
+        if (!doc) throw new Error("Document not found");
+
+        await ctx.db.patch(args.id, {
+            archiveCategorySlug: args.archiveCategorySlug,
+            updatedAt: Date.now(),
+        });
+
+        // Audit log
+        if (doc.organizationId) {
+            await ctx.db.insert("audit_logs", {
+                organizationId: doc.organizationId,
+                userId: args.userId,
+                action: "document.archive_policy_set",
+                resourceType: "document",
+                resourceId: args.id,
+                details: {
+                    categorySlug: args.archiveCategorySlug,
+                    confidentiality: args.confidentiality,
+                    countingStartEvent: args.countingStartEvent,
+                },
+                createdAt: Date.now(),
+            });
+        }
+
+        // NEOCORTEX: signal
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "DOCUMENT_MODIFIE",
+            action: "documents.setArchivePolicy",
+            entiteType: "documents",
+            entiteId: args.id,
+            userId: args.userId,
+        });
     },
 });

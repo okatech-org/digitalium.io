@@ -2,6 +2,7 @@
 // DIGITALIUM.IO — DIGITALIUM: iSignature
 // Signature électronique interne DIGITALIUM
 // ═══════════════════════════════════════════════
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client";
 
@@ -90,9 +91,10 @@ export default function DigitaliumIsignaturePage() {
     const [search, setSearch] = useState("");
     const [showModal, setShowModal] = useState(false);
 
-    // Fetch live signatures for the org
-    const signaturesQuery = useQuery(api.signatures.listByOrganization, 
-        orgId ? { organizationId: orgId as any } : "skip"
+    // Fetch live signatures for the org (skip if orgId is a slug, not a Convex ID)
+    const isConvexId = orgId && orgId.length > 10 && !orgId.includes(" ");
+    const signaturesQuery = useQuery(api.signatures.listByOrganization,
+        isConvexId ? { organizationId: orgId as any } : "skip"
     );
 
     // Format & categorize live data

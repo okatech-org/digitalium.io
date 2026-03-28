@@ -18,6 +18,7 @@ export interface FileManagerFolder {
     parentFolderId: string | null;
     tags: string[];
     fileCount: number;
+    subfolderCount?: number;
     updatedAt: string;
     createdBy: string;
     isSystem?: boolean;
@@ -41,6 +42,21 @@ export interface FileManagerFile {
 export interface DragMoveEvent {
     itemId: string;
     itemType: "file" | "folder";
+    targetFolderId: string;
+}
+
+/* ─── Multi-selection ─────────────────── */
+
+export interface SelectedItem {
+    id: string;
+    type: "file" | "folder";
+    name: string;
+}
+
+/* ─── Batch drag event (multi-sélection) ─ */
+
+export interface DragBatchMoveEvent {
+    items: Array<{ itemId: string; itemType: "file" | "folder" }>;
     targetFolderId: string;
 }
 

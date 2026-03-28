@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
     Target,
     Search,
@@ -17,15 +17,11 @@ import {
     Zap,
     MoreHorizontal,
     ArrowRight,
-    Mail,
-    Phone,
     Building2,
     Globe,
     Linkedin,
     CalendarDays,
-    X,
     Send,
-    Eye,
     ThumbsUp,
     FileText,
     Handshake,
@@ -40,7 +36,6 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -51,13 +46,6 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";

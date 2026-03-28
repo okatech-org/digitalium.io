@@ -75,6 +75,7 @@ export const list = query({
     },
 });
 
+
 /* ─── Mutations ──────────────────────────────── */
 
 /**
@@ -145,6 +146,84 @@ export const create = mutation({
             status: "active",
             currentPeriodStart: now,
             currentPeriodEnd: periodEnd,
+        });
+    },
+});
+
+/**
+ * Update plan for an existing subscription.
+ */
+export const updatePlan = mutation({
+    args: {
+        id: v.id("subscriptions"),
+        plan: planType,
+    },
+    handler: async (ctx, args) => {
+        const sub = await ctx.db.get(args.id);
+        if (!sub) throw new Error("Abonnement introuvable");
+
+        const pricePerUser = PLAN_PRICING[args.plan] ?? 49000;
+
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "subscriptions.updatePlan",
+            entiteType: "subscriptions",
+            entiteId: args.id,
+            userId: "system",
+        });
+
+        return await ctx.db.patch(args.id, {
+            plan: args.plan,
+            pricePerUser,
+        });
+    },
+});
+
+/**
+ * Cancel an active subscription.
+ */
+export const cancel = mutation({
+    args: { id: v.id("subscriptions") },
+    handler: async (ctx, args) => {
+        const sub = await ctx.db.get(args.id);
+        if (!sub) throw new Error("Abonnement introuvable");
+
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "subscriptions.cancel",
+            entiteType: "subscriptions",
+            entiteId: args.id,
+            userId: "system",
+        });
+
+        return await ctx.db.patch(args.id, { status: "cancelled" as const });
+    },
+});
+
+/**
+ * Reactivate a cancelled subscription.
+ */
+export const reactivate = mutation({
+    args: { id: v.id("subscriptions") },
+    handler: async (ctx, args) => {
+        const sub = await ctx.db.get(args.id);
+        if (!sub) throw new Error("Abonnement introuvable");
+
+        const now = Date.now();
+        const periodDays = sub.billingCycle === "annual" ? 365 : 30;
+
+        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
+            signalType: "CONFIG_MODIFIEE",
+            action: "subscriptions.reactivate",
+            entiteType: "subscriptions",
+            entiteId: args.id,
+            userId: "system",
+        });
+
+        return await ctx.db.patch(args.id, {
+            status: "active" as const,
+            currentPeriodStart: now,
+            currentPeriodEnd: now + periodDays * 24 * 60 * 60 * 1000,
         });
     },
 });

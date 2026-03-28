@@ -182,7 +182,7 @@ export const PERSONAS: Record<PersonaType, PersonaConfig> = {
         subtitle: "Souveraineté numérique",
         description:
             "Solution souveraine pour les administrations publiques — tous modules, conformité, on-premise, SLA 99.9%.",
-        route: "/institutional",
+        route: "/inst",
         isExternal: false,
         icon: "Landmark",
         gradient: "from-emerald-500 to-teal-400",

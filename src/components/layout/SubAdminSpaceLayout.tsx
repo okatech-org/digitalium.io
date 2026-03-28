@@ -138,6 +138,7 @@ const NAV_SECTIONS: NavSection[] = [
             { label: "IAM", href: "/subadmin/iam", icon: KeyRound },
             { label: "Organisation", href: "/subadmin/organization", icon: Building },
             { label: "Thème", href: "/subadmin/design-theme", icon: Palette },
+            { label: "Sécurité & Conformité", href: "/subadmin/compliance", icon: Shield },
             { label: "Workflow Templates", href: "/subadmin/workflow-templates", icon: Workflow },
             { label: "Clients", href: "/subadmin/clients", icon: UserCircle },
             { label: "Leads", href: "/subadmin/leads", icon: Target },
@@ -401,6 +402,8 @@ export default function SubAdminSpaceLayout({
 
     const handleSignOut = useCallback(async () => {
         try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             const { auth } = await import("@/lib/firebase");
             const { signOut } = await import("firebase/auth");
             await signOut(auth);

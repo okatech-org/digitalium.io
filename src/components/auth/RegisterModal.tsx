@@ -149,7 +149,7 @@ const PERSONAS = [
             { icon: Clock, label: "Support dédié 24/7" },
         ],
         cta: "Demander un devis",
-        redirect: "/institutional",
+        redirect: "/inst",
         external: false,
     },
 ] as const;

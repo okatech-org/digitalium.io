@@ -1,13 +1,14 @@
 // ═══════════════════════════════════════════════════════════
 // DIGITALIUM.IO — Layout: InstitutionalLayout
-// Emerald/teal theme · Collapsible sidebar · Full navigation
-// Dashboard · iDocument · iArchive · iSignature · Formation
+// Unified institutional workspace — aligned with ProLayout
+// Dynamic org theming · RBAC + enabledModules filtering
 // ═══════════════════════════════════════════════════════════
 
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -16,12 +17,11 @@ import {
     Archive,
     PenTool,
     Bot,
-    BarChart3,
-    Workflow,
     Users,
     Settings,
-    GraduationCap,
-    ChevronLeft,
+    CreditCard,
+    UserCircle,
+    Target,
     ChevronRight as ChevronRightIcon,
     Search,
     Bell,
@@ -31,7 +31,7 @@ import {
     SlidersHorizontal,
     Building2,
     Shield,
-    Landmark,
+    GraduationCap,
     Sun,
     Moon,
     PanelLeftClose,
@@ -40,15 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { PageInfoButton } from "@/components/shared/PageInfoButton";
-import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
-import { INSTITUTIONAL_PAGE_INFO } from "@/config/page-info/institutional";
-import { useAuth } from "@/hooks/useAuth";
-import { useThemeContext } from "@/contexts/ThemeContext";
-import { useOrganization } from "@/contexts/OrganizationContext";
-import { getUserInitials, getUserDisplayName, getRoleLabel } from "@/config/role-helpers";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -62,14 +54,22 @@ import {
     SheetContent,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { PageInfoButton } from "@/components/shared/PageInfoButton";
+import { PageArchitectButton } from "@/components/shared/PageArchitectButton";
+import { INSTITUTIONAL_PAGE_INFO } from "@/config/page-info/inst";
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
+import { useThemeContext } from "@/contexts/ThemeContext";
+import { useOrganization } from "@/contexts/OrganizationContext";
+import { getUserInitials, getUserDisplayName, getRoleLabel } from "@/config/role-helpers";
+import { getProLayoutTheme, type ProLayoutTheme, type NavigationConfig } from "@/config/org-config";
 import type { AppModuleId } from "@/config/modules";
-import { toPermissionKey } from "@/config/modules";
+import { APP_MODULES, toPermissionKey } from "@/config/modules";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
@@ -78,55 +78,61 @@ import { api } from "../../../convex/_generated/api";
 interface NavItem {
     label: string;
     href: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: React.ElementType;
     badge?: number;
-    /** AppModuleId — used for business role permission filtering */
-    appModuleId?: AppModuleId;
+    /** Minimum RBAC level required (lower = more privilege) */
     maxLevel?: number;
+    /** AppModuleId — must be in org's enabledModules to appear */
+    appModuleId?: AppModuleId;
 }
 
 interface NavSection {
     title: string;
     items: NavItem[];
+    /** Restrict entire section to this max level */
+    maxLevel?: number;
 }
 
-function buildNavSections(_userLevel: number): NavSection[] {
-    const sections: NavSection[] = [
-        {
-            title: "Principal",
-            items: [
-                { label: "Dashboard", href: "/institutional", icon: LayoutDashboard, appModuleId: "dashboard" },
-            ],
-        },
-        {
-            title: "Modules",
-            items: [
-                { label: "iDocument", href: "/institutional/idocument", icon: FileText, appModuleId: "idocument" },
-                { label: "iArchive", href: "/institutional/iarchive", icon: Archive, appModuleId: "iarchive" },
-                { label: "iSignature", href: "/institutional/isignature", icon: PenTool, appModuleId: "isignature" },
-                { label: "iAsted", href: "/institutional/iasted", icon: Bot, appModuleId: "iasted" },
-            ],
-        },
-        {
-            title: "Administration",
-            items: [
-                { label: "Workflows", href: "/institutional/workflows", icon: Workflow, appModuleId: "workflow_templates", maxLevel: 3 },
-                { label: "Utilisateurs", href: "/institutional/users", icon: Users, appModuleId: "org_team" },
-                { label: "Sécurité & Conformité", href: "/institutional/compliance", icon: Shield, maxLevel: 3 },
-                { label: "Console SubAdmin", href: "/subadmin", icon: SlidersHorizontal, maxLevel: 2 },
-            ],
-        },
-        {
-            title: "Compte",
-            items: [
-                { label: "Formation", href: "/institutional/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
-                { label: "Paramètres", href: "/institutional/parametres", icon: Settings, appModuleId: "settings" },
-            ],
-        },
-    ];
-
-    return sections;
-}
+const NAV_SECTIONS: NavSection[] = [
+    /* ─── Modules Métier ──────────────────────── */
+    {
+        title: "Modules Métier",
+        items: [
+            { label: "Dashboard", href: "/inst", icon: LayoutDashboard, appModuleId: "dashboard" },
+            { label: "iDocument", href: "/inst/idocument", icon: FileText, appModuleId: "idocument" },
+            { label: "iArchive", href: "/inst/iarchive", icon: Archive, appModuleId: "iarchive" },
+            { label: "iSignature", href: "/inst/isignature", icon: PenTool, appModuleId: "isignature" },
+            { label: "iAsted", href: "/inst/iasted", icon: Bot, appModuleId: "iasted" },
+        ],
+    },
+    /* ─── Commercial ──────────────────────────── */
+    {
+        title: "Commercial",
+        items: [
+            { label: "Clients", href: "/inst/clients", icon: UserCircle, appModuleId: "crm_clients" },
+            { label: "Leads", href: "/inst/leads", icon: Target, appModuleId: "crm_leads" },
+        ],
+    },
+    /* ─── Organisation ────────────────────────── */
+    {
+        title: "Organisation",
+        items: [
+            { label: "Organisation", href: "/inst/organization", icon: Building2, appModuleId: "org_structure" },
+            { label: "Équipe", href: "/inst/team", icon: Users, appModuleId: "org_team" },
+        ],
+    },
+    /* ─── Administration ──────────────────────── */
+    {
+        title: "Administration",
+        items: [
+            { label: "Utilisateurs", href: "/inst/users", icon: Users, appModuleId: "org_team" },
+            { label: "Formation", href: "/inst/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
+            { label: "Sécurité & Conformité", href: "/inst/compliance", icon: Shield, appModuleId: "settings" },
+            { label: "Abonnements", href: "/inst/billing", icon: CreditCard, appModuleId: "billing" },
+            { label: "Paramètres", href: "/inst/parametres", icon: Settings, appModuleId: "settings" },
+        ],
+    },
+];
 
 /* ─── Breadcrumb builder ────────────────────────── */
 
@@ -136,11 +142,14 @@ const ROUTE_LABELS: Record<string, string> = {
     iarchive: "iArchive",
     isignature: "iSignature",
     iasted: "iAsted",
-    analytics: "Analytics IA",
-    workflows: "Workflows",
+    clients: "Clients",
+    leads: "Leads",
+    organization: "Organisation",
+    team: "Équipe",
     users: "Utilisateurs",
     compliance: "Conformité",
     formation: "Formation",
+    billing: "Abonnements",
     parametres: "Paramètres",
 };
 
@@ -159,30 +168,42 @@ function NavLink({
     item,
     collapsed,
     active,
+    theme,
 }: {
     item: NavItem;
     collapsed: boolean;
     active: boolean;
+    theme: ProLayoutTheme;
 }) {
+    const Icon = item.icon;
+
     const content = (
         <Link
             href={item.href}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium transition-all ${active
-                ? "bg-emerald-500/20 text-foreground"
-                : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground"
-                }`}
+            className={`
+                flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
+                transition-all duration-200 group relative
+                ${active
+                    ? `${theme.activeBg} text-foreground`
+                    : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+                }
+                ${collapsed ? "justify-center px-2" : ""}
+            `}
         >
-            <item.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-emerald-400" : ""}`} />
+            <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
             {!collapsed && (
                 <>
-                    <span className="truncate flex-1">{item.label}</span>
+                    <span className="truncate">{item.label}</span>
                     {item.badge !== undefined && (
-                        <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-emerald-500/15 text-emerald-400 border-0">
+                        <Badge
+                            variant="secondary"
+                            className={`ml-auto h-5 min-w-[20px] px-1.5 text-[10px] ${theme.badgeBg} ${theme.badgeText} border-0`}
+                        >
                             {item.badge}
                         </Badge>
                     )}
                     {active && (
-                        <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+                        <span className={`ml-auto h-2 w-2 rounded-full ${theme.indicator} shrink-0`} />
                     )}
                 </>
             )}
@@ -193,9 +214,13 @@ function NavLink({
         return (
             <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>{content}</TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">
+                <TooltipContent side="right" className="flex items-center gap-2">
                     {item.label}
-                    {item.badge !== undefined && <Badge variant="secondary" className="ml-2 h-4 px-1 text-[9px]">{item.badge}</Badge>}
+                    {item.badge !== undefined && (
+                        <Badge variant="secondary" className="h-4 text-[9px] px-1">
+                            {item.badge}
+                        </Badge>
+                    )}
                 </TooltipContent>
             </Tooltip>
         );
@@ -204,102 +229,123 @@ function NavLink({
     return content;
 }
 
-/* ═══════════════════════════════════════════════ */
-/*  MAIN LAYOUT COMPONENT                        */
-/* ═══════════════════════════════════════════════ */
+/* ─── Sidebar Content ───────────────────────────── */
 
-export default function InstitutionalLayout({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
-    const router = useRouter();
-    const [collapsed, setCollapsed] = useState(false);
-    const [mobileOpen, setMobileOpen] = useState(false);
+function SidebarContent({
+    collapsed,
+    pathname,
+    userLevel,
+    orgName,
+    logoUrl,
+    layoutTheme,
+    navConfig,
+    moduleAccess,
+    onToggle,
+    onSignOut,
+}: {
+    collapsed: boolean;
+    pathname: string;
+    userLevel: number;
+    orgName: string;
+    logoUrl?: string;
+    layoutTheme: ProLayoutTheme;
+    navConfig: NavigationConfig;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    moduleAccess: any;
+    onToggle: () => void;
+    onSignOut: () => void;
+}) {
+    const isActive = (href: string) =>
+        href === "/inst" ? pathname === "/inst" : pathname.startsWith(href);
+
     const { theme, toggleTheme } = useThemeContext();
-    const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
-
-    const { user } = useAuth();
-    const { orgName } = useOrganization();
-    const userLevel = user?.level ?? 4;
-    const userInitials = getUserInitials(user);
-    const userDisplayName = getUserDisplayName(user);
-    const userRoleLabel = getRoleLabel(user);
-    const navSectionsRaw = useMemo(() => buildNavSections(userLevel), [userLevel]);
-
-    // Business role module permissions filtering
-    const isAdminUser = user?.isSystemAdmin || user?.isPlatformAdmin;
-    const orgId = user?.organizations?.[0]?.id;
-    const isValidConvexId = orgId && !orgId.includes("-") && orgId.length > 10;
-    const moduleAccess = useQuery(
-        api.businessRoles.resolveModuleAccess,
-        isValidConvexId && !isAdminUser
-            ? { userId: user?.uid ?? "", organizationId: orgId as any }
-            : "skip"
-    );
 
     // Triple-layer filtering: RBAC + enabledModules + modulePermissions
     // Key rule: if modulePermissions explicitly grants a module, it bypasses RBAC level gates
-    const navSections = useMemo(() => {
+    const visibleSections = useMemo(() => {
+        const enabled = navConfig?.enabledModules ?? [];
         const perms = moduleAccess?.permissions;
         const isAdmin = !perms || moduleAccess?.source === "admin";
 
-        return navSectionsRaw
+        return NAV_SECTIONS
             .map((section) => ({
                 ...section,
                 items: section.items.filter((item) => {
-                    if (!item.appModuleId) {
-                        // Items without appModuleId use maxLevel gating only
-                        if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
-                        return true;
-                    }
+                    if (!item.appModuleId) return true;
 
+                    const mod = APP_MODULES[item.appModuleId];
                     const permKey = toPermissionKey(item.appModuleId);
                     const explicitlyGranted = !isAdmin && perms && permKey ? perms[permKey] === true : false;
                     const explicitlyDenied = !isAdmin && perms && permKey ? perms[permKey] === false : false;
 
+                    // If modulePermissions explicitly denies → always hide
                     if (explicitlyDenied) return false;
-                    if (explicitlyGranted) return true;
 
-                    // Default RBAC path
+                    // If modulePermissions explicitly grants → bypass RBAC, just check enabledModules
+                    if (explicitlyGranted) {
+                        if (mod?.isAlwaysOn) return true;
+                        return enabled.includes(item.appModuleId);
+                    }
+
+                    // Default path: standard RBAC + enabledModules filtering
+                    // Section-level RBAC
+                    if (section.maxLevel !== undefined && userLevel > section.maxLevel) return false;
+                    // Item-level RBAC
                     if (item.maxLevel !== undefined && userLevel > item.maxLevel) return false;
+                    // Always-on modules bypass enabledModules check
+                    if (mod?.isAlwaysOn) return true;
+                    // Must be in org's enabled modules
+                    if (!enabled.includes(item.appModuleId)) return false;
+                    // RBAC check against module's minRoleLevel
+                    if (mod && userLevel > mod.minRoleLevel) return false;
                     return true;
                 }),
             }))
             .filter((s) => s.items.length > 0);
-    }, [navSectionsRaw, moduleAccess, userLevel]);
+    }, [userLevel, navConfig, moduleAccess]);
 
-    const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
-
-    const isActive = useCallback(
-        (href: string) => {
-            if (href === "/institutional") return pathname === "/institutional";
-            return pathname.startsWith(href);
-        },
-        [pathname]
-    );
-
-    /* ─── Render sidebar contents (shared mobile/desktop) ─── */
-    const sidebarContent = (
+    return (
         <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className="flex items-center gap-2.5 px-4 py-5">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-500 flex items-center justify-center shrink-0">
-                    <Landmark className="h-4 w-4 text-white" />
-                </div>
+            <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2.5"} px-4 py-5`}>
+                {logoUrl ? (
+                    <Image
+                        src={logoUrl}
+                        alt={orgName}
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-lg shrink-0 object-cover"
+                    />
+                ) : (
+                    <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${layoutTheme.gradient} flex items-center justify-center shrink-0`}>
+                        <Building2 className="h-4 w-4 text-white" />
+                    </div>
+                )}
                 {!collapsed && (
                     <motion.div
                         initial={{ opacity: 0, width: 0 }}
                         animate={{ opacity: 1, width: "auto" }}
-                        className="overflow-hidden"
+                        exit={{ opacity: 0, width: 0 }}
+                        className="overflow-hidden whitespace-nowrap"
                     >
-                        <p className="text-sm font-bold whitespace-nowrap">{orgName}</p>
-                        <p className="text-[10px] text-muted-foreground whitespace-nowrap uppercase tracking-wider">Administration Souveraine</p>
+                        <p className="font-bold text-sm">{orgName}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Espace Institutionnel</p>
                     </motion.div>
                 )}
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-                {navSections.map((section) => (
-                    <div key={section.title}>
+            {/* Nav */}
+            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+                {visibleSections.map((section, idx) => (
+                    <div key={section.title} className={idx > 0 ? "mt-3" : ""}>
+                        {idx > 0 && !collapsed && (
+                            <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                                {section.title}
+                            </p>
+                        )}
+                        {idx > 0 && collapsed && (
+                            <div className="mx-auto my-2 w-6 border-t border-white/10" />
+                        )}
                         <div className="space-y-0.5">
                             {section.items.map((item) => (
                                 <NavLink
@@ -307,33 +353,36 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                                     item={item}
                                     collapsed={collapsed}
                                     active={isActive(item.href)}
+                                    theme={layoutTheme}
                                 />
                             ))}
                         </div>
                     </div>
                 ))}
-            </nav>
+            </div>
 
             {/* Footer */}
             <div className="px-3 pb-4 pt-2 space-y-1">
                 {!collapsed ? (
                     <>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={toggleTheme}
+                                className="flex-1 flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                            >
+                                {theme === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
+                                <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
+                            </button>
+                            <button
+                                onClick={onToggle}
+                                className="flex items-center justify-center h-[42px] w-[42px] rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                                title="Réduire le menu"
+                            >
+                                <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
+                            </button>
+                        </div>
                         <button
-                            onClick={toggleTheme}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
-                        >
-                            {theme === "dark" ? <Sun className="h-[18px] w-[18px] shrink-0" /> : <Moon className="h-[18px] w-[18px] shrink-0" />}
-                            <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
-                        </button>
-                        <button
-                            onClick={toggleCollapsed}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
-                        >
-                            <PanelLeftClose className="h-[18px] w-[18px] shrink-0" />
-                            <span>Réduire</span>
-                        </button>
-                        <button
-                            onClick={() => router.push('/')}
+                            onClick={onSignOut}
                             className="flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
                         >
                             <LogOut className="h-[18px] w-[18px] shrink-0" />
@@ -356,7 +405,7 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                         <Tooltip delayDuration={0}>
                             <TooltipTrigger asChild>
                                 <button
-                                    onClick={toggleCollapsed}
+                                    onClick={onToggle}
                                     className="flex items-center justify-center px-2 py-2.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-all w-full"
                                 >
                                     <PanelLeftOpen className="h-[18px] w-[18px]" />
@@ -367,7 +416,7 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
                         <Tooltip delayDuration={0}>
                             <TooltipTrigger asChild>
                                 <button
-                                    onClick={() => router.push('/')}
+                                    onClick={onSignOut}
                                     className="flex items-center justify-center px-2 py-2.5 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all w-full"
                                 >
                                     <LogOut className="h-[18px] w-[18px]" />
@@ -380,83 +429,206 @@ export default function InstitutionalLayout({ children }: { children: React.Reac
             </div>
         </div>
     );
+}
+
+/* ═══════════════════════════════════════════════
+   MAIN LAYOUT
+   ═══════════════════════════════════════════════ */
+
+export default function InstitutionalLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const [collapsed, setCollapsed] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const [notifications] = useState(4);
+    const pathname = usePathname();
+    const router = useRouter();
+
+    // Auth + RBAC
+    const { user } = useAuth();
+    const { orgName, orgType, orgConfig } = useOrganization();
+    const userLevel = user?.level ?? 4;
+    const userInitials = getUserInitials(user);
+    const userDisplayName = getUserDisplayName(user);
+    const userRoleLabel = getRoleLabel(user);
+
+    // Dynamic theme from org type
+    const layoutTheme = useMemo(() => getProLayoutTheme(orgType), [orgType]);
+    const logoUrl = orgConfig.branding.logoUrl;
+
+    const breadcrumbs = useMemo(() => buildBreadcrumbs(pathname), [pathname]);
+
+    const handleSignOut = useCallback(async () => {
+        try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
+            const { auth } = await import("@/lib/firebase");
+            const { signOut } = await import("firebase/auth");
+            await signOut(auth);
+            router.push("/");
+        } catch {
+            // silent
+        }
+    }, [router]);
+
+    const toggleCollapse = useCallback(() => setCollapsed((p) => !p), []);
+
+    // Module access query — skip for admins and non-Convex org IDs
+    const orgId = user?.organizations?.[0]?.id;
+    const isAdminUser = user?.isSystemAdmin || user?.isPlatformAdmin || user?.isAdmin || (user?.level !== undefined && user.level <= 2);
+    const isValidConvexId = orgId && !orgId.includes("-") && orgId.length > 10;
+    const moduleAccess = useQuery(
+        api.businessRoles.resolveModuleAccess,
+        isValidConvexId && !isAdminUser
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? { userId: user?.uid ?? "", organizationId: orgId as any }
+            : "skip"
+    );
 
     return (
-        <TooltipProvider>
+        <TooltipProvider delayDuration={0}>
             <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
-                {/* ─── Desktop Sidebar ─── */}
+                {/* Desktop Sidebar */}
                 <motion.aside
-                    animate={{ width: collapsed ? 64 : 256 }}
+                    initial={false}
+                    animate={{ width: collapsed ? 64 : 260 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    className="hidden md:flex flex-col glass-panel rounded-2xl relative shrink-0 overflow-hidden"
+                    className="hidden lg:flex flex-col shrink-0 glass-panel rounded-2xl overflow-hidden"
                 >
-                    {sidebarContent}
-
+                    <SidebarContent
+                        collapsed={collapsed}
+                        pathname={pathname}
+                        userLevel={userLevel}
+                        orgName={orgName}
+                        logoUrl={logoUrl}
+                        layoutTheme={layoutTheme}
+                        navConfig={orgConfig.navigation}
+                        moduleAccess={moduleAccess}
+                        onToggle={toggleCollapse}
+                        onSignOut={handleSignOut}
+                    />
                 </motion.aside>
 
-                {/* ─── Mobile Sidebar ─── */}
+                {/* Mobile Sidebar */}
                 <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                    <SheetContent side="left" className="w-72 p-0 glass">
-                        <SheetTitle className="sr-only">Navigation</SheetTitle>
-                        {sidebarContent}
+                    <SheetContent side="left" className="w-[280px] p-0 glass-section border-r border-border/40">
+                        <SheetTitle className="sr-only">Menu Institutionnel</SheetTitle>
+                        <SidebarContent
+                            collapsed={false}
+                            pathname={pathname}
+                            userLevel={userLevel}
+                            orgName={orgName}
+                            logoUrl={logoUrl}
+                            layoutTheme={layoutTheme}
+                            navConfig={orgConfig.navigation}
+                            moduleAccess={moduleAccess}
+                            onToggle={() => setMobileOpen(false)}
+                            onSignOut={handleSignOut}
+                        />
                     </SheetContent>
                 </Sheet>
 
-                {/* ─── Main Area ─── */}
+                {/* Main area */}
                 <div className="flex-1 flex flex-col min-w-0 glass-panel rounded-2xl overflow-hidden">
                     {/* Header */}
-                    <header className="h-14 border-b border-border/40 flex items-center gap-3 px-4 shrink-0">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="md:hidden h-8 w-8"
-                            onClick={() => setMobileOpen(true)}
-                        >
-                            <Menu className="h-4 w-4" />
-                        </Button>
+                    <header className="h-14 border-b border-border/40 flex items-center justify-between px-4 lg:px-6 shrink-0 z-20">
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="lg:hidden h-8 w-8 text-muted-foreground"
+                                onClick={() => setMobileOpen(true)}
+                            >
+                                <Menu className="h-4 w-4" />
+                            </Button>
 
-                        {/* Breadcrumbs */}
-                        <nav className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-                            {breadcrumbs.map((bc, i) => (
-                                <React.Fragment key={bc.href}>
-                                    {i > 0 && <ChevronRightIcon className="h-3 w-3 mx-0.5 text-muted-foreground/40" />}
-                                    {bc.isLast ? (
-                                        <span className="text-foreground font-medium">{bc.label}</span>
-                                    ) : (
-                                        <Link href={bc.href} className="hover:text-foreground transition-colors">
-                                            {bc.label}
-                                        </Link>
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </nav>
-
-                        <div className="flex-1" />
-
-                        {/* Search */}
-                        <div className="relative hidden lg:block">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                                placeholder="Rechercher…"
-                                className="h-8 w-56 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10"
-                            />
+                            <nav className="flex items-center gap-1 text-sm">
+                                {breadcrumbs.map((crumb, i) => (
+                                    <React.Fragment key={crumb.href}>
+                                        {i > 0 && (
+                                            <ChevronRightIcon className="h-3 w-3 text-muted-foreground/40 mx-1" />
+                                        )}
+                                        {crumb.isLast ? (
+                                            <span className="font-medium text-foreground">{crumb.label}</span>
+                                        ) : (
+                                            <Link
+                                                href={crumb.href}
+                                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                {crumb.label}
+                                            </Link>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </nav>
                         </div>
 
-                        {(() => {
-                            const segment = pathname === "/institutional" ? "institutional" : pathname.replace("/institutional/", "");
-                            const info = INSTITUTIONAL_PAGE_INFO[segment];
-                            return info ? <><PageArchitectButton info={info} accentColor="emerald" /><PageInfoButton info={info} accentColor="emerald" /></> : null;
-                        })()}
+                        <div className="flex items-center gap-2">
+                            <div className="hidden md:flex items-center relative">
+                                <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input
+                                    placeholder="Rechercher…"
+                                    className={`h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 ${layoutTheme.ringColor}`}
+                                />
+                            </div>
 
-                        {/* Notifications */}
-                        <Button variant="ghost" size="icon" className="relative h-8 w-8">
-                            <Bell className="h-4 w-4" />
-                            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500" />
-                        </Button>
+                            {(() => {
+                                const segment = pathname === "/inst" ? "inst": pathname.replace("/inst/", "");
+                                const info = INSTITUTIONAL_PAGE_INFO[segment];
+                                return info ? <><PageArchitectButton info={info} accentColor={layoutTheme.pageInfoAccent} /><PageInfoButton info={info} accentColor={layoutTheme.pageInfoAccent} /></> : null;
+                            })()}
+
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">
+                                <Bell className="h-4 w-4" />
+                                {notifications > 0 && (
+                                    <span className={`absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full ${layoutTheme.notifBg} text-white text-[9px] font-bold flex items-center justify-center`}>
+                                        {notifications}
+                                    </span>
+                                )}
+                            </Button>
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 gap-2 px-2">
+                                        <Avatar className="h-6 w-6">
+                                            <AvatarFallback className={`bg-gradient-to-br ${layoutTheme.gradient} text-white text-[10px] font-bold`}>
+                                                {userInitials}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span className="hidden md:block text-xs font-medium">{userDisplayName}</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                    <DropdownMenuLabel className="text-xs">
+                                        <p>{userDisplayName}</p>
+                                        <p className="text-[10px] text-muted-foreground font-normal">{userRoleLabel} · {orgName}</p>
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-xs gap-2 cursor-pointer">
+                                        <UserIcon className="h-3.5 w-3.5" /> Profil
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-xs gap-2 cursor-pointer">
+                                        <SlidersHorizontal className="h-3.5 w-3.5" /> Préférences
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-xs gap-2 cursor-pointer">
+                                        <Shield className="h-3.5 w-3.5" /> Sécurité
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        className="text-xs gap-2 text-destructive cursor-pointer"
+                                        onClick={handleSignOut}
+                                    >
+                                        <LogOut className="h-3.5 w-3.5" /> Déconnexion
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </header>
 
-                    {/* Content */}
-                    <main className="flex-1 overflow-y-auto p-4 md:p-6">
+                    {/* Page content */}
+                    <main className="flex-1 overflow-y-auto p-4 lg:p-6">
                         {children}
                     </main>
                 </div>

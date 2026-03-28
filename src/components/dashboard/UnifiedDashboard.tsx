@@ -57,7 +57,7 @@ export interface DashboardTheme {
 }
 
 export interface DashboardConfig {
-    /** Route space prefix, e.g. "/admin", "/pro", "/institutional", "/subadmin" */
+    /** Route space prefix, e.g. "/admin", "/pro", "/inst", "/subadmin" */
     spacePrefix: string;
     /** Module base route, e.g. "/admin/digitalium" or "/pro" */
     moduleBase: string;

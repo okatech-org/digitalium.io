@@ -129,6 +129,7 @@ const NAV_SECTIONS: NavSection[] = [
         title: "Administration",
         items: [
             { label: "Formation", href: "/pro/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
+            { label: "Sécurité & Conformité", href: "/pro/compliance", icon: Shield, appModuleId: "settings" },
             { label: "Abonnements", href: "/pro/billing", icon: CreditCard, appModuleId: "billing" },
             { label: "Paramètres", href: "/pro/settings", icon: Settings, appModuleId: "settings" },
         ],
@@ -157,6 +158,7 @@ const ROUTE_LABELS: Record<string, string> = {
     analytics: "Analytics",
     team: "Équipe",
     clients: "Clients",
+    compliance: "Conformité",
     leads: "Leads",
     organization: "Organisation",
     settings: "Paramètres",
@@ -473,6 +475,8 @@ export default function ProLayout({
 
     const handleSignOut = useCallback(async () => {
         try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             const { auth } = await import("@/lib/firebase");
             const { signOut } = await import("firebase/auth");
             await signOut(auth);

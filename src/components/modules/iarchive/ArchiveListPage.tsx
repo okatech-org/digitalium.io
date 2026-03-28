@@ -12,7 +12,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import {
-    Archive, Search, Filter, Upload, Shield,
+    Archive, Search, Upload, Shield,
     Clock, Lock, Landmark, Users2, Scale,
     Building2, FileText, Folder, FolderOpen,
     Hash, CheckCircle2, AlertTriangle, XCircle,
@@ -46,9 +46,11 @@ import type {
     ViewMode,
     FileManagerFolder,
     FileManagerFile,
-    DragMoveEvent,
     ListColumn,
 } from "@/components/modules/file-manager";
+import { VaultFolderCard } from "@/components/ui/vault/VaultFolderCard";
+import { VaultFileCard } from "@/components/ui/vault/VaultFileCard";
+import { getCategoryConfigFromFolder } from "@/components/ui/vault/category-config";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -96,13 +98,7 @@ const FOLDER_ICONS: Record<string, React.ElementType> = {
     coffre: Lock,
 };
 
-const FOLDER_GRADIENTS: Record<string, string> = {
-    fiscal: "from-amber-600 to-orange-500",
-    social: "from-blue-600 to-cyan-500",
-    juridique: "from-emerald-600 to-teal-500",
-    client: "from-violet-600 to-purple-500",
-    coffre: "from-rose-600 to-pink-500",
-};
+// Gradient mapping moved to vault/category-config.ts
 
 const FOLDER_COLORS: Record<string, string> = {
     fiscal: "text-amber-400",
@@ -242,7 +238,7 @@ const ARCHIVE_COLUMNS: ListColumn[] = [
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export default function ArchiveListPage() {
+export default function ArchiveListPage({ basePath = "/pro/iarchive" }: { basePath?: string }) {
     const { convexOrgId } = useConvexOrgId();
 
     // ─── Convex Queries ────────────────────────────────────────
@@ -417,7 +413,7 @@ export default function ArchiveListPage() {
         setCurrentFolderId(folderId);
     }, []);
 
-    const handleMoveItem = useCallback((_event: DragMoveEvent) => {
+    const handleMoveItem = useCallback(() => {
         // DnD disabled with live data — folders are categories
     }, []);
 
@@ -465,38 +461,29 @@ export default function ArchiveListPage() {
 
     const renderFolderCard = useCallback(
         (folder: FileManagerFolder, isDragOver: boolean) => {
-            const icon = FOLDER_ICONS[folder.id] || Folder;
-            const FolderIcon = icon;
-            const gradient = FOLDER_GRADIENTS[folder.id] || "from-violet-600 to-indigo-500";
-            const color = FOLDER_COLORS[folder.id] || "text-violet-400";
+            const badges = folder.isSystem ? (
+                <Badge variant="outline" className="text-[9px] h-4 border-rose-500/20 text-rose-500 bg-rose-500/10">
+                    Sécurisé
+                </Badge>
+            ) : null;
+
             return (
-                <Card className={`glass border-white/5 overflow-hidden transition-all ${isDragOver ? "ring-2 ring-violet-500/50 bg-violet-500/5 scale-[1.02]" : "hover:border-white/10"}`}>
-                    <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${gradient}`}>
-                                <FolderIcon className="h-4.5 w-4.5 text-white" />
-                            </div>
-                            {folder.isSystem && (
-                                <Badge variant="outline" className="text-[9px] h-4 border-rose-500/20 text-rose-400">
-                                    Sécurisé
-                                </Badge>
-                            )}
-                        </div>
-                        <h3 className="text-sm font-semibold mb-0.5">{folder.name}</h3>
-                        <p className="text-[11px] text-muted-foreground">
-                            {folder.fileCount} élément{folder.fileCount > 1 ? "s" : ""} · {folder.updatedAt}
-                        </p>
-                        {folder.tags.length > 0 && (
-                            <div className="flex gap-1 mt-2">
-                                {folder.tags.map((t) => (
-                                    <span key={t} className={`text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 ${color}`}>
-                                        {t}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                <VaultFolderCard
+                    label={folder.name}
+                    count={folder.fileCount}
+                    isDragOver={isDragOver}
+                    badges={badges}
+                    contextMenu={null}
+                    tags={
+                        folder.tags.length > 0
+                            ? folder.tags.map((t) => (
+                                  <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-secondary-foreground border">
+                                      {t}
+                                  </span>
+                              ))
+                            : null
+                    }
+                />
             );
         },
         []
@@ -507,41 +494,32 @@ export default function ArchiveListPage() {
             const meta = file.metadata as Record<string, unknown>;
             const status = meta.status as ArchiveStatus;
             const st = STATUS_CFG[status];
+            
+            // Get category styling from folderId or fallbacks
+            const categoryConfig = getCategoryConfigFromFolder(file.folderId || file.name);
+
+            const statusBadge = (
+                <Badge className={`text-[9px] h-5 border ${st.class}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${st.dot} mr-1.5`} />
+                    {st.label}
+                </Badge>
+            );
+
             return (
-                <Card className="glass border-white/5 overflow-hidden cursor-pointer hover:border-white/10 transition-all group">
-                    <CardContent className="p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <Badge className={`text-[10px] h-5 border ${st.class}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${st.dot} mr-1.5`} />
-                                {st.label}
-                            </Badge>
-                            <span className="text-[9px] text-muted-foreground font-mono">{meta.certId as string}</span>
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-semibold leading-snug line-clamp-2 group-hover:text-violet-300 transition-colors">
-                                {file.name}
-                            </h3>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px]">
-                            <div className="flex items-center gap-1">
-                                <Hash className="h-2.5 w-2.5 text-zinc-600" />
-                                <span className="font-mono text-zinc-500">{meta.hash as string}</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                            <div className="flex items-center gap-1.5">
-                                <div className="h-5 w-5 rounded-full bg-violet-500/15 flex items-center justify-center">
-                                    <span className="text-[8px] text-violet-300 font-bold">{meta.archivedByInitials as string}</span>
-                                </div>
-                                <span className="text-[10px] text-muted-foreground">{meta.archivedBy as string}</span>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-2.5 w-2.5" />
-                                {file.date}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
+                <VaultFileCard
+                    title={file.name}
+                    gradient={categoryConfig.gradient}
+                    iconColor={categoryConfig.iconColor}
+                    sizeBytes={0}
+                    author={meta.archivedBy as string}
+                    authorInitials={meta.archivedByInitials as string}
+                    date={file.date}
+                    statusBadge={statusBadge}
+                    version={meta.certId as string} // Displaying certId as version badge for visibility
+                    tags={[]}
+                    badges={null}
+                    contextMenu={null}
+                />
             );
         },
         []
@@ -658,13 +636,13 @@ export default function ArchiveListPage() {
                         <FolderPlus className="h-3.5 w-3.5" />
                         Nouveau dossier
                     </Button>
-                    <Link href="/pro/iarchive/certificates">
+                    <Link href={`${basePath}/certificates`}>
                         <Button variant="outline" size="sm" className="text-xs border-white/10">
                             <Shield className="h-3.5 w-3.5 mr-1.5" />
                             Certificats
                         </Button>
                     </Link>
-                    <Link href="/pro/iarchive/upload">
+                    <Link href={`${basePath}/upload`}>
                         <Button
                             size="sm"
                             className="text-xs bg-gradient-to-r from-violet-600 to-indigo-500 hover:from-violet-700 hover:to-indigo-600"

@@ -68,6 +68,8 @@ export const listDemoOrganizations = query({
                     demoEmail,
                     poste: m.poste,
                     role: m.role,
+                    estAdmin: m.estAdmin ?? false,
+                    level: m.level,
                     businessRoleName,
                     orgUnitName,
                     status: m.status,

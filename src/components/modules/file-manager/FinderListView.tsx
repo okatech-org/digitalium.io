@@ -1,11 +1,12 @@
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — File Manager: FinderListView
-// Tableau triable avec DnD — Vue Liste Finder
+// Vue liste avec dossiers dépliables — Style macOS Finder
+// Triangles de dépliage, indentation, ouverture de fichiers
 // ═══════════════════════════════════════════════
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
     DndContext,
     DragOverlay,
@@ -19,7 +20,7 @@ import {
     type DragOverEvent,
 } from "@dnd-kit/core";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronUp, ChevronDown, FolderOpen, GripVertical } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, FolderOpen, GripVertical } from "lucide-react";
 import DragOverlayCard from "./DragOverlayCard";
 import type { FileManagerFolder, FileManagerFile, DragMoveEvent, ListColumn } from "./types";
 
@@ -75,9 +76,11 @@ function DraggableFolderRow({
 function DraggableFileRow({
     file,
     children,
+    onDoubleClick,
 }: {
     file: FileManagerFile;
     children: React.ReactNode;
+    onDoubleClick?: () => void;
 }) {
     const {
         attributes,
@@ -94,11 +97,243 @@ function DraggableFileRow({
             ref={setNodeRef}
             {...attributes}
             {...listeners}
-            className={`transition-opacity ${isDragging ? "opacity-30" : ""}`}
+            onDoubleClick={onDoubleClick}
+            className={`transition-opacity cursor-default ${isDragging ? "opacity-30" : "hover:bg-white/[0.02]"}`}
             style={{ touchAction: "none" }}
         >
             {children}
         </tr>
+    );
+}
+
+/* ─── Recursive folder row with expand/collapse ─── */
+
+function ExpandableFolderSection({
+    folder,
+    depth,
+    columns,
+    expandedFolders,
+    selectedId,
+    isItemSelected: isItemSelectedFn,
+    overFolderId,
+    onToggleExpand,
+    onOpenFolder,
+    onOpenFile,
+    onSelect,
+    getFolderContents,
+    renderFolderIcon,
+    renderFileIcon,
+}: {
+    folder: FileManagerFolder;
+    depth: number;
+    columns: ListColumn[];
+    expandedFolders: Set<string>;
+    selectedId: string | null;
+    isItemSelected?: (id: string) => boolean;
+    overFolderId: string | null;
+    onToggleExpand: (folderId: string) => void;
+    onOpenFolder: (folderId: string) => void;
+    onOpenFile?: (fileId: string) => void;
+    onSelect: (id: string, type?: "file" | "folder", event?: React.MouseEvent) => void;
+    getFolderContents?: (folderId: string) => {
+        folders: FileManagerFolder[];
+        files: FileManagerFile[];
+    };
+    renderFolderIcon?: (folder: FileManagerFolder) => React.ReactNode;
+    renderFileIcon?: (file: FileManagerFile) => React.ReactNode;
+}) {
+    const isExpanded = expandedFolders.has(folder.id);
+    const isSelected = isItemSelectedFn ? isItemSelectedFn(folder.id) : selectedId === folder.id;
+    const contents = isExpanded && getFolderContents
+        ? getFolderContents(folder.id)
+        : { folders: [], files: [] };
+
+    const hasChildren = getFolderContents
+        ? (() => {
+            const c = getFolderContents(folder.id);
+            return c.folders.length > 0 || c.files.length > 0;
+        })()
+        : folder.fileCount > 0;
+
+    return (
+        <>
+            {/* ─── Folder row ─── */}
+            <DraggableFolderRow
+                folder={folder}
+                isDragOverTarget={overFolderId === folder.id}
+            >
+                {(isDragOver) => (
+                    <>
+                        <td className="py-2 px-1 w-8">
+                            {!folder.isSystem && (
+                                <GripVertical className="h-3 w-3 text-muted-foreground/30" />
+                            )}
+                        </td>
+                        {columns.map((col, ci) => (
+                            <td
+                                key={col.key}
+                                className={`py-2 px-2 ${
+                                    isDragOver && ci === 0
+                                        ? "border-l-2 border-violet-500"
+                                        : ""
+                                } ${isSelected && ci === 0 ? "bg-violet-500/10 rounded-l" : ""}`}
+                            >
+                                {ci === 0 ? (
+                                    <div
+                                        className="flex items-center gap-1.5"
+                                        style={{ paddingLeft: `${depth * 20}px` }}
+                                    >
+                                        {/* Triangle de dépliage macOS */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (hasChildren) onToggleExpand(folder.id);
+                                            }}
+                                            className={`shrink-0 p-0.5 rounded transition-all ${
+                                                hasChildren
+                                                    ? "hover:bg-white/10 text-muted-foreground"
+                                                    : "text-transparent pointer-events-none"
+                                            }`}
+                                        >
+                                            <ChevronRight
+                                                className={`h-3 w-3 transition-transform duration-200 ${
+                                                    isExpanded ? "rotate-90" : ""
+                                                }`}
+                                            />
+                                        </button>
+
+                                        {/* Icône + nom (clic = sélection, double-clic = navigation) */}
+                                        <button
+                                            onClick={(e) => onSelect(folder.id, "folder", e)}
+                                            onDoubleClick={() => onOpenFolder(folder.id)}
+                                            className="flex items-center gap-2 hover:text-violet-400 transition-colors min-w-0"
+                                        >
+                                            {renderFolderIcon
+                                                ? renderFolderIcon(folder)
+                                                : <FolderOpen className="h-4 w-4 text-violet-400 shrink-0" />
+                                            }
+                                            <span className="font-medium truncate">{folder.name}</span>
+                                            {folder.isSystem && (
+                                                <span className="text-[9px] text-zinc-500 bg-zinc-500/10 px-1.5 py-0.5 rounded shrink-0">
+                                                    Système
+                                                </span>
+                                            )}
+                                        </button>
+
+                                        {/* Compteur d'éléments */}
+                                        {hasChildren && (
+                                            <span className="text-[10px] text-muted-foreground/50 shrink-0 ml-auto">
+                                                {folder.fileCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    col.render
+                                        ? col.render(folder)
+                                        : <span className="text-muted-foreground">—</span>
+                                )}
+                            </td>
+                        ))}
+                    </>
+                )}
+            </DraggableFolderRow>
+
+            {/* ─── Expanded children (récursif) ─── */}
+            {isExpanded && (
+                <>
+                    {/* Sous-dossiers */}
+                    {contents.folders.map((subFolder) => (
+                        <ExpandableFolderSection
+                            key={subFolder.id}
+                            folder={subFolder}
+                            depth={depth + 1}
+                            columns={columns}
+                            expandedFolders={expandedFolders}
+                            selectedId={selectedId}
+                            isItemSelected={isItemSelectedFn}
+                            overFolderId={overFolderId}
+                            onToggleExpand={onToggleExpand}
+                            onOpenFolder={onOpenFolder}
+                            onOpenFile={onOpenFile}
+                            onSelect={onSelect}
+                            getFolderContents={getFolderContents}
+                            renderFolderIcon={renderFolderIcon}
+                            renderFileIcon={renderFileIcon}
+                        />
+                    ))}
+
+                    {/* Fichiers dans le dossier déplié */}
+                    {contents.files.map((file) => {
+                        const fileIsSelected = isItemSelectedFn ? isItemSelectedFn(file.id) : selectedId === file.id;
+                        return (
+                            <DraggableFileRow
+                                key={file.id}
+                                file={file}
+                                onDoubleClick={() => onOpenFile?.(file.id)}
+                            >
+                                <td className="py-2 px-1 w-8">
+                                    <GripVertical className="h-3 w-3 text-muted-foreground/30" />
+                                </td>
+                                {columns.map((col, ci) => (
+                                    <td
+                                        key={col.key}
+                                        className={`py-2 px-2 ${
+                                            fileIsSelected && ci === 0
+                                                ? "bg-violet-500/10 rounded-l"
+                                                : ""
+                                        }`}
+                                    >
+                                        {ci === 0 ? (
+                                            <div
+                                                className="flex items-center gap-2"
+                                                style={{ paddingLeft: `${(depth + 1) * 20 + 18}px` }}
+                                            >
+                                                <button
+                                                    onClick={(e) => onSelect(file.id, "file", e)}
+                                                    onDoubleClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onOpenFile?.(file.id);
+                                                    }}
+                                                    className="flex items-center gap-2 hover:text-violet-400 transition-colors min-w-0"
+                                                >
+                                                    {renderFileIcon
+                                                        ? renderFileIcon(file)
+                                                        : <span className="text-muted-foreground">📄</span>
+                                                    }
+                                                    <span className="font-medium truncate">{file.name}</span>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            col.render
+                                                ? col.render(file)
+                                                : <span className="text-muted-foreground">—</span>
+                                        )}
+                                    </td>
+                                ))}
+                            </DraggableFileRow>
+                        );
+                    })}
+
+                    {/* Dossier vide quand déplié */}
+                    {contents.folders.length === 0 && contents.files.length === 0 && (
+                        <tr>
+                            <td className="py-1.5 px-1 w-8" />
+                            <td
+                                colSpan={columns.length}
+                                className="py-1.5 px-2"
+                            >
+                                <span
+                                    className="text-[10px] text-muted-foreground/40 italic"
+                                    style={{ paddingLeft: `${(depth + 1) * 20 + 18}px` }}
+                                >
+                                    Dossier vide
+                                </span>
+                            </td>
+                        </tr>
+                    )}
+                </>
+            )}
+        </>
     );
 }
 
@@ -116,6 +351,17 @@ interface FinderListViewProps {
     renderFolderIcon?: (folder: FileManagerFolder) => React.ReactNode;
     renderFileIcon?: (file: FileManagerFile) => React.ReactNode;
     emptyState?: React.ReactNode;
+    /** Callback pour ouvrir un fichier (double-clic ou clic) */
+    onOpenFile?: (fileId: string) => void;
+    /** Fournir le contenu d'un dossier pour le dépliage inline */
+    getFolderContents?: (folderId: string) => {
+        folders: FileManagerFolder[];
+        files: FileManagerFile[];
+    };
+    /** Multi-sélection : callback quand un item est cliqué (avec modificateurs) */
+    onItemClick?: (id: string, type: "file" | "folder", event: React.MouseEvent) => void;
+    /** Set des IDs sélectionnés (externe) — prioritaire sur la sélection interne */
+    selectedIds?: Set<string>;
 }
 
 export default function FinderListView({
@@ -130,14 +376,46 @@ export default function FinderListView({
     renderFolderIcon,
     renderFileIcon,
     emptyState,
+    onOpenFile,
+    getFolderContents,
+    onItemClick,
+    selectedIds: externalSelectedIds,
 }: FinderListViewProps) {
     const [activeItem, setActiveItem] = useState<{ id: string; type: "file" | "folder"; name: string } | null>(null);
     const [overFolderId, setOverFolderId] = useState<string | null>(null);
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+    const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
+
+    // Si la multi-sélection externe est fournie, l'utiliser; sinon fallback interne
+    const isItemSelected = useCallback((id: string) => {
+        if (externalSelectedIds) return externalSelectedIds.has(id);
+        return internalSelectedId === id;
+    }, [externalSelectedIds, internalSelectedId]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
         useSensor(KeyboardSensor)
     );
+
+    const handleToggleExpand = useCallback((folderId: string) => {
+        setExpandedFolders(prev => {
+            const next = new Set(prev);
+            if (next.has(folderId)) {
+                next.delete(folderId);
+            } else {
+                next.add(folderId);
+            }
+            return next;
+        });
+    }, []);
+
+    const handleSelect = useCallback((id: string, type: "file" | "folder" = "file", event?: React.MouseEvent) => {
+        if (onItemClick && event) {
+            onItemClick(id, type, event);
+        } else if (!externalSelectedIds) {
+            setInternalSelectedId(prev => prev === id ? null : id);
+        }
+    }, [onItemClick, externalSelectedIds]);
 
     const handleDragStart = (event: DragStartEvent) => {
         const data = event.active.data.current;
@@ -160,13 +438,30 @@ export default function FinderListView({
         }
     };
 
+    const dragCount = externalSelectedIds && activeItem && externalSelectedIds.has(activeItem.id)
+        ? externalSelectedIds.size
+        : 1;
+
     const handleDragEnd = (event: DragEndEvent) => {
         const activeData = event.active.data.current;
         const overData = event.over?.data.current;
         if (activeData && overData && overData.type === "folder") {
             const activeId = activeData.id as string;
             const targetId = overData.id as string;
-            if (activeId !== targetId) {
+
+            // Multi-sélection drag
+            if (externalSelectedIds && externalSelectedIds.has(activeId) && externalSelectedIds.size > 1) {
+                for (const itemId of Array.from(externalSelectedIds)) {
+                    if (itemId !== targetId) {
+                        const isFolder = folders.some(f => f.id === itemId);
+                        onMoveItem({
+                            itemId,
+                            itemType: isFolder ? "folder" : "file",
+                            targetFolderId: targetId,
+                        });
+                    }
+                }
+            } else if (activeId !== targetId) {
                 onMoveItem({
                     itemId: activeId,
                     itemType: activeData.type as "file" | "folder",
@@ -224,58 +519,28 @@ export default function FinderListView({
                         </tr>
                     </thead>
                     <tbody>
-                        {/* Folders (always first) */}
+                        {/* ─── Dossiers avec dépliage récursif ─── */}
                         {folders.map((folder) => (
-                            <DraggableFolderRow
+                            <ExpandableFolderSection
                                 key={folder.id}
                                 folder={folder}
-                                isDragOverTarget={overFolderId === folder.id}
-                            >
-                                {(isDragOver) => (
-                                    <>
-                                        <td className="py-2.5 px-1">
-                                            {!folder.isSystem && (
-                                                <GripVertical className="h-3 w-3 text-muted-foreground/30" />
-                                            )}
-                                        </td>
-                                        {columns.map((col, ci) => (
-                                            <td
-                                                key={col.key}
-                                                className={`py-2.5 px-2 ${
-                                                    isDragOver && ci === 0
-                                                        ? "border-l-2 border-violet-500"
-                                                        : ""
-                                                }`}
-                                            >
-                                                {ci === 0 ? (
-                                                    <button
-                                                        onClick={() => onOpenFolder(folder.id)}
-                                                        className="flex items-center gap-2 hover:text-violet-400 transition-colors"
-                                                    >
-                                                        {renderFolderIcon
-                                                            ? renderFolderIcon(folder)
-                                                            : <FolderOpen className="h-4 w-4 text-violet-400" />
-                                                        }
-                                                        <span className="font-medium">{folder.name}</span>
-                                                        {folder.isSystem && (
-                                                            <span className="text-[9px] text-zinc-500 bg-zinc-500/10 px-1.5 py-0.5 rounded">
-                                                                Système
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                ) : (
-                                                    col.render
-                                                        ? col.render(folder)
-                                                        : <span className="text-muted-foreground">—</span>
-                                                )}
-                                            </td>
-                                        ))}
-                                    </>
-                                )}
-                            </DraggableFolderRow>
+                                depth={0}
+                                columns={columns}
+                                expandedFolders={expandedFolders}
+                                selectedId={null}
+                                isItemSelected={isItemSelected}
+                                overFolderId={overFolderId}
+                                onToggleExpand={handleToggleExpand}
+                                onOpenFolder={onOpenFolder}
+                                onOpenFile={onOpenFile}
+                                onSelect={handleSelect}
+                                getFolderContents={getFolderContents}
+                                renderFolderIcon={renderFolderIcon}
+                                renderFileIcon={renderFileIcon}
+                            />
                         ))}
 
-                        {/* Separator */}
+                        {/* ─── Séparateur ─── */}
                         {hasFolders && hasFiles && (
                             <tr>
                                 <td colSpan={columns.length + 1} className="py-1">
@@ -284,21 +549,41 @@ export default function FinderListView({
                             </tr>
                         )}
 
-                        {/* Files */}
+                        {/* ─── Fichiers racine (cliquables pour ouvrir) ─── */}
                         {files.map((file) => (
-                            <DraggableFileRow key={file.id} file={file}>
-                                <td className="py-2.5 px-1">
+                            <DraggableFileRow
+                                key={file.id}
+                                file={file}
+                                onDoubleClick={() => onOpenFile?.(file.id)}
+                            >
+                                <td className="py-2.5 px-1 w-8">
                                     <GripVertical className="h-3 w-3 text-muted-foreground/30" />
                                 </td>
                                 {columns.map((col, ci) => (
-                                    <td key={col.key} className="py-2.5 px-2">
+                                    <td
+                                        key={col.key}
+                                        className={`py-2.5 px-2 ${
+                                            isItemSelected(file.id) && ci === 0
+                                                ? "bg-violet-500/10 rounded-l"
+                                                : ""
+                                        }`}
+                                    >
                                         {ci === 0 ? (
-                                            <div className="flex items-center gap-2">
-                                                {renderFileIcon
-                                                    ? renderFileIcon(file)
-                                                    : <span className="text-muted-foreground">📄</span>
-                                                }
-                                                <span className="font-medium">{file.name}</span>
+                                            <div className="flex items-center gap-2" style={{ paddingLeft: "18px" }}>
+                                                <button
+                                                    onClick={(e) => handleSelect(file.id, "file", e)}
+                                                    onDoubleClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onOpenFile?.(file.id);
+                                                    }}
+                                                    className="flex items-center gap-2 hover:text-violet-400 transition-colors min-w-0"
+                                                >
+                                                    {renderFileIcon
+                                                        ? renderFileIcon(file)
+                                                        : <span className="text-muted-foreground">📄</span>
+                                                    }
+                                                    <span className="font-medium truncate">{file.name}</span>
+                                                </button>
                                             </div>
                                         ) : (
                                             col.render
@@ -313,13 +598,20 @@ export default function FinderListView({
                 </table>
             </div>
 
-            {/* Drag Overlay */}
+            {/* Drag Overlay — affiche le nombre si multi-sélection */}
             <DragOverlay dropAnimation={null}>
                 {activeItem && (
-                    <DragOverlayCard
-                        name={activeItem.name}
-                        type={activeItem.type}
-                    />
+                    <div className="relative">
+                        <DragOverlayCard
+                            name={dragCount > 1 ? `${dragCount} éléments` : activeItem.name}
+                            type={activeItem.type}
+                        />
+                        {dragCount > 1 && (
+                            <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg">
+                                {dragCount}
+                            </div>
+                        )}
+                    </div>
                 )}
             </DragOverlay>
         </DndContext>

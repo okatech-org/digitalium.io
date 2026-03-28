@@ -321,6 +321,8 @@ export default function AdminSpaceLayout({
 
     const handleSignOut = useCallback(async () => {
         try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             const { auth } = await import("@/lib/firebase");
             const { signOut } = await import("firebase/auth");
             await signOut(auth);

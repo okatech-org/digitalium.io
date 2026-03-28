@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useAuthContext } from "@/contexts/FirebaseAuthContext";
 
 /* ═══════════════════════════════════════════════
    DEMO ACCOUNTS DATA
@@ -195,14 +196,15 @@ function getRedirectPath(account: DemoAccount): string {
     // Platform admins → /admin or /sysadmin
     if (account.roleLevel <= 1) return "/admin";
 
-    // Org Admin (level 2) → /subadmin (gestion org)
+    // Org Admin (level 2) → workspace based on persona
     if (account.roleLevel === 2) {
         if (account.personaType === "platform") return "/admin";
-        return "/subadmin";
+        if (account.personaType === "institutional") return "/inst";
+        return "/pro";
     }
 
     // Org Manager (level 3) and below → workspace based on persona
-    if (account.personaType === "institutional") return "/institutional";
+    if (account.personaType === "institutional") return "/inst";
     return "/pro";
 }
 
@@ -211,9 +213,9 @@ export default function DemoAccountSwitcher() {
     const [expandedOrgs, setExpandedOrgs] = useState<string[]>([]);
     const [loading, setLoading] = useState<string | null>(null);
     const [confirmSwitch, setConfirmSwitch] = useState<DemoAccount | null>(null);
-    const [currentEmail, setCurrentEmail] = useState<string | null>(null);
-    const [firebaseReady, setFirebaseReady] = useState(false);
     const router = useRouter();
+    const { user, signOut: authSignOut } = useAuthContext();
+    const currentEmail = user?.email ?? null;
 
     // ── Listen for global "open-demo-switcher" events ──
     // Allows any component (e.g. HeroSection) to open this panel
@@ -276,20 +278,7 @@ export default function DemoAccountSwitcher() {
         return orgs;
     }, [dynamicOrgs]);
 
-    // Lazy-load Firebase auth — only when Sheet opens for the first time
-    useEffect(() => {
-        if (!open || firebaseReady) return;
-        let unsubscribe: (() => void) | undefined;
-        import("@/lib/firebase").then(({ auth: firebaseAuth }) => {
-            import("firebase/auth").then(({ onAuthStateChanged }) => {
-                unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-                    setCurrentEmail(user?.email || null);
-                });
-                setFirebaseReady(true);
-            });
-        });
-        return () => unsubscribe?.();
-    }, [open, firebaseReady]);
+    // currentEmail is now derived from useAuth() context — no separate listener needed
 
     const toggleOrg = (id: string) => {
         setExpandedOrgs((prev) =>
@@ -491,12 +480,14 @@ export default function DemoAccountSwitcher() {
                                     variant="ghost"
                                     className="h-6 text-[10px] text-muted-foreground"
                                     onClick={async () => {
-                                        const { auth: firebaseAuth } = await import("@/lib/firebase");
-                                        const { signOut: firebaseSignOut } = await import("firebase/auth");
-                                        await firebaseSignOut(firebaseAuth);
-                                        toast.info("Déconnecté");
-                                        setOpen(false);
-                                        router.push("/");
+                                        try {
+                                            await authSignOut();
+                                            toast.info("Déconnecté");
+                                            setOpen(false);
+                                            router.push("/");
+                                        } catch {
+                                            toast.error("Erreur lors de la déconnexion");
+                                        }
                                     }}
                                 >
                                     <LogOut className="h-3 w-3 mr-1" /> Déconnexion

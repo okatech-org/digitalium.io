@@ -10,30 +10,20 @@ import { motion } from "framer-motion";
 import {
     Users,
     Search,
-    Plus,
-    Filter,
-    Download,
-    ChevronRight,
-    MoreHorizontal,
-    UserCircle,
     Mail,
-    Phone,
     Shield,
     Crown,
-    Building2,
-    Briefcase,
     CheckCircle2,
     Clock,
     AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
-import { useOrganization } from "@/contexts/OrganizationContext";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 
 /* ─── Status config ────────────────────────────── */
 
@@ -43,10 +33,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dotColor: st
     suspended: { label: "Suspendu", color: "bg-amber-500/15 text-amber-400 border-amber-500/20", dotColor: "bg-amber-400", icon: AlertTriangle },
 };
 
-const ROLE_COLORS: Record<string, string> = {
-    admin: "text-amber-400",
-    membre: "text-violet-400",
-};
 
 /* ─── Helpers ──────────────────────────────────── */
 
@@ -89,27 +75,27 @@ const fadeIn = {
    ÉQUIPE PAGE
    ═══════════════════════════════════════════════ */
 
-export default function ÉquipePage() {
-    const { orgId } = useOrganization();
+export default function EquipePage() {
+    const { convexOrgId } = useConvexOrgId();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<"all" | "active" | "invited" | "suspended">("all");
 
     // ── Convex data ────────────────────────────
     const members = useQuery(
         api.orgMembers.list,
-        orgId ? { organizationId: orgId as any } : "skip"
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
     const memberStats = useQuery(
         api.orgMembers.getStats,
-        orgId ? { organizationId: orgId as any } : "skip"
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
     const businessRoles = useQuery(
         api.businessRoles.list,
-        orgId ? { organizationId: orgId as any } : "skip"
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
     const orgUnits = useQuery(
         api.orgUnits.list,
-        orgId ? { organizationId: orgId as any } : "skip"
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
 
     // ── Build lookup maps ─────────────────────

@@ -31,15 +31,18 @@ import {
     FolderPlus,
     Share2,
     KeyRound,
+    Send,
+    CheckCircle2,
+    XCircle,
+    Eye,
+    Sparkles,
+    Loader2,
 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
     DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -67,6 +70,7 @@ export interface ArchiveCategoryOption {
     icon: string;
     retentionYears: number;
     description?: string;
+    isPerpetual?: boolean;
 }
 
 export type CountingStartEvent =
@@ -99,12 +103,20 @@ interface FolderDocumentContextMenuProps {
     itemCreatedAt?: string;
     itemUpdatedAt?: string;
     itemCreatedBy?: string;
+    itemStatus?: "draft" | "review" | "approved" | "archived" | "trashed";
     onRename?: (id: string, newName: string) => void;
     onDelete?: (id: string) => void;
-    onSavePolicy?: (id: string, policy: ArchivePolicyData) => void;
+    onSavePolicy?: (id: string, policy: ArchivePolicyData, itemType: "folder" | "document") => void;
     onCreateSubfolder?: (parentId: string) => void;
     onShare?: (id: string, type: "folder" | "document") => void;
     onManageAccess?: (id: string) => void;
+    onSubmitForReview?: (id: string) => void;
+    onApprove?: (id: string) => void;
+    onReject?: (id: string) => void;
+    onEditTags?: (id: string) => void;
+    onAutoTag?: (id: string, itemType: "folder" | "document") => void;
+    isAutoTagging?: boolean;
+    autoTagResult?: { tags: string[]; confidence: number; reasoning: string } | null;
 }
 
 // ─── Constants ──────────────────────────────────────────
@@ -157,12 +169,20 @@ export default function FolderDocumentContextMenu({
     itemCreatedAt,
     itemUpdatedAt,
     itemCreatedBy,
+    itemStatus,
     onRename,
     onDelete,
     onSavePolicy,
     onCreateSubfolder,
     onShare,
     onManageAccess,
+    onSubmitForReview,
+    onApprove,
+    onReject,
+    onEditTags,
+    onAutoTag,
+    isAutoTagging = false,
+    autoTagResult,
 }: FolderDocumentContextMenuProps) {
     // ─── State ──────────────────────────────────────
     const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -231,15 +251,25 @@ export default function FolderDocumentContextMenu({
             confidentiality,
             inheritToChildren: inheritChildren,
             inheritToDocuments: inheritDocuments,
-        });
+        }, itemType);
         setShowPolicyDialog(false);
     }, [
-        itemId, selectedCategoryId, selectedCategorySlug,
+        itemId, itemType, selectedCategoryId, selectedCategorySlug,
         countingStart, manualDate, confidentiality,
         inheritChildren, inheritDocuments, onSavePolicy,
     ]);
 
     const selectedCategory = categories.find((c) => c._id === selectedCategoryId);
+
+    // ─── Info dialog state ──────────────────────────
+    const [showInfoDialog, setShowInfoDialog] = useState(false);
+
+    // Status label helper
+    const statusLabel = itemStatus === "draft" ? "Brouillon"
+        : itemStatus === "review" ? "En révision"
+        : itemStatus === "approved" ? "Approuvé"
+        : itemStatus === "archived" ? "Archivé"
+        : itemStatus === "trashed" ? "Corbeille" : "—";
 
     // ─── Render ─────────────────────────────────────
 
@@ -257,103 +287,97 @@ export default function FolderDocumentContextMenu({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                     align="end"
-                    className="w-56 bg-zinc-900 border-white/10"
+                    className="w-52 bg-zinc-900 border-white/10"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                    <DropdownMenuLabel className="text-[10px] text-muted-foreground/60 font-normal py-1">
                         {itemType === "folder" ? "Dossier" : "Document"} — Actions
                     </DropdownMenuLabel>
 
-                    {/* ── Rename ── */}
-                    {!isSystem && (
-                        <DropdownMenuItem onClick={handleOpenRename} className="text-xs gap-2">
-                            <Edit3 className="h-3.5 w-3.5" />
-                            Renommer
-                        </DropdownMenuItem>
-                    )}
-
-                    {/* ── Create Subfolder (folders only) ── */}
-                    {itemType === "folder" && !isSystem && onCreateSubfolder && (
-                        <DropdownMenuItem onClick={() => onCreateSubfolder(itemId)} className="text-xs gap-2">
-                            <FolderPlus className="h-3.5 w-3.5 text-emerald-400" />
-                            Créer sous-dossier
-                        </DropdownMenuItem>
-                    )}
-
-                    {/* ── Share ── */}
+                    {/* ═══ 1. Partager ═══ */}
                     {onShare && (
-                        <DropdownMenuItem onClick={() => onShare(itemId, itemType)} className="text-xs gap-2">
+                        <DropdownMenuItem
+                            onClick={() => onShare(itemId, itemType)}
+                            className="text-xs gap-2"
+                        >
                             <Share2 className="h-3.5 w-3.5 text-blue-400" />
                             Partager
                         </DropdownMenuItem>
                     )}
 
-                    {/* ── Manage Access (admin only, folders) ── */}
+                    {/* ═══ 2. Workflow (documents only) ═══ */}
+                    {itemType === "document" && itemStatus === "draft" && onSubmitForReview && (
+                        <DropdownMenuItem
+                            onClick={() => onSubmitForReview(itemId)}
+                            className="text-xs gap-2 text-blue-400 focus:text-blue-400"
+                        >
+                            <Send className="h-3.5 w-3.5" />
+                            Soumettre pour révision
+                        </DropdownMenuItem>
+                    )}
+                    {itemType === "document" && itemStatus === "review" && onApprove && (
+                        <DropdownMenuItem
+                            onClick={() => onApprove(itemId)}
+                            className="text-xs gap-2 text-emerald-400 focus:text-emerald-400"
+                        >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Approuver
+                        </DropdownMenuItem>
+                    )}
+                    {itemType === "document" && itemStatus === "review" && onReject && (
+                        <DropdownMenuItem
+                            onClick={() => onReject(itemId)}
+                            className="text-xs gap-2 text-amber-400 focus:text-amber-400"
+                        >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Rejeter
+                        </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuSeparator className="bg-white/5" />
+
+                    {/* ═══ 3. Politique d'archivage (⚙️Gestion + 🔑Admin) ═══ */}
+                    {onSavePolicy && (
+                        <DropdownMenuItem
+                            onClick={handleOpenPolicy}
+                            className="text-xs gap-2"
+                        >
+                            <Archive className="h-3.5 w-3.5 text-cyan-400" />
+                            Politique d&apos;archivage
+                        </DropdownMenuItem>
+                    )}
+
+                    {/* ═══ 4. Informations (inclut Renommer + Tags) ═══ */}
+                    <DropdownMenuItem
+                        onClick={() => setShowInfoDialog(true)}
+                        className="text-xs gap-2"
+                    >
+                        <Info className="h-3.5 w-3.5 text-sky-400" />
+                        Informations
+                    </DropdownMenuItem>
+
+                    {/* ═══ 5. Options dossier ═══ */}
+                    {itemType === "folder" && !isSystem && onCreateSubfolder && (
+                        <DropdownMenuItem
+                            onClick={() => onCreateSubfolder(itemId)}
+                            className="text-xs gap-2"
+                        >
+                            <FolderPlus className="h-3.5 w-3.5 text-emerald-400" />
+                            Créer sous-dossier
+                        </DropdownMenuItem>
+                    )}
                     {isAdmin && itemType === "folder" && onManageAccess && (
-                        <DropdownMenuItem onClick={() => onManageAccess(itemId)} className="text-xs gap-2">
+                        <DropdownMenuItem
+                            onClick={() => onManageAccess(itemId)}
+                            className="text-xs gap-2"
+                        >
                             <KeyRound className="h-3.5 w-3.5 text-amber-400" />
                             Gérer accès
                         </DropdownMenuItem>
                     )}
 
-                    {/* ── Archive Policy ── */}
-                    <DropdownMenuItem onClick={handleOpenPolicy} className="text-xs gap-2">
-                        <Archive className="h-3.5 w-3.5 text-cyan-400" />
-                        Politique d&apos;archivage
-                    </DropdownMenuItem>
-
-                    {/* ── Quick Category Sub-menu ── */}
-                    {categories.length > 0 && (
-                        <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="text-xs gap-2">
-                                <Tag className="h-3.5 w-3.5 text-violet-400" />
-                                Catégorie de rétention
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="bg-zinc-900 border-white/10">
-                                {categories.map((cat) => {
-                                    const Icon = getCategoryIcon(cat.icon);
-                                    const colorClasses = CATEGORY_COLOR_MAP[cat.color] || "text-zinc-400 bg-zinc-500/15";
-                                    const isSelected = cat._id === (currentPolicy?.categoryId || selectedCategoryId);
-                                    return (
-                                        <DropdownMenuItem
-                                            key={cat._id}
-                                            onClick={() => {
-                                                handleSelectCategory(cat);
-                                                // Quick-save just the category
-                                                if (onSavePolicy) {
-                                                    onSavePolicy(itemId, {
-                                                        categoryId: cat._id,
-                                                        categorySlug: cat.slug,
-                                                        countingStartEvent: countingStart,
-                                                        confidentiality,
-                                                        inheritToChildren: inheritChildren,
-                                                        inheritToDocuments: inheritDocuments,
-                                                    });
-                                                }
-                                            }}
-                                            className={`text-xs gap-2 ${isSelected ? "bg-white/5" : ""}`}
-                                        >
-                                            <div className={`h-5 w-5 rounded flex items-center justify-center ${colorClasses.split(" ")[1]}`}>
-                                                <Icon className={`h-3 w-3 ${colorClasses.split(" ")[0]}`} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <span className="font-medium">{cat.name}</span>
-                                                <span className="text-[10px] text-muted-foreground ml-1.5">
-                                                    {cat.retentionYears} ans
-                                                </span>
-                                            </div>
-                                            {isSelected && (
-                                                <span className="text-emerald-400 text-[10px]">✓</span>
-                                            )}
-                                        </DropdownMenuItem>
-                                    );
-                                })}
-                            </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                    )}
-
-                    {/* ── Delete ── */}
-                    {!isSystem && (
+                    {/* ── Supprimer (⚙️Gestion + 🔑Admin) ── */}
+                    {!isSystem && onDelete && (
                         <>
                             <DropdownMenuSeparator className="bg-white/5" />
                             <DropdownMenuItem
@@ -368,6 +392,148 @@ export default function FolderDocumentContextMenu({
                 </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* ═══ Info Dialog — Segmenté : Nom · Tags · Horodatage ═══ */}
+            <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
+                <DialogContent className="sm:max-w-md p-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="px-5 pt-5 pb-3 border-b border-white/5">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-sm">
+                                {itemType === "folder"
+                                    ? <FolderIcon className="h-4 w-4 text-violet-400" />
+                                    : <FileText className="h-4 w-4 text-violet-400" />
+                                }
+                                Informations
+                            </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                Détails et métadonnées de {itemType === "folder" ? "ce dossier" : "ce document"}
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+
+                        {/* ── Section 1 : Nom ── */}
+                        <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                                    {itemType === "folder"
+                                        ? <FolderIcon className="h-3 w-3 text-violet-400" />
+                                        : <FileText className="h-3 w-3 text-violet-400" />
+                                    }
+                                    Nom
+                                </p>
+                                {!isSystem && onRename && (
+                                    <button
+                                        onClick={() => { setShowInfoDialog(false); handleOpenRename(); }}
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-md hover:bg-white/5 border border-white/5 transition-colors text-muted-foreground hover:text-white"
+                                    >
+                                        <Edit3 className="h-2.5 w-2.5" />
+                                        Modifier
+                                    </button>
+                                )}
+                            </div>
+                            <p className="text-sm font-medium truncate">{itemName}</p>
+                            <div className="flex items-center gap-3 pt-1">
+                                {itemStatus && (
+                                    <span className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
+                                        <span className={`h-1.5 w-1.5 rounded-full ${
+                                            itemStatus === "draft" ? "bg-zinc-400"
+                                            : itemStatus === "review" ? "bg-blue-400"
+                                            : itemStatus === "approved" ? "bg-emerald-400"
+                                            : itemStatus === "archived" ? "bg-amber-400"
+                                            : "bg-red-400"
+                                        }`} />
+                                        {statusLabel}
+                                    </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground/50 flex items-center gap-1">
+                                    <User className="h-2.5 w-2.5" />
+                                    {itemCreatedBy || "—"}
+                                </span>
+                            </div>
+                            {/* Identifiant */}
+                            <p className="text-[9px] font-mono text-muted-foreground/30 break-all pt-0.5">{itemId}</p>
+                        </div>
+
+                        {/* ── Section 2 : Tags ── */}
+                        <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                                    <Tag className="h-3 w-3 text-emerald-400" />
+                                    Tags
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    {onAutoTag && (
+                                        <button
+                                            onClick={() => onAutoTag(itemId, itemType)}
+                                            disabled={isAutoTagging}
+                                            className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-md hover:bg-violet-500/10 border border-violet-500/20 transition-colors text-violet-400 hover:text-violet-300 disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            {isAutoTagging ? (
+                                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                            ) : (
+                                                <Sparkles className="h-2.5 w-2.5" />
+                                            )}
+                                            {isAutoTagging ? "Analyse..." : "Auto-tag IA"}
+                                        </button>
+                                    )}
+                                    {onEditTags && (
+                                        <button
+                                            onClick={() => { setShowInfoDialog(false); onEditTags(itemId); }}
+                                            className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-md hover:bg-white/5 border border-white/5 transition-colors text-muted-foreground hover:text-white"
+                                        >
+                                            <Edit3 className="h-2.5 w-2.5" />
+                                            Modifier
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Résultat Auto-tag IA */}
+                            {autoTagResult && autoTagResult.tags.length > 0 ? (
+                                <div className="space-y-1.5">
+                                    <div className="flex flex-wrap gap-1">
+                                        {autoTagResult.tags.map((tag, i) => (
+                                            <span
+                                                key={i}
+                                                className="text-[9px] px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                                            >
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <p className="text-[9px] text-muted-foreground/50 italic leading-tight">
+                                        <Sparkles className="h-2 w-2 inline mr-0.5 text-violet-400" />
+                                        {autoTagResult.reasoning}
+                                        <span className="ml-1 text-violet-400/60">({Math.round(autoTagResult.confidence * 100)}%)</span>
+                                    </p>
+                                </div>
+                            ) : (
+                                <p className="text-[10px] text-muted-foreground/40 italic">Aucun tag assigné</p>
+                            )}
+                        </div>
+
+                        {/* ── Section 3 : Horodatage ── */}
+                        <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 space-y-2">
+                            <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                                <Clock className="h-3 w-3 text-amber-400" />
+                                Horodatage
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-lg bg-white/[0.03] border border-white/5 p-2">
+                                    <p className="text-[8px] text-muted-foreground/50 uppercase tracking-wider mb-0.5">Créé le</p>
+                                    <p className="text-[11px] font-medium">{itemCreatedAt || "—"}</p>
+                                </div>
+                                <div className="rounded-lg bg-white/[0.03] border border-white/5 p-2">
+                                    <p className="text-[8px] text-muted-foreground/50 uppercase tracking-wider mb-0.5">Modifié le</p>
+                                    <p className="text-[11px] font-medium">{itemUpdatedAt || "—"}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* ═══ Rename Dialog ═══════════════════════════════ */}
             <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
                 <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
@@ -376,6 +542,9 @@ export default function FolderDocumentContextMenu({
                             <Edit3 className="h-5 w-5 text-violet-400" />
                             Renommer {itemType === "folder" ? "le dossier" : "le document"}
                         </DialogTitle>
+                        <DialogDescription className="sr-only">
+                            Modifier le nom de {itemType === "folder" ? "ce dossier" : "ce document"}
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
@@ -456,8 +625,10 @@ export default function FolderDocumentContextMenu({
                                                         <Icon className={`h-3 w-3 ${colorClasses.split(" ")[0]}`} />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-[11px] font-medium truncate">{cat.name}</p>
-                                                        <p className="text-[9px] text-muted-foreground">{cat.retentionYears} ans</p>
+                                                        <span>{cat.name}</span>
+                                                        <p className="text-[9px] text-muted-foreground">
+                                                            {cat.isPerpetual || cat.retentionYears === 99 ? "Perpétuel" : `${cat.retentionYears} ans`}
+                                                        </p>
                                                     </div>
                                                 </button>
                                             );
@@ -563,43 +734,7 @@ export default function FolderDocumentContextMenu({
                                     </div>
                                 )}
 
-                                {/* Horodatage */}
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold flex items-center gap-1.5">
-                                        <Clock className="h-3 w-3 text-sky-400" />
-                                        Horodatage
-                                    </Label>
-                                    <div className="rounded-lg bg-white/[0.02] border border-white/5 divide-y divide-white/5">
-                                        <div className="flex items-center gap-2.5 px-3 py-2">
-                                            <Calendar className="h-3 w-3 text-sky-400/60 shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Créé le</p>
-                                                <p className="text-[11px] font-medium text-white/70">{itemCreatedAt || "—"}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2.5 px-3 py-2">
-                                            <Clock className="h-3 w-3 text-sky-400/60 shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Dernière modification</p>
-                                                <p className="text-[11px] font-medium text-white/70">{itemUpdatedAt || "—"}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2.5 px-3 py-2">
-                                            <User className="h-3 w-3 text-sky-400/60 shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Créé par</p>
-                                                <p className="text-[11px] font-medium text-white/70">{itemCreatedBy || "—"}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2.5 px-3 py-2">
-                                            <Info className="h-3 w-3 text-sky-400/60 shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Identifiant</p>
-                                                <p className="text-[10px] font-mono text-white/40 truncate">{itemId}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* Horodatage retiré — disponible uniquement dans "Informations" */}
                             </div>
                         </div>
                     </div>

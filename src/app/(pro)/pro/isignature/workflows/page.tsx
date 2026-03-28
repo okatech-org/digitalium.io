@@ -6,7 +6,6 @@
 // ═══════════════════════════════════════════════
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    ArrowLeft,
     Workflow,
     Plus,
     Search,

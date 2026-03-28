@@ -7,5 +7,5 @@
 import DocumentListPage from "@/components/modules/idocument/DocumentListPage";
 
 export default function IDocumentPage() {
-    return <DocumentListPage />;
+    return <DocumentListPage basePath="/pro/idocument" />;
 }

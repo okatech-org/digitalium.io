@@ -26,8 +26,8 @@ import {
     TrendingUp,
     ChevronRight,
 } from "lucide-react";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrganization } from "@/contexts/OrganizationContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 
@@ -92,16 +92,16 @@ const QUICK_ACTIONS = [
 
 export default function IAstedPage() {
     const { user } = useAuth();
-    const { orgId } = useOrganization();
+    const { convexOrgId } = useConvexOrgId();
 
     const conversationsQuery = useQuery(api.iasted.listConversations, 
-        // @ts-expect-error
-        user ? { userId: user.uid, organizationId: orgId as any } : "skip"
+        user && convexOrgId ? { userId: user.uid, organizationId: convexOrgId } : "skip"
     );
 
     const [activeConv, setActiveConv] = useState<string | null>(null);
     const activeData = useQuery(api.iasted.getConversation, 
-        // @ts-expect-error
+        // Ensure variables correctly defined
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         activeConv ? { id: activeConv as any } : "skip"
     );
 
@@ -114,6 +114,7 @@ export default function IAstedPage() {
     const addMessageMutation = useMutation(api.iasted.addMessage);
 
     const rawConversations = conversationsQuery || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conversations: Conversation[] = rawConversations.map((c: any) => ({
         id: c._id,
         title: c.title || "Nouvelle conversation",
@@ -129,6 +130,7 @@ export default function IAstedPage() {
     // sync active messages
     useEffect(() => {
         if (activeData) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setMessages(activeData.messages.map((m: any, i: number) => ({
                 id: `${m.timestamp}-${i}`,
                 role: m.role,
@@ -154,7 +156,7 @@ export default function IAstedPage() {
     };
 
     const sendMessage = async (text: string) => {
-        if (!text.trim() || !user) return;
+        if (!text.trim() || !user || !convexOrgId) return;
 
         const userMsg: ChatMessage = {
             id: `msg-${Date.now()}`,
@@ -167,11 +169,12 @@ export default function IAstedPage() {
         setIsTyping(true);
 
         const title = text.slice(0, 40);
-        // @ts-expect-error
+        // Ensure variables correctly defined
         const newConvId = await addMessageMutation({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             id: activeConv ? (activeConv as any) : undefined,
             userId: user.uid,
-            organizationId: orgId as any,
+            organizationId: convexOrgId,
             role: "user",
             content: text,
             title: !activeConv ? title : undefined
@@ -185,11 +188,12 @@ export default function IAstedPage() {
 
         const aiResponse = getAIResponse(text);
 
-        // @ts-expect-error
+        // Ensure variables correctly defined
         await addMessageMutation({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             id: newConvId as any,
             userId: user.uid,
-            organizationId: orgId as any,
+            organizationId: convexOrgId,
             role: "assistant",
             content: aiResponse,
         });

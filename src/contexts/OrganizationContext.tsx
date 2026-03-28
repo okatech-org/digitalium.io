@@ -9,7 +9,9 @@
 import React, {
     createContext,
     useContext,
+    useEffect,
     useMemo,
+    useState,
     type ReactNode,
 } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -101,10 +103,11 @@ const DEV_EMAIL_ORG_MAP: Record<string, DevOrgMapping> = {
 
 function resolveOrgFromUser(
     email: string | null | undefined,
-    organizations?: { id: string; name: string; type: string }[]
+    organizations?: { id: string; name: string; type: string }[],
+    allowBrowserApis = true
 ): DevOrgMapping {
     // 0. Check localStorage demo_org_override (set by DemoAccountSwitcher)
-    if (typeof window !== "undefined") {
+    if (allowBrowserApis && typeof window !== "undefined") {
         try {
             const raw = localStorage.getItem("demo_org_override");
             if (raw) {
@@ -176,11 +179,17 @@ export function useOrganization(): OrganizationContextValue {
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
     const { user, organizations } = useAuth();
+    const [hasMounted, setHasMounted] = useState(false);
+
+    useEffect(() => {
+        setHasMounted(true);
+    }, []);
 
     const value = useMemo<OrganizationContextValue>(() => {
         const orgMapping = resolveOrgFromUser(
             user?.email,
-            organizations as { id: string; name: string; type: string }[]
+            organizations as { id: string; name: string; type: string }[],
+            hasMounted
         );
 
         // Build full config from preset + org-specific overrides
@@ -205,7 +214,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
             resolveTemplate: (template: string) =>
                 resolveOrgPlaceholder(template, orgMapping.name),
         };
-    }, [user, organizations]);
+    }, [user, organizations, hasMounted]);
 
     return (
         <OrganizationContext.Provider value={value}>

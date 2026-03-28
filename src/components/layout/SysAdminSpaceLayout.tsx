@@ -25,7 +25,6 @@ import {
     CreditCard,
     Target,
     Workflow,
-    ChevronLeft,
     ChevronRight as ChevronRightIcon,
     ChevronDown,
     Search,
@@ -47,7 +46,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     DropdownMenu,
@@ -107,6 +105,7 @@ const MANAGEMENT_NAV: NavItem[] = [
     { label: "Utilisateurs", href: "/sysadmin/users", icon: Users },
     { label: "Clients", href: "/sysadmin/clients", icon: Briefcase },
     { label: "Abonnements", href: "/sysadmin/subscriptions", icon: CreditCard },
+    { label: "Sécurité & Conformité", href: "/sysadmin/compliance", icon: ShieldAlert },
     { label: "Leads", href: "/sysadmin/leads", icon: Target, badge: 3 },
     { label: "Workflow Templates", href: "/sysadmin/workflow-templates", icon: Workflow },
     { label: "Formation", href: "/sysadmin/formation", icon: GraduationCap },
@@ -134,6 +133,7 @@ const ROUTE_LABELS: Record<string, string> = {
     "workflow-templates": "Workflow Templates",
     formation: "Formation",
     parametres: "Paramètres",
+    compliance: "Conformité",
 };
 
 function buildBreadcrumbs(pathname: string) {
@@ -414,6 +414,8 @@ export default function SysAdminSpaceLayout({
 
     const handleSignOut = useCallback(async () => {
         try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             const { auth } = await import("@/lib/firebase");
             const { signOut } = await import("firebase/auth");
             await signOut(auth);

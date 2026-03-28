@@ -35,8 +35,6 @@ import {
     PanelLeftOpen,
     UserCircle,
     Target,
-    Receipt,
-    Palette,
     Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -129,6 +127,7 @@ const NAV_SECTIONS: NavSection[] = [
         title: "Administration",
         items: [
             { label: "Formation", href: "/subadmin/formation", icon: GraduationCap, appModuleId: "org_onboarding" },
+            { label: "Sécurité & Conformité", href: "/subadmin/compliance", icon: Shield, appModuleId: "settings" },
             { label: "Abonnements", href: "/subadmin/subscriptions", icon: CreditCard, appModuleId: "billing" },
             { label: "Paramètres", href: "/subadmin/parametres", icon: Settings, appModuleId: "settings" },
         ],
@@ -254,6 +253,7 @@ function SidebarContent({
     logoUrl?: string;
     layoutTheme: ProLayoutTheme;
     navConfig: NavigationConfig;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     moduleAccess: any;
     onToggle: () => void;
     onSignOut: () => void;
@@ -460,6 +460,8 @@ export default function SubAdminLayout({
 
     const handleSignOut = useCallback(async () => {
         try {
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             const { auth } = await import("@/lib/firebase");
             const { signOut } = await import("firebase/auth");
             await signOut(auth);
@@ -478,6 +480,7 @@ export default function SubAdminLayout({
     const moduleAccess = useQuery(
         api.businessRoles.resolveModuleAccess,
         isValidConvexId && !isAdminUser
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             ? { userId: user?.uid ?? "", organizationId: orgId as any }
             : "skip"
     );

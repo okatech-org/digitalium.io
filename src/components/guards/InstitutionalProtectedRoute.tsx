@@ -83,13 +83,13 @@ export function InstitutionalProtectedRoute({
 
         // 4. Must have valid license
         if (!hasValidLicense) {
-            router.replace("/institutional/expired");
+            router.replace("/inst/expired");
             return;
         }
 
         // 5. Role check
         if (requiredRole && !hasRole(requiredRole)) {
-            router.replace("/institutional");
+            router.replace("/inst");
             return;
         }
     }, [

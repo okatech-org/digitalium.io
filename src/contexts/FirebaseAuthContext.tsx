@@ -101,7 +101,7 @@ const DEV_EMAIL_ROLES: Record<string, { role: PlatformRole; level: number }> = {
     "ornella.wora@digitalium.io": { role: "membre", level: 3 },                // Responsable
     "yannick.koumba@digitalium.io": { role: "membre", level: 3 },              // Responsable
     "annabelle.scala@digitalium.io": { role: "membre", level: 3 },             // Responsable
-    "sylvain.akwa@digitalium.io": { role: "membre", level: 3 },                // Membre
+    "sylvain.akwa@digitalium.io": { role: "admin", level: 2 },                 // Admin
     "omar.diop@digitalium.io": { role: "membre", level: 4 },                   // Collaborateur
     "commercial@ascoma.ga": { role: "membre", level: 3 },
     "sinistres@ascoma.ga": { role: "membre", level: 3 },
@@ -486,6 +486,9 @@ export function FirebaseAuthProvider({
     const signOutFn = useCallback(async () => {
         setError(null);
         try {
+            // Clear demo session overrides from localStorage
+            localStorage.removeItem("demo_role_override");
+            localStorage.removeItem("demo_org_override");
             await firebaseSignOut(auth);
             setUser(null);
         } catch (err: unknown) {

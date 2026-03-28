@@ -79,7 +79,7 @@ export interface PersonaConfig {
     labelFr: string;
     subtitle: string;
     description: string;
-    route: string;             // '/pro', '/institutional', ou URL externe
+    route: string;             // '/pro', '/inst', ou URL externe
     isExternal: boolean;       // true pour identite.ga
     icon: string;              // Nom icône Lucide
     gradient: string;          // Classes Tailwind gradient

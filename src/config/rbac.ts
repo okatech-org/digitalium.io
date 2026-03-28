@@ -159,8 +159,8 @@ export const ROUTE_ACCESS: Record<ProtectedRoute, RouteAccessConfig> = {
         allowedLevels: [2, 3, 4, 5],
         label: "Espace Entreprise",
     },
-    "/institutional": {
-        path: "/institutional",
+    "/inst": {
+        path: "/inst",
         allowedLevels: [2, 3, 4, 5],
         label: "Espace Institutionnel",
     },

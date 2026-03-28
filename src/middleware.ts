@@ -27,7 +27,7 @@ const ROUTE_LEVELS: Record<string, { maxLevel: number; label: string }> = {
     "/admin":         { maxLevel: 1, label: "Admin Plateforme" },
     "/sysadmin":      { maxLevel: 0, label: "Administrateur Système" },
     "/subadmin":      { maxLevel: 2, label: "Administrateur Organisation" },
-    "/institutional": { maxLevel: 5, label: "Espace Institutionnel" },
+    "/inst": { maxLevel: 5, label: "Espace Institutionnel" },
     "/pro":           { maxLevel: 5, label: "Espace Professionnels" },
 };
 

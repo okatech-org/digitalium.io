@@ -297,14 +297,6 @@ export const resolveModuleAccess = query({
         }
 
 
-        // NEOCORTEX: signal
-        await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
-            signalType: "CONFIG_MODIFIEE",
-            action: "businessRoles.bulkCreate",
-            entiteType: "business_roles",
-            entiteId: "system",
-            userId: "system",
-        });
         return {
             permissions: effective,
             source: "role" as const,

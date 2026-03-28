@@ -145,7 +145,7 @@ export type ProtectedRoute =
     | "/sysadmin"
     | "/subadmin"
     | "/pro"
-    | "/institutional";
+    | "/inst";
 
 export interface RouteAccessConfig {
     path: ProtectedRoute;

@@ -24,6 +24,7 @@ import CertificateViewer from "@/components/modules/iarchive/CertificateViewer";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 
 // ─── Helpers ────────────────────────────────────
 
@@ -60,15 +61,17 @@ interface CertificateRow {
 }
 
 export default function CertificatesPage() {
-    const { orgId, orgName } = useOrganization();
+    const { orgName } = useOrganization();
+    const { convexOrgId } = useConvexOrgId();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<"all" | "valid" | "revoked">("all");
     const [selectedCert, setSelectedCert] = useState<CertificateRow | null>(null);
 
     const certsQuery = useQuery(api.archives.listCertificates, 
-        orgId ? { organizationId: orgId as any } : "skip"
+        convexOrgId ? { organizationId: convexOrgId } : "skip"
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const certificates: CertificateRow[] = certsQuery === undefined ? [] : certsQuery.map((data: any) => ({
         id: data.archive._id,            // use archiveId as the id for CertificateViewer
         certificateNumber: data.certificateNumber,
@@ -119,6 +122,7 @@ export default function CertificatesPage() {
                 </motion.div>
 
                 <CertificateViewer
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     archiveId={selectedCert.id as any}
                     onDownloadPDF={() => {
                         // Placeholder for PDF download
