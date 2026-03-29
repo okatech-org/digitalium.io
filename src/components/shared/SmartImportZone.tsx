@@ -23,6 +23,7 @@ import {
     AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import AIProgressIndicator from "@/components/shared/AIProgressIndicator";
 
 // ─── Types ───
 
@@ -327,13 +328,15 @@ export default function SmartImportZone({
 
             {/* ── Analyzing animation ── */}
             {analyzing && (
-                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-3">
-                        <Sparkles className="h-5 w-5 text-amber-400 animate-pulse" />
-                        <Loader2 className="h-5 w-5 text-violet-400 animate-spin" />
-                    </div>
-                    <p className="text-xs text-violet-300 mb-1">🤖 Analyse IA en cours…</p>
-                    <p className="text-[10px] text-white/30">{fileName}</p>
+                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6">
+                    <AIProgressIndicator
+                        phase="analyzing"
+                        operationLabel="Extraction IA"
+                        operationDescription={`Analyse du fichier ${fileName}`}
+                        colorTheme="violet"
+                        showTimer={true}
+                        compact={true}
+                    />
                 </div>
             )}
 

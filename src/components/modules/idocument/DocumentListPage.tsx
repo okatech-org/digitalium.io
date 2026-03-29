@@ -6,6 +6,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import AIProgressIndicator from "@/components/shared/AIProgressIndicator";
+import type { AIProgressFileStatus } from "@/components/shared/AIProgressIndicator";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,7 +23,7 @@ import {
     Tag, X, Sparkles, PenTool, FolderPlus,
     FolderOpen, Folder, FolderTree, Lock, Upload, FileUp, Brain,
     Loader2, Check, FileSpreadsheet, Image as ImageIcon,
-    FolderUp, Wand2, ArrowRight, CheckCircle2, RefreshCw, Send,
+    FolderUp, Wand2, ArrowRight, CheckCircle2, Send,
     Shield, Building2, Tags, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -3141,39 +3143,21 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
                     {/* Step: analyzing */}
                     {importStep === "analyzing" && (
-                        <div className="py-8 space-y-6">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="relative">
-                                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center">
-                                        <Brain className="h-8 w-8 text-cyan-400 animate-pulse" />
-                                    </div>
-                                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-cyan-500 flex items-center justify-center">
-                                        <Loader2 className="h-3 w-3 text-white animate-spin" />
-                                    </div>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm font-semibold">Analyse IA en cours…</p>
-                                    <p className="text-[11px] text-muted-foreground mt-1">
-                                        Classification automatique et extraction de tags
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                {importFiles.map((f) => (
-                                    <div key={f.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 border border-white/5">
-                                        {getImportFileIcon(f.type)}
-                                        <p className="text-xs flex-1 truncate">{f.name}</p>
-                                        {f.analyzed ? (
-                                            <div className="flex items-center gap-1.5 text-emerald-400">
-                                                <Check className="h-3.5 w-3.5" />
-                                                <span className="text-[10px] font-medium">{f.confidence}%</span>
-                                            </div>
-                                        ) : (
-                                            <Loader2 className="h-3.5 w-3.5 text-cyan-400 animate-spin" />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="py-6">
+                            <AIProgressIndicator
+                                phase="analyzing"
+                                operationLabel="Classification IA"
+                                operationDescription={`Gemini analyse ${importFiles.length} fichier${importFiles.length > 1 ? "s" : ""} — extraction de tags et classement`}
+                                totalItems={importFiles.length}
+                                processedItems={importFiles.filter(f => f.analyzed).length}
+                                colorTheme="cyan"
+                                showTimer={true}
+                                fileStatuses={importFiles.map((f): AIProgressFileStatus => ({
+                                    name: f.name,
+                                    status: f.analyzed ? "done" : "processing",
+                                    confidence: f.analyzed ? f.confidence : undefined,
+                                }))}
+                            />
                         </div>
                     )}
 
@@ -3526,19 +3510,16 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
                     {/* Step: Analyzing */}
                     {reorgStep === "analyzing" && (
-                        <div className="flex flex-col items-center justify-center py-12 gap-4">
-                            <div className="relative">
-                                <div className="h-16 w-16 rounded-full bg-amber-500/10 flex items-center justify-center">
-                                    <Brain className="h-8 w-8 text-amber-400 animate-pulse" />
-                                </div>
-                                <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-cyan-500 flex items-center justify-center">
-                                    <Loader2 className="h-3 w-3 text-white animate-spin" />
-                                </div>
-                            </div>
-                            <p className="text-sm text-muted-foreground">Analyse IA en cours...</p>
-                            <p className="text-[10px] text-muted-foreground">
-                                Gemini analyse {documents.length} documents et {folders.length} dossiers
-                            </p>
+                        <div className="py-8">
+                            <AIProgressIndicator
+                                phase="analyzing"
+                                operationLabel={reorgMode === "deep_audit" ? "Audit Profond IA" : reorgMode === "reorganize" ? "Réorganisation IA" : "Classement IA"}
+                                operationDescription={`Gemini analyse ${documents.length} documents et ${folders.length} dossiers`}
+                                totalItems={documents.length}
+                                colorTheme={reorgMode === "deep_audit" ? "violet" : "amber"}
+                                showTimer={true}
+                                compact={false}
+                            />
                         </div>
                     )}
 
@@ -3745,16 +3726,16 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
                     {/* Step: Executing */}
                     {reorgStep === "executing" && (
-                        <div className="flex flex-col items-center justify-center py-12 gap-4">
-                            <RefreshCw className="h-10 w-10 text-amber-400 animate-spin" />
-                            <p className="text-sm">Réorganisation en cours…</p>
-                            <div className="w-full max-w-xs bg-white/5 rounded-full h-2">
-                                <div
-                                    className="bg-gradient-to-r from-amber-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
-                                    ref={(el) => { if (el) el.style.width = `${reorgProgress}%`; }}
-                                />
-                            </div>
-                            <p className="text-[10px] text-muted-foreground">{Math.round(reorgProgress)}%</p>
+                        <div className="py-8">
+                            <AIProgressIndicator
+                                phase="applying"
+                                progress={reorgProgress}
+                                operationLabel="Application des recommandations"
+                                operationDescription={reorgPlan ? `${reorgPlan.stats.documentsToMove} déplacement(s), ${reorgPlan.stats.newFoldersToCreate} dossier(s) à créer` : "Mise à jour des documents..."}
+                                colorTheme="emerald"
+                                showTimer={true}
+                                compact={true}
+                            />
                         </div>
                     )}
 
@@ -3798,7 +3779,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                 )}
                             </div>
                             {reorgResult.moved === 0 && reorgResult.tagged === 0 && reorgResult.typed === 0 && reorgResult.archived === 0 && (
-                                <p className="text-xs text-muted-foreground">Aucune modification n'a été nécessaire.</p>
+                                <p className="text-xs text-muted-foreground">Aucune modification n&apos;a été nécessaire.</p>
                             )}
                         </div>
                     )}
