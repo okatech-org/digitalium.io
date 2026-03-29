@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -9,9 +8,10 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
+import { useTranslation } from "@/contexts/I18nContext";
 
 export function LanguageSwitcher() {
-    const [lang, setLang] = useState<"fr" | "en">("fr");
+    const { locale, setLocale } = useTranslation();
 
     return (
         <DropdownMenu>
@@ -22,10 +22,10 @@ export function LanguageSwitcher() {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setLang("fr")} className={lang === "fr" ? "bg-accent" : ""}>
-                    Français (FR)
+                <DropdownMenuItem onClick={() => setLocale("fr")} className={locale === "fr" ? "bg-accent" : ""}>
+                    Fran\u00e7ais (FR)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLang("en")} className={lang === "en" ? "bg-accent" : ""}>
+                <DropdownMenuItem onClick={() => setLocale("en")} className={locale === "en" ? "bg-accent" : ""}>
                     English (EN)
                 </DropdownMenuItem>
             </DropdownMenuContent>

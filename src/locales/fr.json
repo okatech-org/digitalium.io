@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "documents": "iDocument",
+    "archives": "iArchive",
+    "signatures": "iSignature",
+    "assistant": "iAsted",
+    "team": "Équipe",
+    "organization": "Organisation",
+    "settings": "Paramètres",
+    "compliance": "Conformité",
+    "formation": "Formation",
+    "clients": "Clients",
+    "leads": "Prospects",
+    "billing": "Facturation",
+    "analytics": "Analytique",
+    "logout": "Déconnexion"
+  },
+  "common": {
+    "search": "Rechercher...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "close": "Fermer",
+    "retry": "Réessayer",
+    "noResults": "Aucun résultat",
+    "actions": "Actions"
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "Inscription",
+    "logout": "Déconnexion",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "resetPassword": "Réinitialiser le mot de passe"
+  },
+  "landing": {
+    "title": "Votre Entreprise Perd 23% de Productivité Sans Archivage Intelligent",
+    "subtitle": "DIGITALIUM est la seule plateforme qui transforme vos archives en intelligence business",
+    "cta": "Configurer Ma Structure de Classement",
+    "demo": "Explorer la Démo Gratuite",
+    "sovereign": "Plateforme souveraine pour le Gabon",
+    "security": "Sécurité Souveraine — Vos Données Restent au Gabon"
+  },
+  "modules": {
+    "idocument": "Gestion Documentaire",
+    "iarchive": "Archivage Légal",
+    "isignature": "Signature Électronique",
+    "iasted": "Assistant IA"
+  }
+}

@@ -25,10 +25,11 @@ import {
     Users,
     TrendingUp,
     ChevronRight,
+    Settings,
 } from "lucide-react";
 import { useConvexOrgId } from "@/hooks/useConvexOrgId";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction, useConvex } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 
 // ─── Types ──────────────────────────────────────
@@ -48,33 +49,21 @@ interface Conversation {
     messageCount: number;
 }
 
-// ─── Simulated AI ──────────────────────────────
+// ─── Preferences Helper ──────────────────────────
 
-const KEYWORD_RESPONSES: Record<string, string> = {
-    document:
-        "📄 **Module iDocument**\n\nVous avez actuellement **23 documents** dont 5 en brouillon et 2 en attente de validation.\n\n**Actions rapides :**\n• Créer un nouveau document\n• Voir les documents en attente\n• Accéder aux modèles",
-    archive:
-        "📦 **Module iArchive**\n\nVotre espace d'archivage : **847 Mo / 5 Go** utilisés.\n\n**Répartition :**\n• Fiscal : 234 fichiers (40%)\n• Social : 156 fichiers (27%)\n• Juridique : 98 fichiers (17%)\n• Client : 92 fichiers (16%)\n\n⚠️ 3 archives expirent dans les 30 prochains jours.",
-    signature:
-        "✍️ **Module iSignature**\n\n**Ce mois :**\n• 47 demandes de signature envoyées\n• 43 complétées (taux : 92%)\n• 4 en attente de votre signature\n\n**Délai moyen :** 1.8 jours",
-    conformité:
-        "✅ **Score de conformité : 87/100**\n\n• Certificats valides : 94% ✅\n• Archives à jour : 91% ✅\n• Signatures complètes : 88% ⚠️\n• Rétention respectée : 76% ⚠️",
-    statistiques:
-        "📊 **Tableau de bord rapide**\n\n**Ce mois (Février 2026) :**\n• Documents créés : 18\n• Archives ajoutées : 12\n• Signatures envoyées : 47\n• Utilisateurs actifs : 8\n\n**Tendance :** +15% d'activité vs. janvier",
-    résumé:
-        "📝 **Résumé de l'activité**\n\nVotre organisation a connu une activité soutenue ce mois. Les principales actions :\n\n1. **18 documents** créés dont 3 contrats majeurs\n2. **12 archives** ajoutées (principalement fiscal)\n3. **47 signatures** traitées avec un taux de 92%\n\n**Point d'attention :** 3 archives arrivent à expiration.",
-    aide:
-        "🤖 **Comment puis-je vous aider ?**\n\n1. **Rechercher** des documents, archives ou signatures\n2. **Résumer** le contenu d'un document\n3. **Vérifier** la conformité de vos archives\n4. **Analyser** les tendances de votre organisation\n5. **Guider** dans les processus de signature",
-    bonjour:
-        "Bonjour ! 👋 Je suis **iAsted**, votre assistant IA.\n\nJe peux vous aider avec vos documents, archives, signatures et analyses. Que souhaitez-vous faire ?",
-};
+interface IAstedPreferences {
+    tone: "professional" | "casual";
+    modules: string[];
+    language: "fr" | "en";
+}
 
-function getAIResponse(input: string): string {
-    const lower = input.toLowerCase();
-    for (const [keyword, response] of Object.entries(KEYWORD_RESPONSES)) {
-        if (lower.includes(keyword)) return response;
-    }
-    return `Je comprends votre demande.\n\n🔄 Cette fonctionnalité sera connectée à l'IA prochainement. Essayez :\n• « document » · « archive » · « signature »\n• « conformité » · « statistiques » · « résumé »`;
+function getIAstedPreferences(): IAstedPreferences {
+    if (typeof window === "undefined") return { tone: "professional", modules: ["iDocument", "iArchive", "iSignature"], language: "fr" };
+    try {
+        const stored = localStorage.getItem("iasted_preferences");
+        if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return { tone: "professional", modules: ["iDocument", "iArchive", "iSignature"], language: "fr" };
 }
 
 // ─── Quick Actions ──────────────────────────────
@@ -111,7 +100,9 @@ export default function IAstedPage() {
     const [showSidebar] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const convex = useConvex();
     const addMessageMutation = useMutation(api.iasted.addMessage);
+    const askDocumentsAction = useAction(api.aiSmartImport.askDocuments);
 
     const rawConversations = conversationsQuery || [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,19 +175,75 @@ export default function IAstedPage() {
             setActiveConv(newConvId);
         }
 
-        await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
+        try {
+            // Search for relevant documents via RAG using Convex query
+            let ragResults: Array<{
+                id: string; title: string; excerpt: string;
+                folderName?: string; tags?: string[];
+                score: number; fileName: string; mimeType: string;
+            }> = [];
+            try {
+                ragResults = await convex.query(api.documentRAG.searchDocumentsForRAG, {
+                    organizationId: convexOrgId,
+                    query: text,
+                    limit: 10,
+                });
+            } catch (ragError) {
+                console.warn("RAG search failed, proceeding without context:", ragError);
+            }
 
-        const aiResponse = getAIResponse(text);
+            // Build document contexts for the AI
+            const documentContexts = ragResults.map((doc) => ({
+                id: doc.id,
+                title: doc.title,
+                excerpt: doc.excerpt,
+                folderName: doc.folderName,
+                tags: doc.tags,
+            }));
 
-        // Ensure variables correctly defined
-        await addMessageMutation({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            id: newConvId as any,
-            userId: user.uid,
-            organizationId: convexOrgId,
-            role: "assistant",
-            content: aiResponse,
-        });
+            // Get user preferences
+            const prefs = getIAstedPreferences();
+            const toneInstruction = prefs.tone === "casual" ? " Réponds de manière décontractée." : "";
+            const langInstruction = prefs.language === "en" ? " Answer in English." : "";
+            const enhancedQuestion = `${text}${toneInstruction}${langInstruction}`;
+
+            // Call Gemini via askDocuments action
+            const aiResponse = await askDocumentsAction({
+                question: enhancedQuestion,
+                documentContexts,
+            });
+
+            // Build source citations
+            let responseWithSources = aiResponse || "Je n'ai pas pu trouver de reponse pertinente.";
+            if (ragResults.length > 0) {
+                const sourcesSection = ragResults
+                    .slice(0, 3)
+                    .map((doc) => `- **${doc.title}** (${doc.folderName || "Non classe"})`)
+                    .join("\n");
+                responseWithSources += `\n\n---\n**Sources :**\n${sourcesSection}`;
+            }
+
+            // Save AI response to conversation
+            await addMessageMutation({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                id: newConvId as any,
+                userId: user.uid,
+                organizationId: convexOrgId,
+                role: "assistant",
+                content: responseWithSources,
+            });
+        } catch (error) {
+            console.error("iAsted AI error:", error);
+            const fallbackMessage = "Desole, une erreur est survenue lors du traitement de votre demande. Veuillez reessayer.";
+            await addMessageMutation({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                id: newConvId as any,
+                userId: user.uid,
+                organizationId: convexOrgId,
+                role: "assistant",
+                content: fallbackMessage,
+            });
+        }
 
         setIsTyping(false);
     };
@@ -273,12 +320,21 @@ export default function IAstedPage() {
                         ))}
                     </div>
 
-                    <div className="p-3 border-t border-white/5">
+                    <div className="p-3 border-t border-white/5 space-y-1">
                         <Link href="/pro/iasted/analytics">
                             <Button variant="ghost" size="sm" className="w-full text-xs text-zinc-400 justify-between">
                                 <span className="flex items-center gap-1.5">
                                     <BarChart3 className="h-3.5 w-3.5" />
                                     Analytics IA
+                                </span>
+                                <ChevronRight className="h-3 w-3" />
+                            </Button>
+                        </Link>
+                        <Link href="/pro/iasted/settings">
+                            <Button variant="ghost" size="sm" className="w-full text-xs text-zinc-400 justify-between">
+                                <span className="flex items-center gap-1.5">
+                                    <Settings className="h-3.5 w-3.5" />
+                                    Parametres IA
                                 </span>
                                 <ChevronRight className="h-3 w-3" />
                             </Button>
@@ -299,13 +355,13 @@ export default function IAstedPage() {
                             <h2 className="text-sm font-semibold">iAsted — Assistant IA</h2>
                             <div className="flex items-center gap-1">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                <span className="text-[9px] text-zinc-500">En ligne · Mode démo</span>
+                                <span className="text-[9px] text-zinc-500">En ligne · Gemini AI</span>
                             </div>
                         </div>
                     </div>
                     <Badge variant="secondary" className="text-[9px] bg-violet-500/10 text-violet-400 border-0">
                         <Sparkles className="h-3 w-3 mr-1" />
-                        IA Simulée
+                        Gemini AI
                     </Badge>
                 </div>
 

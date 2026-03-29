@@ -142,6 +142,16 @@ export const create = mutation({
             if (parent) niveau = parent.niveau + 1;
         }
 
+        // ── Validation : profondeur maximale (config org) ──
+        const org = await ctx.db.get(args.organizationId);
+        const { getDepthConfig } = await import("./lib/depthConfig");
+        const { maxDepth } = getDepthConfig(org);
+        if (niveau >= maxDepth) {
+            throw new Error(
+                `Profondeur maximale atteinte (${maxDepth} niveaux). Modifiez la configuration de classement de l'organisation pour augmenter la limite.`
+            );
+        }
+
         // Calculer l'ordre si non spécifié
         let ordre = args.ordre ?? 0;
         if (args.ordre === undefined) {
@@ -241,6 +251,17 @@ export const create = mutation({
             }
         }
 
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: args.organizationId,
+            userId: "system",
+            action: "filing_cell.create",
+            resourceType: "filing_cell" as const,
+            resourceId: String(cellId),
+            details: { code: args.code, intitule: args.intitule, niveau },
+            createdAt: now,
+        });
 
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
@@ -366,6 +387,17 @@ export const remove = mutation({
         for (const o of overrides) await ctx.db.delete(o._id);
 
         await ctx.db.delete(args.id);
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: cell.organizationId,
+            userId: "system",
+            action: "filing_cell.delete",
+            resourceType: "filing_cell" as const,
+            resourceId: String(args.id),
+            details: { code: cell.code, intitule: cell.intitule },
+            createdAt: Date.now(),
+        });
 
         // Sync: Mark corresponding folder as trashed
         const folder = await ctx.db

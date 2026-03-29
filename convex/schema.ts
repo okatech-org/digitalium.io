@@ -214,7 +214,7 @@ export default defineSchema({
     // ═══════════════════════════════════════════
     organization_members: defineTable({
         organizationId: v.id("organizations"),
-        userId: v.string(), // ref users.userId
+        userId: v.string(), // Email de l'utilisateur (identifiant principal dans le contexte org)
         role: platformRole,
         estAdmin: v.optional(v.boolean()), // Désignation manuelle d'administrateur
         level: v.number(),  // 0-5 — dérivé automatiquement du rôle métier
@@ -391,6 +391,12 @@ export default defineSchema({
         archiveId: v.optional(v.id("archives")),             // Lien vers l'archive créée
         archivedAt: v.optional(v.number()),                  // Timestamp d'archivage
         archiveCategorySlug: v.optional(v.string()),         // Slug catégorie pour affichage rapide
+        // ── AI & Intelligence fields (v8) ──
+        extractedText: v.optional(v.string()),               // Texte OCR/extrait du fichier
+        contentHash: v.optional(v.string()),                 // SHA-256 pour détection doublons
+        aiConfidence: v.optional(v.number()),                // Score de confiance IA (0-1)
+        confidentiality: v.optional(v.string()),             // public/internal/confidential/secret
+        aiClassifiedAt: v.optional(v.number()),              // Timestamp dernière classification IA
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -399,7 +405,8 @@ export default defineSchema({
         .index("by_status", ["status"])
         .index("by_org_status", ["organizationId", "status"])
         .index("by_parentFolderId", ["parentFolderId"])
-        .index("by_folderId", ["folderId"]),
+        .index("by_folderId", ["folderId"])
+        .index("by_contentHash", ["contentHash"]),
 
     // ═══════════════════════════════════════════
     // 4c. DOCUMENT TYPES (v7 — types de documents préconfigurés)
@@ -543,6 +550,8 @@ export default defineSchema({
         sha256Hash: v.string(),
         retentionYears: v.number(),
         retentionExpiresAt: v.number(), // timestamp fin de conservation
+        // status = état opérationnel complet (6 valeurs: active, semi_active, archived, expired, on_hold, destroyed).
+        // Inclut les états administratifs (gel juridique, expiration).
         status: v.union(
             v.literal("active"),
             v.literal("semi_active"),
@@ -568,6 +577,8 @@ export default defineSchema({
         pdfUrl: v.optional(v.string()),                     // URL du PDF généré (Convex File Storage)
         pdfHash: v.optional(v.string()),                    // SHA-256 du PDF (intégrité légale)
         // ── Lifecycle tracking (v2) ──
+        // lifecycleState = phase du cycle de rétention OHADA (4 valeurs: active, semi_active, archived, destroyed).
+        // Suit le cycle documentaire normatif.
         lifecycleState: v.optional(v.union(
             v.literal("active"),
             v.literal("semi_active"),
@@ -765,6 +776,8 @@ export default defineSchema({
             v.literal("cancelled")
         ),
         dueDate: v.optional(v.number()),
+        completedAt: v.optional(v.number()),
+        lastReminderSentAt: v.optional(v.number()),
         createdAt: v.number(),
         updatedAt: v.number(),
     })
@@ -808,7 +821,11 @@ export default defineSchema({
             v.literal("folder"),
             v.literal("signature"),
             v.literal("organization"),
-            v.literal("user")
+            v.literal("user"),
+            v.literal("filing_structure"),
+            v.literal("filing_cell"),
+            v.literal("access_rule"),
+            v.literal("member")
         ),
         resourceId: v.string(),
         details: v.optional(v.any()),
@@ -1326,4 +1343,111 @@ export default defineSchema({
     })
         .index("by_signal", ["signal"])
         .index("by_regle", ["regle"]),
+
+    // ═══════════════════════════════════════════
+    // I1. COMPLIANCE REPORTS (Innovation I)
+    // ═══════════════════════════════════════════
+    compliance_reports: defineTable({
+        organizationId: v.id("organizations"),
+        type: v.union(v.literal("audit"), v.literal("forecast")),
+        score: v.number(),                   // 0-100 compliance score
+        issues: v.array(v.object({
+            severity: v.union(v.literal("critical"), v.literal("warning"), v.literal("info")),
+            category: v.string(),            // "retention", "confidentiality", "classification", "integrity"
+            message: v.string(),
+            documentId: v.optional(v.string()),
+            folderId: v.optional(v.string()),
+            suggestion: v.optional(v.string()),
+        })),
+        recommendations: v.array(v.string()),
+        stats: v.optional(v.object({
+            totalDocuments: v.number(),
+            documentsWithCategory: v.number(),
+            documentsWithCertificate: v.number(),
+            confidentialInPublic: v.number(),
+            expiringNext90Days: v.number(),
+            // Forecast-specific
+            expiringByQuarter: v.optional(v.object({
+                q1: v.number(), q2: v.number(), q3: v.number(), q4: v.number(),
+            })),
+            storageToFreeBytes: v.optional(v.number()),
+            healthScore: v.optional(v.number()),
+        })),
+        createdAt: v.number(),
+    })
+        .index("by_organizationId", ["organizationId"])
+        .index("by_org_type", ["organizationId", "type"]),
+
+    // ═══════════════════════════════════════════
+    // H1. DOCUMENT ENTITIES (Innovation H — Knowledge Graph)
+    // ═══════════════════════════════════════════
+    document_entities: defineTable({
+        documentId: v.id("documents"),
+        organizationId: v.id("organizations"),
+        entityType: v.string(),              // "client", "project", "amount", "date", "person", "reference"
+        entityValue: v.string(),             // Valeur extraite
+        normalizedValue: v.optional(v.string()), // Valeur normalisée pour matching
+        confidence: v.number(),              // 0-1
+        createdAt: v.number(),
+    })
+        .index("by_documentId", ["documentId"])
+        .index("by_organizationId", ["organizationId"])
+        .index("by_org_type", ["organizationId", "entityType"])
+        .index("by_org_value", ["organizationId", "normalizedValue"]),
+
+    // ═══════════════════════════════════════════
+    // H2. DOCUMENT RELATIONS (Innovation H — Knowledge Graph)
+    // ═══════════════════════════════════════════
+    document_relations: defineTable({
+        organizationId: v.id("organizations"),
+        sourceDocId: v.id("documents"),
+        targetDocId: v.id("documents"),
+        relationType: v.string(),            // "quote_to_invoice", "contract_amendment", "response_to", "related"
+        confidence: v.number(),
+        reasoning: v.optional(v.string()),
+        createdAt: v.number(),
+    })
+        .index("by_sourceDocId", ["sourceDocId"])
+        .index("by_targetDocId", ["targetDocId"])
+        .index("by_organizationId", ["organizationId"]),
+
+    // ═══════════════════════════════════════════
+    // J1. DOCUMENT EMBEDDINGS (Innovation J — RAG)
+    // ═══════════════════════════════════════════
+    document_embeddings: defineTable({
+        documentId: v.id("documents"),
+        organizationId: v.id("organizations"),
+        textChunk: v.string(),               // Chunk de texte source
+        embedding: v.array(v.float64()),     // Vecteur d'embedding
+        chunkIndex: v.number(),              // Index du chunk dans le document
+        updatedAt: v.number(),
+    })
+        .index("by_documentId", ["documentId"])
+        .index("by_organizationId", ["organizationId"]),
+
+    // ═══════════════════════════════════════════
+    // G1. IMPORT PROGRESS (Innovation G — Réponse progressive)
+    // ═══════════════════════════════════════════
+    import_progress: defineTable({
+        sessionId: v.string(),               // Identifiant unique de la session d'import
+        organizationId: v.id("organizations"),
+        totalFiles: v.number(),
+        processedFiles: v.number(),
+        currentFileName: v.optional(v.string()),
+        results: v.array(v.object({
+            fileName: v.string(),
+            status: v.union(v.literal("pending"), v.literal("processing"), v.literal("done"), v.literal("error")),
+            suggestedFolderId: v.optional(v.string()),
+            suggestedFolderName: v.optional(v.string()),
+            suggestedTags: v.optional(v.array(v.string())),
+            confidence: v.optional(v.number()),
+            reasoning: v.optional(v.string()),
+            error: v.optional(v.string()),
+        })),
+        status: v.union(v.literal("running"), v.literal("completed"), v.literal("error")),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_sessionId", ["sessionId"])
+        .index("by_organizationId", ["organizationId"]),
 });

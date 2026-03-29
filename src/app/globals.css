@@ -111,8 +111,8 @@
 .glass {
   background: var(--glass-bg);
   /* Removed backdrop-filter to ensure flat look if desired, or keep it for content underneath. Keeping for now but opacity is high. */
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--glass-border);
   box-shadow: none !important;
 }
@@ -194,7 +194,7 @@
 /* Glass card variant — Flat, no blur needed if opaque */
 .glass-card {
   background: var(--glass-panel-bg);
-  /* backdrop-filter: blur(16px); */
+  backdrop-filter: blur(12px);
   border: 1px solid var(--glass-panel-border);
   border-radius: var(--radius);
   transition: all 0.2s ease;

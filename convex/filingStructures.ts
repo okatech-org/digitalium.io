@@ -50,12 +50,24 @@ export const create = mutation({
     },
     handler: async (ctx, args) => {
         const now = Date.now();
-        return await ctx.db.insert("filing_structures", {
+        const id = await ctx.db.insert("filing_structures", {
             ...args,
             estActif: true,
             createdAt: now,
             updatedAt: now,
         });
+
+        await ctx.db.insert("audit_logs", {
+            organizationId: args.organizationId,
+            userId: "system",
+            action: "filing_structure.create",
+            resourceType: "filing_structure" as const,
+            resourceId: String(id),
+            details: { nom: args.nom, type: args.type },
+            createdAt: Date.now(),
+        });
+
+        return id;
     },
 });
 
@@ -106,6 +118,16 @@ export const setActive = mutation({
         }
 
         await ctx.db.patch(args.id, { estActif: true, updatedAt: now });
+
+        await ctx.db.insert("audit_logs", {
+            organizationId: structure.organizationId,
+            userId: "system",
+            action: "filing_structure.activate",
+            resourceType: "filing_structure" as const,
+            resourceId: String(args.id),
+            details: { nom: structure.nom },
+            createdAt: Date.now(),
+        });
 
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {

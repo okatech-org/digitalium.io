@@ -22,7 +22,7 @@ import {
     FolderOpen, Folder, FolderTree, Lock, Upload, FileUp, Brain,
     Loader2, Check, FileSpreadsheet, Image as ImageIcon,
     FolderUp, Wand2, ArrowRight, CheckCircle2, RefreshCw, Send,
-    Shield, Building2, Tags,
+    Shield, Building2, Tags, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -195,7 +195,6 @@ const STATUS_FILTERS: { value: DocStatus | "all"; label: string }[] = [
 // Le Coffre-fort est géré dans iArchive (schema: isVault, isPerpetual).
 
 const DEFAULT_SYSTEM_FOLDERS: FileManagerFolder[] = [
-    { id: "__mes-documents", name: "Mes Documents", parentFolderId: null, tags: [], fileCount: 0, updatedAt: "", createdBy: "Système", isSystem: true },
     { id: "__brouillons", name: "Brouillons", parentFolderId: null, tags: [], fileCount: 0, updatedAt: "", createdBy: "Système", isSystem: true },
     { id: "__poubelle", name: "Poubelle", parentFolderId: null, tags: [], fileCount: 0, updatedAt: "", createdBy: "Système", isSystem: true },
 ];
@@ -552,7 +551,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             status: d.status as DocStatus,
             tags: d.tags,
             version: d.version,
-            folderId: (d.folderId ?? d.parentFolderId ?? "__mes-documents") as string,
+            folderId: (d.folderId ?? d.parentFolderId ?? "") as string,
             archiveCategorySlug: (d as any).archiveCategorySlug ?? undefined,
             archiveCategoryId: (d as any).archiveCategoryId ?? undefined,
         }));
@@ -920,7 +919,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             return [];
         } else {
             // Exclure les brouillons des dossiers normaux — ils sont dans le dossier virtuel "Brouillons"
-            docs = documents.filter((d) => d.folderId === (currentFolderId ?? "__mes-documents") && d.status !== "draft");
+            docs = documents.filter((d) => d.folderId === currentFolderId && d.status !== "draft");
         }
 
         // Search
@@ -1624,7 +1623,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 status: "draft",
                 tags: [],
                 version: 1,
-                folderId: currentFolderId || "__mes-documents",
+                folderId: currentFolderId || "",
             };
             setDocuments((prev) => [newDoc, ...prev]);
         }
@@ -1727,8 +1726,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 size: file.size,
                 type: file.type,
                 suggestedTags: [],
-                suggestedFolderId: "__mes-documents",
-                suggestedFolderName: "Mes Documents",
+                suggestedFolderId: null,
+                suggestedFolderName: "",
                 suggestedPath: "",
                 newFoldersToCreate: [],
                 parentFolderIdForNew: null,
@@ -1791,8 +1790,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 size: f.file.size,
                 type: f.file.type || "application/octet-stream",
                 suggestedTags: [],
-                suggestedFolderId: "__mes-documents",
-                suggestedFolderName: "Mes Documents",
+                suggestedFolderId: null,
+                suggestedFolderName: "",
                 suggestedPath: "",
                 newFoldersToCreate: [],
                 parentFolderIdForNew: null,
@@ -1832,9 +1831,14 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
             const fileNames = importFiles.map((f) => f.name);
 
             // Call Gemini for intelligent, folder-aware classification
+            const depthConfig = convexOrgDoc?.config?.classement
+                ? { maxDepth: convexOrgDoc.config.classement.maxDepth ?? 3, depthStrategy: convexOrgDoc.config.classement.depthStrategy ?? "intelligente" }
+                : undefined;
+
             const result = await classifyDocumentsAction({
                 fileNames,
                 folderTree: treeData,
+                depthConfig,
             });
 
             if (result.error) {
@@ -1857,8 +1861,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                         return {
                             ...f,
                             suggestedTags: classification.suggestedTags ?? ["Document", "Import"],
-                            suggestedFolderId: classification.suggestedFolderId ?? "__mes-documents",
-                            suggestedFolderName: suggestedFolder?.name ?? "Mes Documents",
+                            suggestedFolderId: classification.suggestedFolderId ?? null,
+                            suggestedFolderName: suggestedFolder?.name ?? "",
                             suggestedPath: classification.suggestedPath ?? "",
                             newFoldersToCreate: classification.newFoldersToCreate ?? [],
                             parentFolderIdForNew: classification.parentFolderIdForNew ?? null,
@@ -1898,7 +1902,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const handleUpdateImportFolder = useCallback((fileId: string, folderId: string) => {
         const folder = folders.find((f) => f.id === folderId);
         setImportFiles((prev) =>
-            prev.map((f) => f.id === fileId ? { ...f, suggestedFolderId: folderId, suggestedFolderName: folder?.name || "Mes Documents" } : f)
+            prev.map((f) => f.id === fileId ? { ...f, suggestedFolderId: folderId, suggestedFolderName: folder?.name || "" } : f)
         );
     }, [folders]);
 
@@ -1972,7 +1976,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                     // The final created folder is the actual destination
                     targetFolderId = parentId;
                 } else if (!isConvexId) {
-                    // System pseudo-ID (__mes-documents, etc.) or no folder
+                    // No real folder assigned — check for folder paths in filename
                     // Check for folder paths in imported filenames (folder import)
                     const pathParts = importFile.name.split("/");
                     if (pathParts.length > 1) {
@@ -2443,8 +2447,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Nouveau dossier: ⚙️Gestion + 🔑Admin, ou dans "Mes Documents" */}
-                    {(canManage || currentFolderId === "__mes-documents") && (
+                    {/* Nouveau dossier: ⚙️Gestion + 🔑Admin */}
+                    {canManage && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -3291,6 +3295,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                         );
                                                     })}
                                                 </div>
+                                                {/* Warning si aucun dossier sélectionné */}
+                                                {(!f.suggestedFolderId || f.suggestedFolderId.startsWith("__")) && (
+                                                    <div className="flex items-center gap-1.5 mt-1 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+                                                        <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
+                                                        <span className="text-[10px] text-amber-300">Aucun dossier sélectionné — veuillez choisir un dossier de destination</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -3313,23 +3324,33 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                 Analyser avec l&apos;IA
                             </Button>
                         )}
-                        {importStep === "review" && (
-                            <Button
-                                onClick={handleConfirmImport}
-                                disabled={importLoading}
-                                className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white border-0 gap-2"
-                            >
-                                {importLoading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Check className="h-4 w-4" />
-                                )}
-                                {importLoading
-                                    ? "Import en cours…"
-                                    : `Importer ${importFiles.length} document${importFiles.length > 1 ? "s" : ""}`
-                                }
-                            </Button>
-                        )}
+                        {importStep === "review" && (() => {
+                            const allFilesHaveFolder = importFiles.every(
+                                (f) => f.suggestedFolderId && !f.suggestedFolderId.startsWith("__")
+                            );
+                            return (
+                                <Button
+                                    onClick={handleConfirmImport}
+                                    disabled={importLoading || !allFilesHaveFolder}
+                                    title={!allFilesHaveFolder ? "Tous les fichiers doivent avoir un dossier de destination" : undefined}
+                                    className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white border-0 gap-2"
+                                >
+                                    {importLoading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : !allFilesHaveFolder ? (
+                                        <AlertTriangle className="h-4 w-4" />
+                                    ) : (
+                                        <Check className="h-4 w-4" />
+                                    )}
+                                    {importLoading
+                                        ? "Import en cours…"
+                                        : !allFilesHaveFolder
+                                            ? "Classement requis"
+                                            : `Importer ${importFiles.length} document${importFiles.length > 1 ? "s" : ""}`
+                                    }
+                                </Button>
+                            );
+                        })()}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -3843,6 +3864,10 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                 retentionCategorySlug: dt.retentionCategorySlug as string | undefined,
                                             }));
 
+                                            const reorgDepthConfig = convexOrgDoc?.config?.classement
+                                                ? { maxDepth: (convexOrgDoc.config as any).classement.maxDepth ?? 3, depthStrategy: (convexOrgDoc.config as any).classement.depthStrategy ?? "intelligente" }
+                                                : undefined;
+
                                             result = await deepReorganizeAction({
                                                 documents: docsData,
                                                 folderTree: treeData,
@@ -3856,8 +3881,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                     totalFolders: folders.length,
                                                 },
                                                 mode: reorgMode,
+                                                depthConfig: reorgDepthConfig,
                                             });
                                         } else {
+                                            const reorgDepthConfig = convexOrgDoc?.config?.classement
+                                                ? { maxDepth: (convexOrgDoc.config as any).classement.maxDepth ?? 3, depthStrategy: (convexOrgDoc.config as any).classement.depthStrategy ?? "intelligente" }
+                                                : undefined;
+
                                             result = await reorganizeDocumentsAction({
                                                 documents: docsData.map(d => ({
                                                     id: d.id, title: d.title, fileName: undefined,
@@ -3865,6 +3895,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                 })),
                                                 folderTree: treeData,
                                                 mode: reorgMode as "classify" | "reorganize",
+                                                depthConfig: reorgDepthConfig,
                                             });
                                         }
 

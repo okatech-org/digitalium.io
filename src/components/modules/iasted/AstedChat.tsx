@@ -22,6 +22,9 @@ import {
     Maximize2,
     RotateCcw,
 } from "lucide-react";
+import { useConvexOrgId } from "@/hooks/useConvexOrgId";
+import { useAction, useConvex } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 
 // ─── Types ──────────────────────────────────────
 
@@ -33,35 +36,21 @@ interface ChatMessage {
     context?: { module?: string };
 }
 
-// ─── Simulated AI Responses ────────────────────
+// ─── Preferences Helper ──────────────────────────
 
-const KEYWORD_RESPONSES: Record<string, string> = {
-    document:
-        "📄 **Module iDocument**\n\nVous avez actuellement **23 documents** dont 5 en brouillon et 2 en attente de validation.\n\n**Actions rapides :**\n• Créer un nouveau document\n• Voir les documents en attente\n• Accéder aux modèles",
-    archive:
-        "📦 **Module iArchive**\n\nVotre espace d'archivage : **847 Mo / 5 Go** utilisés.\n\n**Répartition :**\n• Fiscal : 234 fichiers (40%)\n• Social : 156 fichiers (27%)\n• Juridique : 98 fichiers (17%)\n• Client : 92 fichiers (16%)\n\n⚠️ 3 archives expirent dans les 30 prochains jours.",
-    signature:
-        "✍️ **Module iSignature**\n\n**Ce mois :**\n• 47 demandes de signature envoyées\n• 43 complétées (taux : 92%)\n• 4 en attente de votre signature\n\n**Délai moyen :** 1.8 jours\n\nVoulez-vous voir les signatures en attente ?",
-    fiscal:
-        "🏛️ **Archives fiscales**\n\nVous avez **234 documents fiscaux** archivés.\n\n**Durée de conservation :** 10 ans (conformité OHADA)\n**Certificats actifs :** 218 / 234\n\n⚠️ 12 certificats expirent en 2026. Pensez à les renouveler.",
-    bonjour:
-        "Bonjour ! 👋 Je suis **iAsted**, votre assistant IA Digitalium.\n\nJe peux vous aider avec :\n• 📄 Gestion documentaire\n• 📦 Archivage et conformité\n• ✍️ Signatures électroniques\n• 📊 Analyses et rapports\n\nQue souhaitez-vous faire ?",
-    aide:
-        "🤖 **Comment puis-je vous aider ?**\n\nVoici ce que je sais faire :\n\n1. **Rechercher** des documents, archives ou signatures\n2. **Résumer** le contenu d'un document\n3. **Vérifier** la conformité de vos archives\n4. **Analyser** les tendances de votre organisation\n5. **Guider** dans les processus de signature\n\nEssayez : « Combien de documents ai-je ce mois ? »",
-    conformité:
-        "✅ **Score de conformité : 87/100**\n\n**Détails :**\n• Certificats valides : 94% ✅\n• Archives à jour : 91% ✅\n• Signatures complètes : 88% ⚠️\n• Rétention respectée : 76% ⚠️\n\n**Recommandations :**\n1. Renouveler 12 certificats expirés\n2. Compléter 4 signatures en attente\n3. Vérifier 8 archives en rétention prolongée",
-    statistiques:
-        "📊 **Tableau de bord rapide**\n\n**Ce mois (Février 2026) :**\n• Documents créés : 18\n• Archives ajoutées : 12\n• Signatures envoyées : 47\n• Utilisateurs actifs : 8\n\n**Tendance :** +15% d'activité vs. janvier\n\nVoulez-vous un rapport détaillé ?",
-    équipe:
-        "👥 **Votre équipe**\n\n**5 membres actifs :**\n1. Daniel Nguema — Manager (15 signatures ce mois)\n2. Marie Obame — Juriste (12 signatures)\n3. Aimée Gondjout — Comptable (9 signatures)\n4. Claude Mboumba — RH (8 signatures)\n5. Ornella Doumba — Assistante (6 signatures)\n\n**Membre le plus actif :** D. Nguema\n**Temps moyen de signature :** 1.8 jours",
-};
+interface IAstedPreferences {
+    tone: "professional" | "casual";
+    modules: string[];
+    language: "fr" | "en";
+}
 
-function getAIResponse(input: string): string {
-    const lower = input.toLowerCase();
-    for (const [keyword, response] of Object.entries(KEYWORD_RESPONSES)) {
-        if (lower.includes(keyword)) return response;
-    }
-    return `Je comprends votre demande : « ${input} ».\n\n🔄 Cette fonctionnalité sera bientôt connectée à l'IA. En attendant, essayez :\n• « document » pour voir vos documents\n• « archive » pour le suivi des archives\n• « signature » pour les signatures\n• « conformité » pour le score de conformité\n• « statistiques » pour un aperçu rapide`;
+function getIAstedPreferences(): IAstedPreferences {
+    if (typeof window === "undefined") return { tone: "professional", modules: ["iDocument", "iArchive", "iSignature"], language: "fr" };
+    try {
+        const stored = localStorage.getItem("iasted_preferences");
+        if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return { tone: "professional", modules: ["iDocument", "iArchive", "iSignature"], language: "fr" };
 }
 
 // ─── Suggestion Chips ──────────────────────────
@@ -76,6 +65,10 @@ const SUGGESTIONS = [
 // ─── Component ─────────────────────────────────
 
 export default function AstedChat() {
+    const { convexOrgId } = useConvexOrgId();
+    const convex = useConvex();
+    const askDocumentsAction = useAction(api.aiSmartImport.askDocuments);
+
     const [isOpen, setIsOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([
@@ -107,17 +100,75 @@ export default function AstedChat() {
         setInput("");
         setIsTyping(true);
 
-        // Simulate AI thinking
-        await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
+        try {
+            // Search for relevant documents via RAG (smaller context for floating bot)
+            let ragResults: Array<{
+                id: string; title: string; excerpt: string;
+                folderName?: string; tags?: string[];
+                score: number; fileName: string; mimeType: string;
+            }> = [];
 
-        const aiResponse = getAIResponse(text);
-        const aiMsg: ChatMessage = {
-            id: `msg-${Date.now()}-ai`,
-            role: "assistant",
-            content: aiResponse,
-            timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, aiMsg]);
+            if (convexOrgId) {
+                try {
+                    ragResults = await convex.query(api.documentRAG.searchDocumentsForRAG, {
+                        organizationId: convexOrgId,
+                        query: text,
+                        limit: 5,
+                    });
+                } catch (ragError) {
+                    console.warn("RAG search failed:", ragError);
+                }
+            }
+
+            // Build document contexts
+            const documentContexts = ragResults.map((doc) => ({
+                id: doc.id,
+                title: doc.title,
+                excerpt: doc.excerpt,
+                folderName: doc.folderName,
+                tags: doc.tags,
+            }));
+
+            // Get preferences
+            const prefs = getIAstedPreferences();
+            const toneInstruction = prefs.tone === "casual" ? " Reponds de maniere decontractee." : "";
+            const langInstruction = prefs.language === "en" ? " Answer in English." : "";
+            const enhancedQuestion = `${text}${toneInstruction}${langInstruction}`;
+
+            // Call Gemini via askDocuments
+            const aiResponse = await askDocumentsAction({
+                question: enhancedQuestion,
+                documentContexts,
+            });
+
+            // Build response with sources
+            let responseWithSources = aiResponse || "Je n'ai pas pu trouver de reponse pertinente.";
+            if (ragResults.length > 0) {
+                const sourcesSection = ragResults
+                    .slice(0, 2)
+                    .map((doc) => `- **${doc.title}**`)
+                    .join("\n");
+                responseWithSources += `\n\n---\n**Sources :**\n${sourcesSection}`;
+            }
+
+            const aiMsg: ChatMessage = {
+                id: `msg-${Date.now()}-ai`,
+                role: "assistant",
+                content: responseWithSources,
+                timestamp: Date.now(),
+            };
+            setMessages((prev) => [...prev, aiMsg]);
+        } catch (error) {
+            console.error("iAsted chat error:", error);
+            const aiMsg: ChatMessage = {
+                id: `msg-${Date.now()}-ai`,
+                role: "assistant",
+                content: "Desole, une erreur est survenue. Veuillez reessayer.",
+                timestamp: Date.now(),
+            };
+            setMessages((prev) => [...prev, aiMsg]);
+        }
+
         setIsTyping(false);
     };
 
@@ -324,7 +375,7 @@ export default function AstedChat() {
                                 </Button>
                             </form>
                             <p className="text-[8px] text-zinc-600 text-center mt-1.5">
-                                iAsted IA · Réponses simulées en mode démo
+                                iAsted IA · Powered by Gemini
                             </p>
                         </div>
                     </motion.div>

@@ -6,6 +6,7 @@
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 
 // ─── Queries ─────────────────────────────────────
 
@@ -60,24 +61,25 @@ export const resolveForFolder = query({
             }
 
             // Remonter au parent
-            const folder = await ctx.db.get(currentId) as any;
+            const folder: Doc<"folders"> | null = await ctx.db.get(currentId);
             if (!folder || !folder.parentFolderId) break;
+            const parentId = folder.parentFolderId;
 
             // Vérifier que le parent a inheritToChildren
             const parentMeta = await ctx.db
                 .query("folder_archive_metadata")
-                .withIndex("by_folderId", (q) => q.eq("folderId", folder.parentFolderId))
+                .withIndex("by_folderId", (q) => q.eq("folderId", parentId))
                 .first();
 
             if (parentMeta && parentMeta.inheritToChildren) {
                 return {
                     ...parentMeta,
                     inherited: true,
-                    sourceFolderId: folder.parentFolderId,
+                    sourceFolderId: parentId,
                 };
             }
 
-            currentId = folder.parentFolderId;
+            currentId = parentId;
         }
 
         return null;
@@ -109,8 +111,7 @@ export const setMetadata = mutation({
 
         switch (args.countingStartEvent) {
             case "date_creation":
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                countingStartDate = (folder as any)?.createdAt ?? now;
+                countingStartDate = folder?.createdAt ?? now;
                 break;
             case "date_tag":
                 countingStartDate = now; // Le cycle commence au moment du tagging

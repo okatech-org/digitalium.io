@@ -94,7 +94,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
                             const isActive = pathname === item.href || (item.href !== "/org" && pathname.startsWith(item.href));
                             const Icon = item.icon;
                             return (
-                                <Link key={item.href} href={item.href} onClick={() => setIsMobileOpen(false)}>
+                                <Link key={item.href} href={item.href} aria-current={isActive ? "page" : undefined} onClick={() => setIsMobileOpen(false)}>
                                     <div className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all relative group ${isActive ? "text-violet-400 bg-violet-500/10 font-medium" : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"}`}>
                                         {isActive && (
                                             <motion.div layoutId="org-active-nav" className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-violet-500 rounded-r-full shadow-[0_0_10px_rgba(139,92,246,0.5)]" />
@@ -142,9 +142,12 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <TooltipProvider delayDuration={0}>
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
+                Aller au contenu principal
+            </a>
             <div className="min-h-screen bg-background text-foreground flex">
                 {/* Desktop Sidebar */}
-                <div className="hidden md:block w-[280px] shrink-0 sticky top-0 h-screen z-40">
+                <div className="hidden md:block w-[280px] shrink-0 sticky top-0 h-screen z-40" role="navigation" aria-label="Menu organisation">
                     {renderSidebar()}
                 </div>
 
@@ -185,7 +188,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
                         </div>
                     </header>
 
-                    <main className="flex-1 p-4 sm:p-8 overflow-x-hidden">
+                    <main id="main-content" className="flex-1 p-4 sm:p-8 overflow-x-hidden">
                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="h-full">
                             {children}
                         </motion.div>

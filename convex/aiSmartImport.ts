@@ -4,6 +4,66 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// ═══════════════════════════════════════════════════════════════
+// Innovation E — Règles sectorielles adaptatives
+// ═══════════════════════════════════════════════════════════════
+
+function getSectorPromptRules(sector?: string): string {
+    if (!sector) return "";
+    const rules: Record<string, string> = {
+        assurance: `
+RÈGLES SECTORIELLES — ASSURANCE:
+- Sinistre, Déclaration, Expertise, Indemnisation → Dossiers Sinistres
+- Police, Souscription, Conditions particulières → Dossiers Contrats/Polices
+- Réassurance, Traité, Pool → Réassurance
+- Risque, Cotation, Tarification → Souscription/Tarification
+- Résiliation, Avenant, Modification → Gestion des contrats`,
+        juridique: `
+RÈGLES SECTORIELLES — CABINET JURIDIQUE:
+- Assignation, Citation, Requête, Conclusions → Procédures/Contentieux
+- Jugement, Arrêt, Ordonnance → Décisions de justice
+- Statuts, PV AG, Acte constitutif → Droit des sociétés
+- Bail, Cession, Donation → Droit immobilier/Mutations
+- Consultation, Note juridique, Avis → Consultations`,
+        btp: `
+RÈGLES SECTORIELLES — BTP/CONSTRUCTION:
+- Marché, Lot, Appel d'offres → Marchés publics/privés
+- Situation de travaux, DGD, Décompte → Suivi de chantier
+- CCTP, CCAP, Cahier des charges → Documents contractuels
+- OPR, Réception, Réserves → Réception des travaux
+- Plan, Coupe, Élévation → Plans techniques`,
+        administration: `
+RÈGLES SECTORIELLES — ADMINISTRATION PUBLIQUE:
+- Arrêté, Décret, Décision → Actes administratifs
+- Circulaire, Note de service, Instruction → Communication interne
+- Délibération, PV de conseil → Organes délibérants
+- Budget, Compte administratif → Finances publiques
+- Mutation, Avancement, Notation → Gestion des carrières`,
+        sante: `
+RÈGLES SECTORIELLES — SANTÉ:
+- Dossier patient, Anamnèse, Observation → Dossiers médicaux (confidentiel)
+- Ordonnance, Prescription → Prescriptions (confidentiel)
+- Résultat, Analyse, Imagerie → Examens complémentaires (confidentiel)
+- Protocole, Procédure de soins → Qualité/Protocoles
+- Convention, Agrément → Réglementation sanitaire`,
+        commerce: `
+RÈGLES SECTORIELLES — COMMERCE/DISTRIBUTION:
+- Bon de commande, Bon de livraison → Cycle d'achat
+- Facture, Avoir, Note de crédit → Facturation
+- Relance, Mise en demeure → Recouvrement
+- Inventaire, Catalogue, Tarif → Gestion des stocks
+- Franchise, Concession, Licence → Partenariats commerciaux`,
+        education: `
+RÈGLES SECTORIELLES — ÉDUCATION:
+- Inscription, Dossier scolaire → Administration scolaire
+- Bulletin, Relevé de notes → Évaluation
+- Diplôme, Attestation, Certificat → Certifications
+- Programme, Syllabus, Emploi du temps → Organisation pédagogique
+- Bourse, Aide, Subvention → Vie étudiante`,
+    };
+    return rules[sector.toLowerCase()] ?? "";
+}
+
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — AI Smart Import
 // Analyse fichiers via Gemini et retourne du JSON
@@ -240,6 +300,15 @@ export const classifyDocuments = action({
             tags: v.array(v.string()),
             description: v.string(),
         })),
+        depthConfig: v.optional(v.object({
+            maxDepth: v.number(),
+            depthStrategy: v.string(),
+        })),
+        // Innovation A — Classification enrichie
+        fileExcerpts: v.optional(v.array(v.string())),
+        fileMimeTypes: v.optional(v.array(v.string())),
+        fileSizes: v.optional(v.array(v.number())),
+        orgSector: v.optional(v.string()),
     },
     handler: async (_ctx, args) => {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -257,16 +326,26 @@ export const classifyDocuments = action({
             : "  (Aucun dossier existant)";
 
         const filesStr = args.fileNames
-            .map((name, i) => `  ${i + 1}. "${name}"`)
+            .map((name, i) => {
+                let line = `  ${i + 1}. "${name}"`;
+                if (args.fileMimeTypes?.[i]) line += ` [type: ${args.fileMimeTypes[i]}]`;
+                if (args.fileSizes?.[i]) line += ` [${Math.round(args.fileSizes[i] / 1024)}KB]`;
+                if (args.fileExcerpts?.[i]) line += `\n     Contenu: "${args.fileExcerpts[i].substring(0, 500)}"`;
+                return line;
+            })
             .join("\n");
+
+        const sectorRules = getSectorPromptRules(args.orgSector);
 
         const prompt = `Tu es l'assistant de classement documentaire intelligent de Digitalium.io.
 Ta mission est de classer des fichiers importés dans l'arborescence de dossiers EXISTANTE d'une organisation.
+${args.orgSector ? `\nCette organisation opère dans le secteur: ${args.orgSector.toUpperCase()}` : ""}
 
 ═══════════════════════════════════════
 ARBORESCENCE EXISTANTE DE L'ORGANISATION:
 ═══════════════════════════════════════
 ${treeStr}
+${sectorRules ? `\n${sectorRules}` : ""}
 
 ═══════════════════════════════════════
 FICHIERS À CLASSER:
@@ -294,6 +373,15 @@ RÈGLES DE LOGIQUE DOCUMENTAIRE (CRITIQUES):
 5. **Hiérarchie de création**: Les nouveaux dossiers proposés doivent s'intégrer logiquement dans l'arborescence existante. Format du chemin: "DossierParent > NouveauDossier > SousDossier".
 
 ═══════════════════════════════════════
+CONTRAINTE DE PROFONDEUR:
+═══════════════════════════════════════
+
+${args.depthConfig ? `- La profondeur maximale autorisée est de ${args.depthConfig.maxDepth} niveaux (0 = racine, ${args.depthConfig.maxDepth - 1} = dernier niveau).
+- NE JAMAIS proposer "newFoldersToCreate" qui ferait dépasser cette limite de ${args.depthConfig.maxDepth} niveaux.
+- Vérifie la profondeur du dossier parent dans l'arborescence avant de proposer des sous-dossiers.
+${args.depthConfig.depthStrategy === "synthetique" ? "- STRATÉGIE SYNTHÉTIQUE: Consolide les documents dans des catégories larges. Préfère les dossiers existants. Minimise la création de sous-dossiers. Favorise une structure plate." : "- STRATÉGIE INTELLIGENTE: Organise de manière optimale selon le contenu et le volume, en respectant la contrainte de profondeur maximale."}` : "- Profondeur par défaut: maximum 3 niveaux."}
+
+═══════════════════════════════════════
 FORMAT DE RÉPONSE (JSON STRICT):
 ═══════════════════════════════════════
 
@@ -318,7 +406,7 @@ RÈGLES JSON:
 - "newFoldersToCreate" = tableau des noms de nouveaux dossiers à créer (vide si aucun)
 - "parentFolderIdForNew" = l'ID du dossier existant dans lequel créer les nouveaux sous-dossiers
 - "confidence" = score entre 0 et 1
-- Si aucun dossier existant ne convient, utiliser null pour suggestedFolderId
+- "suggestedFolderId" est OBLIGATOIRE et ne doit JAMAIS être null. Chaque fichier DOIT être classé dans un dossier existant. Si aucun dossier ne correspond parfaitement, choisir le dossier le plus proche logiquement (même avec une faible confiance)
 
 Réponds UNIQUEMENT avec le tableau JSON, sans markdown ni explication.`;
 
@@ -371,6 +459,11 @@ export const reorganizeDocuments = action({
             description: v.string(),
         })),
         mode: v.union(v.literal("classify"), v.literal("reorganize")),
+        depthConfig: v.optional(v.object({
+            maxDepth: v.number(),
+            depthStrategy: v.string(),
+        })),
+        orgSector: v.optional(v.string()),
     },
     handler: async (_ctx, args) => {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -410,8 +503,12 @@ export const reorganizeDocuments = action({
 - Ne mets PAS un dossier dans "newFoldersToCreate" s'il existe DÉJÀ dans l'arborescence
 - "targetFolderId" = l'ID du dossier existant le plus PROFOND dans le chemin (le parent des nouveaux)`;
 
+        const sectorRules = getSectorPromptRules(args.orgSector);
+
         const prompt = `Tu es l'assistant de réorganisation documentaire intelligent de Digitalium.io.
 Ta mission est d'analyser TOUS les documents existants et de proposer un plan de réorganisation optimal.
+${args.orgSector ? `\nCette organisation opère dans le secteur: ${args.orgSector.toUpperCase()}` : ""}
+${sectorRules ? `\n${sectorRules}` : ""}
 
 ═══════════════════════════════════════
 ARBORESCENCE ACTUELLE:
@@ -435,6 +532,13 @@ RÈGLES DE LOGIQUE DOCUMENTAIRE:
 5. Documents techniques, cahiers des charges → Technique / Projets
 6. Si un document est DÉJÀ dans le bon dossier, ne le déplace PAS (même dossier source et destination)
 7. Si un client/projet est identifiable (ex: "SGG"), regroupe ses documents dans un sous-dossier dédié
+
+═══════════════════════════════════════
+CONTRAINTE DE PROFONDEUR:
+═══════════════════════════════════════
+${args.depthConfig ? `- La profondeur maximale autorisée est de ${args.depthConfig.maxDepth} niveaux.
+- NE JAMAIS proposer "newFoldersToCreate" qui ferait dépasser cette limite.
+${args.depthConfig.depthStrategy === "synthetique" ? "- STRATÉGIE SYNTHÉTIQUE: Consolide dans des catégories larges. Minimise les sous-dossiers. Structure plate." : "- STRATÉGIE INTELLIGENTE: Organise selon le contenu/volume, en respectant la profondeur maximale."}` : "- Profondeur par défaut: maximum 3 niveaux."}
 
 ═══════════════════════════════════════
 FORMAT DE RÉPONSE (JSON STRICT):
@@ -561,6 +665,11 @@ export const deepReorganize = action({
             v.literal("reorganize"),       // Restructurer + créer dossiers
             v.literal("deep_audit"),       // Audit complet: move + tags + rétention + confidentialité
         ),
+        depthConfig: v.optional(v.object({
+            maxDepth: v.number(),
+            depthStrategy: v.string(),
+        })),
+        orgSector: v.optional(v.string()),
     },
     handler: async (_ctx, args) => {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -698,6 +807,12 @@ ${docsStr}
    - Maximum 6 tags par document
    - Tags normalisés en français, capitalisés (ex: "Fiscal", "Contrat", "RH")
 
+═══ CONTRAINTE DE PROFONDEUR ═══
+${args.depthConfig ? `- La profondeur maximale autorisée est de ${args.depthConfig.maxDepth} niveaux (0 = racine, ${args.depthConfig.maxDepth - 1} = dernier niveau).
+- NE JAMAIS proposer "newFoldersToCreate" qui ferait dépasser cette limite.
+- Vérifie la profondeur ("depth") du dossier parent dans l'arborescence avant de proposer des sous-dossiers.
+${args.depthConfig.depthStrategy === "synthetique" ? "- STRATÉGIE SYNTHÉTIQUE: Consolide dans des catégories larges. Minimise les sous-dossiers. Favorise une arborescence plate et simple." : "- STRATÉGIE INTELLIGENTE: Organise selon le contenu et le volume, en respectant la profondeur maximale. Crée des sous-dossiers quand le volume le justifie."}` : "- Profondeur par défaut: maximum 3 niveaux."}
+
 ═══ FORMAT DE RÉPONSE JSON STRICT ═══
 {
   "organizationAnalysis": {
@@ -777,6 +892,176 @@ Réponds UNIQUEMENT avec l'objet JSON, sans markdown, sans commentaires.`;
                 plan: null,
                 rawResponse: text,
                 error: "Impossible de parser le plan IA",
+            };
+        }
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Innovation D — Extraction de contenu + résumé intelligent
+// ═══════════════════════════════════════════════════════════════
+
+export const generateSmartExcerpt = action({
+    args: {
+        text: v.string(),
+        fileName: v.string(),
+        mimeType: v.optional(v.string()),
+    },
+    handler: async (_ctx, args) => {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return { excerpt: `Document importé — ${args.fileName}`, confidence: 0.5 };
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const truncated = args.text.substring(0, 5000);
+
+        const prompt = `Analyse ce document et génère un résumé professionnel en 1-2 phrases maximum (en français).
+Le résumé doit capturer: le type de document, les parties impliquées, les dates clés, et les montants si présents.
+
+Fichier: "${args.fileName}"
+Type: ${args.mimeType ?? "inconnu"}
+
+Contenu:
+${truncated}
+
+Réponds UNIQUEMENT avec le JSON:
+{"excerpt": "résumé en 1-2 phrases", "documentType": "type détecté", "confidence": 0.85}`;
+
+        try {
+            const result = await model.generateContent(prompt);
+            const text = result.response.text().trim();
+            const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+            const parsed = JSON.parse(cleaned);
+            return {
+                excerpt: parsed.excerpt ?? `Document importé — ${args.fileName}`,
+                documentType: parsed.documentType ?? null,
+                confidence: parsed.confidence ?? 0.7,
+            };
+        } catch {
+            return { excerpt: `Document importé — ${args.fileName}`, confidence: 0.5 };
+        }
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Innovation H — Extraction d'entités (Knowledge Graph)
+// ═══════════════════════════════════════════════════════════════
+
+export const extractEntities = action({
+    args: {
+        documentId: v.string(),
+        title: v.string(),
+        text: v.string(),
+        fileName: v.optional(v.string()),
+        orgSector: v.optional(v.string()),
+    },
+    handler: async (_ctx, args) => {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return { entities: [] };
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const truncated = args.text.substring(0, 10000);
+
+        const prompt = `Analyse ce document et extrais toutes les entités métier identifiables.
+${args.orgSector ? `Secteur de l'organisation: ${args.orgSector}` : ""}
+
+Titre: "${args.title}"
+${args.fileName ? `Fichier: "${args.fileName}"` : ""}
+
+Contenu:
+${truncated}
+
+Extrais les entités selon ces catégories:
+- "client": nom d'entreprise, organisme, institution mentionné
+- "project": nom de projet, programme, mission identifié
+- "amount": montant financier avec devise (ex: "150 000 XAF")
+- "date": date significative (contrat, échéance, création)
+- "person": nom de personne impliquée
+- "reference": numéro de référence, facture, contrat, marché
+
+Réponds UNIQUEMENT en JSON:
+{"entities": [{"type": "client", "value": "SGG", "confidence": 0.95}, ...]}`;
+
+        try {
+            const result = await model.generateContent(prompt);
+            const text = result.response.text().trim();
+            const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+            const parsed = JSON.parse(cleaned);
+            return { entities: parsed.entities ?? [] };
+        } catch {
+            return { entities: [] };
+        }
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Innovation J — RAG documentaire (Ask AI)
+// ═══════════════════════════════════════════════════════════════
+
+export const askDocuments = action({
+    args: {
+        question: v.string(),
+        documentContexts: v.array(v.object({
+            id: v.string(),
+            title: v.string(),
+            excerpt: v.string(),
+            folderName: v.optional(v.string()),
+            tags: v.optional(v.array(v.string())),
+        })),
+        orgName: v.optional(v.string()),
+        orgSector: v.optional(v.string()),
+    },
+    handler: async (_ctx, args) => {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error("GEMINI_API_KEY non configurée");
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const docsContext = args.documentContexts
+            .map((d, i) => `[Doc ${i + 1}] "${d.title}" (${d.folderName ?? "sans dossier"})${d.tags?.length ? ` [${d.tags.join(", ")}]` : ""}\n${d.excerpt}`)
+            .join("\n\n");
+
+        const prompt = `Tu es l'assistant IA de Digitalium.io, spécialisé en intelligence documentaire.
+${args.orgName ? `Organisation: ${args.orgName}` : ""}
+${args.orgSector ? `Secteur: ${args.orgSector}` : ""}
+
+L'utilisateur pose une question sur ses documents. Réponds en te basant UNIQUEMENT sur les documents fournis ci-dessous.
+Si l'information n'est pas dans les documents, dis-le clairement.
+Cite toujours les documents sources entre crochets [Doc N].
+
+═══ DOCUMENTS DISPONIBLES ═══
+${docsContext}
+
+═══ QUESTION ═══
+${args.question}
+
+Réponds en JSON:
+{
+  "answer": "Réponse détaillée en français avec citations [Doc N]",
+  "sources": [{"docIndex": 1, "docTitle": "titre", "relevance": 0.9}],
+  "confidence": 0.85
+}`;
+
+        try {
+            const result = await model.generateContent(prompt);
+            const text = result.response.text().trim();
+            const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+            const parsed = JSON.parse(cleaned);
+            return {
+                answer: parsed.answer ?? "Je n'ai pas trouvé d'information pertinente dans les documents disponibles.",
+                sources: parsed.sources ?? [],
+                confidence: parsed.confidence ?? 0.5,
+            };
+        } catch {
+            return {
+                answer: "Erreur lors de l'analyse. Veuillez reformuler votre question.",
+                sources: [],
+                confidence: 0,
+                error: true,
             };
         }
     },

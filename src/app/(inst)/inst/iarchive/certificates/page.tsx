@@ -24,6 +24,7 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../../convex/_generated/api";
 import CertificateViewer from "@/components/modules/iarchive/CertificateViewer";
+import { CATEGORY_COLORS } from "@/config/category-colors";
 
 // ─── Types and Helpers ──────────────────────────
 
@@ -48,14 +49,6 @@ function formatDate(ts: number): string {
         year: "numeric",
     });
 }
-
-const CATEGORY_COLORS: Record<string, { color: string; bg: string; border: string }> = {
-    fiscal: { color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-    social: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-    legal: { color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-    client: { color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" },
-    vault: { color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20" },
-};
 
 // ─── Component ──────────────────────────────────
 

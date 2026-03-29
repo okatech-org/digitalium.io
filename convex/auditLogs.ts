@@ -14,9 +14,14 @@ export const logAction = mutation({
         resourceType: v.union(
             v.literal("document"),
             v.literal("archive"),
+            v.literal("folder"),
             v.literal("signature"),
             v.literal("organization"),
-            v.literal("user")
+            v.literal("user"),
+            v.literal("filing_structure"),
+            v.literal("filing_cell"),
+            v.literal("access_rule"),
+            v.literal("member")
         ),
         resourceId: v.string(),
         details: v.optional(v.any()),
@@ -39,9 +44,14 @@ export const listByResource = query({
         resourceType: v.union(
             v.literal("document"),
             v.literal("archive"),
+            v.literal("folder"),
             v.literal("signature"),
             v.literal("organization"),
-            v.literal("user")
+            v.literal("user"),
+            v.literal("filing_structure"),
+            v.literal("filing_cell"),
+            v.literal("access_rule"),
+            v.literal("member")
         ),
         resourceId: v.string(),
     },

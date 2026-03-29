@@ -7,6 +7,8 @@
 import { mutation, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { OrgConfig } from "./lib/types";
+import type { Id } from "./_generated/dataModel";
 
 /**
  * CRON — processScheduledArchives
@@ -129,8 +131,9 @@ export const archiveFromAutomation = mutation({
 
         // ── Check automation config — skip if disabled ──
         const org = await ctx.db.get(doc.organizationId);
-        const automationConfig = (org?.config as any)?.automation;
-        const iArchiveConfig = (org?.config as any)?.iArchive;
+        const orgConfig = org?.config as OrgConfig | undefined;
+        const automationConfig = orgConfig?.automation;
+        const iArchiveConfig = orgConfig?.iArchive;
 
         // Signature-triggered archive requires explicit toggle
         if (args.triggeredBy === "signature" && automationConfig?.archivageApresSignature === false) {
@@ -153,7 +156,7 @@ export const archiveFromAutomation = mutation({
             const folderMeta = await ctx.db
                 .query("folder_archive_metadata")
                 .withIndex("by_folderId", (q) =>
-                    q.eq("folderId", doc.parentFolderId as any)
+                    q.eq("folderId", doc.parentFolderId as Id<"folders">)
                 )
                 .first();
 

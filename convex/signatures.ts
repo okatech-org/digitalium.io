@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Signatures (iSignature)
@@ -193,13 +194,14 @@ export const signDocument = mutation({
         );
 
         const allSigned = updatedSigners.every(
-            (s) => s.status === "signed" || (s as any).role === "observer"
+            (s) => s.status === "signed" || (s as Record<string, unknown>).role === "observer"
         );
         const overallStatus = allSigned ? ("completed" as const) : ("in_progress" as const);
 
         await ctx.db.patch(args.id, {
             signers: updatedSigners,
             status: overallStatus,
+            completedAt: allSigned ? now : undefined,
             updatedAt: now,
         });
 
@@ -222,7 +224,7 @@ export const signDocument = mutation({
                 const folderMeta = await ctx.db
                     .query("folder_archive_metadata")
                     .withIndex("by_folderId", (q) =>
-                        q.eq("folderId", doc.parentFolderId as any)
+                        q.eq("folderId", doc.parentFolderId as Id<"folders">)
                     )
                     .first();
 
@@ -368,6 +370,132 @@ export const updateSignerStatus = mutation({
             status: overallStatus,
             updatedAt: Date.now(),
         });
+    },
+});
+
+// ─── Advanced Mutations ─────────────────────────
+
+export const sendReminder = mutation({
+    args: {
+        signatureId: v.id("signatures"),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const sig = await ctx.db.get(args.signatureId);
+        if (!sig) throw new Error("Signature introuvable");
+
+        // Update lastReminderSentAt
+        await ctx.db.patch(args.signatureId, {
+            lastReminderSentAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: sig.organizationId,
+            userId: args.userId,
+            action: "signature.reminder_sent",
+            resourceType: "signature" as const,
+            resourceId: String(args.signatureId),
+            details: { signers: sig.signers?.length ?? 0 },
+            createdAt: Date.now(),
+        });
+
+        return { sent: true };
+    },
+});
+
+export const batchSign = mutation({
+    args: {
+        signatureIds: v.array(v.id("signatures")),
+        signerId: v.string(),
+        signatureData: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        let signed = 0;
+        for (const sigId of args.signatureIds) {
+            const sig = await ctx.db.get(sigId);
+            if (!sig) continue;
+
+            const signers = sig.signers ?? [];
+            const updated = signers.map((s) =>
+                String(s.userId) === args.signerId
+                    ? { ...s, status: "signed" as const, signedAt: Date.now() }
+                    : s
+            );
+
+            const allSigned = updated.every((s) => s.status === "signed");
+
+            await ctx.db.patch(sigId, {
+                signers: updated,
+                status: allSigned ? "completed" : sig.status,
+                completedAt: allSigned ? Date.now() : undefined,
+                updatedAt: Date.now(),
+            });
+            signed++;
+        }
+        return { signed };
+    },
+});
+
+// ─── Advanced Queries ───────────────────────────
+
+export const getSignatureAnalytics = query({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        const sigs = await ctx.db
+            .query("signatures")
+            .withIndex("by_organizationId", (q) =>
+                q.eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+        const total = sigs.length;
+        const completed = sigs.filter((s) => s.status === "completed").length;
+        const pending = sigs.filter(
+            (s) => s.status === "pending" || s.status === "in_progress"
+        ).length;
+        const expired = sigs.filter(
+            (s) => s.dueDate && s.dueDate < Date.now() && s.status !== "completed"
+        ).length;
+
+        // Average completion time (for completed signatures)
+        const completedSigs = sigs.filter(
+            (s) => s.status === "completed" && s.completedAt && s.createdAt
+        );
+        const avgTimeMs =
+            completedSigs.length > 0
+                ? completedSigs.reduce(
+                      (sum, s) => sum + ((s.completedAt as number) - s.createdAt),
+                      0
+                  ) / completedSigs.length
+                : 0;
+        const avgTimeDays =
+            Math.round((avgTimeMs / (1000 * 3600 * 24)) * 10) / 10;
+
+        // By month (last 6 months)
+        const sixMonthsAgo = Date.now() - 180 * 24 * 3600 * 1000;
+        const recentSigs = sigs.filter((s) => s.createdAt > sixMonthsAgo);
+        const byMonth: Record<string, { created: number; completed: number }> = {};
+        for (const sig of recentSigs) {
+            const month = new Date(sig.createdAt).toISOString().substring(0, 7);
+            if (!byMonth[month]) byMonth[month] = { created: 0, completed: 0 };
+            byMonth[month].created++;
+            if (sig.status === "completed") byMonth[month].completed++;
+        }
+
+        const completionRate =
+            total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        return {
+            total,
+            completed,
+            pending,
+            expired,
+            completionRate,
+            avgTimeDays,
+            byMonth,
+        };
     },
 });
 

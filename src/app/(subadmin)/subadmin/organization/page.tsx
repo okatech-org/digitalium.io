@@ -520,7 +520,7 @@ export default function SubAdminOrganizationPage() {
       <div className="min-h-[400px]">
         {activeTab === "profil" && <ProfilTab org={org} />}
         {activeTab === "structure" && <StructureOrgTab orgId={convexOrgId} />}
-        {activeTab === "classement" && <ClassementTab orgId={convexOrgId} />}
+        {activeTab === "classement" && <ClassementTab orgId={convexOrgId} config={orgData?.config as Record<string, any>} />}
         {activeTab === "modules" && (
           <ModulesTab
             modules={orgModules}

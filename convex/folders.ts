@@ -58,6 +58,23 @@ export const create = mutation({
         if (args.parentFolderId) {
             const parent = await ctx.db.get(args.parentFolderId);
             if (!parent) throw new Error("Dossier parent introuvable");
+
+            // ── Validation : profondeur maximale (config org) ──
+            const { getDepthConfig } = await import("./lib/depthConfig");
+            const org = await ctx.db.get(args.organizationId);
+            const { maxDepth } = getDepthConfig(org);
+            let depth = 1;
+            let current = parent;
+            while (current?.parentFolderId) {
+                depth++;
+                current = await ctx.db.get(current.parentFolderId);
+                if (depth > 20) break;
+            }
+            if (depth >= maxDepth) {
+                throw new Error(
+                    `Profondeur maximale atteinte (${maxDepth} niveaux). Modifiez la configuration de classement de l'organisation pour augmenter la limite.`
+                );
+            }
         } else {
             // Dossier racine : vérifier qu'une structure de classement est active
             const activeStructure = await ctx.db

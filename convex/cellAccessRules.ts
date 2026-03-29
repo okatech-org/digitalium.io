@@ -124,13 +124,23 @@ export const setRule = mutation({
                     updatedAt: now,
                 });
             }
+            await ctx.db.insert("audit_logs", {
+                organizationId: args.organizationId,
+                userId: "system",
+                action: "access_rule.upsert",
+                resourceType: "access_rule" as const,
+                resourceId: String(existing._id),
+                details: { acces: args.acces, filingCellId: String(args.filingCellId), mode: "update" },
+                createdAt: Date.now(),
+            });
+
             return existing._id;
         }
 
         // Créer une nouvelle règle
         if (args.acces === "aucun") return null; // Pas besoin de créer une règle "aucun"
 
-        return await ctx.db.insert("cell_access_rules", {
+        const newId = await ctx.db.insert("cell_access_rules", {
             organizationId: args.organizationId,
             filingCellId: args.filingCellId,
             orgUnitId: args.orgUnitId,
@@ -141,6 +151,18 @@ export const setRule = mutation({
             createdAt: now,
             updatedAt: now,
         });
+
+        await ctx.db.insert("audit_logs", {
+            organizationId: args.organizationId,
+            userId: "system",
+            action: "access_rule.upsert",
+            resourceType: "access_rule" as const,
+            resourceId: String(newId),
+            details: { acces: args.acces, filingCellId: String(args.filingCellId), mode: "create" },
+            createdAt: Date.now(),
+        });
+
+        return newId;
     },
 });
 
@@ -148,7 +170,20 @@ export const setRule = mutation({
 export const removeRule = mutation({
     args: { id: v.id("cell_access_rules") },
     handler: async (ctx, args) => {
+        const existing = await ctx.db.get(args.id);
         await ctx.db.delete(args.id);
+
+        if (existing) {
+            await ctx.db.insert("audit_logs", {
+                organizationId: existing.organizationId,
+                userId: "system",
+                action: "access_rule.remove",
+                resourceType: "access_rule" as const,
+                resourceId: String(args.id),
+                details: { filingCellId: String(existing.filingCellId), acces: existing.acces },
+                createdAt: Date.now(),
+            });
+        }
     },
 });
 
@@ -350,9 +385,10 @@ export const resolveUserAccess = query({
         const assignments: Assignment[] = [];
 
         // Check for multi-assignments (Phase 13 schema: assignments[])
-        const memberAny = member as any;
-        if (Array.isArray(memberAny.assignments) && memberAny.assignments.length > 0) {
-            for (const a of memberAny.assignments) {
+        const memberRecord = member as Record<string, unknown>;
+        const memberAssignments = memberRecord.assignments as Array<{ businessRoleId?: Id<"business_roles">; orgUnitId?: Id<"org_units">; endDate?: number }> | undefined;
+        if (Array.isArray(memberAssignments) && memberAssignments.length > 0) {
+            for (const a of memberAssignments) {
                 // Only active assignments (no endDate or endDate > now)
                 if (a.endDate && a.endDate <= now) continue;
                 assignments.push({
@@ -404,9 +440,9 @@ export const resolveUserAccess = query({
 
         const memberRules = allRules.filter((rule) => {
             // Group-based rule (v7)
-            const ruleAny = rule as any;
-            if (ruleAny.groupId) {
-                return memberGroupIds.includes(ruleAny.groupId);
+            const ruleRecord = rule as Record<string, unknown>;
+            if (ruleRecord.groupId) {
+                return memberGroupIds.includes(ruleRecord.groupId as Id<"permission_groups">);
             }
             // Standard role-based rule
             if (!rule.businessRoleId) return false;

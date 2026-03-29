@@ -101,6 +101,19 @@ export default function RootLayout({
             `,
           }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "DIGITALIUM.IO",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "description": "Plateforme souveraine d'archivage intelligent et gestion documentaire pour le Gabon",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "XAF" },
+            "author": { "@type": "Organization", "name": "OKA TECH", "url": "https://digitalium.io" }
+          }) }}
+        />
         <Providers>
           {children}
         </Providers>

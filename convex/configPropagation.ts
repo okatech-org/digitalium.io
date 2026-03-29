@@ -6,6 +6,7 @@
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
@@ -49,18 +50,18 @@ export const countImpactedItems = query({
         }
 
         if (args.changeType === "filing_cell_access") {
-            const cellId = args.targetId;
+            const cellId = args.targetId as Id<"filing_cells">;
             const rules = await ctx.db
                 .query("cell_access_rules")
                 .withIndex("by_filingCellId", (q) =>
-                    q.eq("filingCellId", cellId as any)
+                    q.eq("filingCellId", cellId)
                 )
                 .collect();
 
             const folders = await ctx.db
                 .query("folders")
                 .withIndex("by_filingCellId", (q) =>
-                    q.eq("filingCellId", cellId as any)
+                    q.eq("filingCellId", cellId)
                 )
                 .collect();
 
@@ -72,12 +73,12 @@ export const countImpactedItems = query({
         }
 
         if (args.changeType === "folder_config") {
-            const folderId = args.targetId;
+            const folderId = args.targetId as Id<"folders">;
             // Count documents in this folder
             const docs = await ctx.db
                 .query("documents")
                 .withIndex("by_folderId", (q) =>
-                    q.eq("folderId", folderId as any)
+                    q.eq("folderId", folderId)
                 )
                 .collect();
 
@@ -85,7 +86,7 @@ export const countImpactedItems = query({
             const subFolders = await ctx.db
                 .query("folders")
                 .withIndex("by_parentFolderId", (q) =>
-                    q.eq("parentFolderId", folderId as any)
+                    q.eq("parentFolderId", folderId)
                 )
                 .collect();
 
@@ -131,7 +132,7 @@ export const propagateRetentionChange = mutation({
             const countingStart = archive.countingStartDate ?? archive.createdAt;
             const retentionExpiresAt = countingStart + category.retentionYears * MS_PER_YEAR;
 
-            const updates: Record<string, any> = {
+            const updates: Record<string, number> = {
                 retentionYears: category.retentionYears,
                 retentionExpiresAt,
                 updatedAt: now,
@@ -164,8 +165,8 @@ export const propagateRetentionChange = mutation({
             // Recalculate counting start date if needed
             if (meta.countingStartDate) {
                 await ctx.db.patch(meta._id, {
-                    updatedAt: now,
-                } as any);
+                    lifecycleStartedAt: now,
+                });
                 updatedFolders++;
             }
         }

@@ -194,6 +194,7 @@ function NavLink({
     const content = (
         <Link
             href={item.href}
+            aria-current={active ? "page" : undefined}
             className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
                 transition-all duration-200 group relative
@@ -501,9 +502,14 @@ export default function ProLayout({
 
     return (
         <TooltipProvider delayDuration={0}>
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
+                Aller au contenu principal
+            </a>
             <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
                 {/* Desktop Sidebar */}
                 <motion.aside
+                    role="navigation"
+                    aria-label="Menu principal"
                     initial={false}
                     animate={{ width: collapsed ? 64 : 260 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
@@ -640,7 +646,7 @@ export default function ProLayout({
                     </header>
 
                     {/* Page content */}
-                    <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+                    <main id="main-content" className="flex-1 overflow-y-auto p-4 lg:p-6">
                         {children}
                     </main>
                 </div>

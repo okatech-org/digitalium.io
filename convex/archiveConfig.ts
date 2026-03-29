@@ -6,6 +6,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { OrgConfig } from "./lib/types";
 
 // ─── Default archive categories (OHADA-aligned) ──
 
@@ -223,8 +224,7 @@ export const getConfig = query({
     handler: async (ctx, args) => {
         const org = await ctx.db.get(args.organizationId);
         if (!org) return null;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const config = (org.config as any) ?? {};
+        const config = (org.config as OrgConfig) ?? {};
         return config.iArchive ?? null;
     },
 });
@@ -259,8 +259,7 @@ export const saveConfig = mutation({
         const org = await ctx.db.get(args.organizationId);
         if (!org) throw new Error("Organisation introuvable");
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const currentConfig = (org.config as any) ?? {};
+        const currentConfig = (org.config as OrgConfig) ?? {};
         const oldIArchive = currentConfig.iArchive ?? {};
         const updatedConfig = {
             ...currentConfig,

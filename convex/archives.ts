@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { generateArchiveCertNumber, generateDestructionCertNumber } from "./lib/certificateNumber";
+import type { OrgConfig } from "./lib/types";
 
 // ═══════════════════════════════════════════════
 // DIGITALIUM.IO — Convex: Archives (iArchive)
@@ -182,8 +183,7 @@ export const createArchiveEntry = mutation({
         let fiscalYearEndMonth = 12;
         if (args.organizationId) {
             const org = await ctx.db.get(args.organizationId);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const iArchiveConfig = (org?.config as any)?.iArchive;
+            const iArchiveConfig = (org?.config as OrgConfig | undefined)?.iArchive;
             if (iArchiveConfig?.yearAlignmentMode) {
                 yearAlignmentMode = iArchiveConfig.yearAlignmentMode;
             }

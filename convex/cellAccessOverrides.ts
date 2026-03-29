@@ -104,7 +104,7 @@ export const createOverride = mutation({
             await ctx.db.patch(o._id, { estActif: false, updatedAt: now });
         }
 
-        return await ctx.db.insert("cell_access_overrides", {
+        const id = await ctx.db.insert("cell_access_overrides", {
             organizationId: args.organizationId,
             filingCellId: args.filingCellId,
             userId: args.userId,
@@ -116,6 +116,18 @@ export const createOverride = mutation({
             createdAt: now,
             updatedAt: now,
         });
+
+        await ctx.db.insert("audit_logs", {
+            organizationId: args.organizationId,
+            userId: "system",
+            action: "access_override.upsert",
+            resourceType: "access_rule" as const,
+            resourceId: String(id),
+            details: { acces: args.acces, targetUserId: args.userId, filingCellId: String(args.filingCellId), accordePar: args.accordePar },
+            createdAt: Date.now(),
+        });
+
+        return id;
     },
 });
 
@@ -149,6 +161,16 @@ export const removeOverride = mutation({
 
         // Soft delete
         await ctx.db.patch(args.id, { estActif: false, updatedAt: Date.now() });
+
+        await ctx.db.insert("audit_logs", {
+            organizationId: existing.organizationId,
+            userId: "system",
+            action: "access_override.remove",
+            resourceType: "access_rule" as const,
+            resourceId: String(args.id),
+            details: { targetUserId: existing.userId, filingCellId: String(existing.filingCellId), acces: existing.acces },
+            createdAt: Date.now(),
+        });
 
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {

@@ -6,6 +6,15 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+type MemberAssignment = {
+    businessRoleId: Id<"business_roles">;
+    orgUnitId: Id<"org_units">;
+    isPrimary: boolean;
+    startDate: number;
+    endDate?: number;
+};
 
 const memberRole = v.union(
     v.literal("admin"),
@@ -101,6 +110,9 @@ export const getStats = query({
 });
 
 // ─── Add a single member ─────────────────────
+// NOTE : userId stocke l'email de l'utilisateur comme identifiant.
+// Ne PAS utiliser le Firebase UID ici. L'email est la clé de
+// correspondance dans le contexte organisationnel.
 
 export const add = mutation({
     args: {
@@ -135,7 +147,7 @@ export const add = mutation({
             entiteId: "system",
             userId: "system",
         });
-        return await ctx.db.insert("organization_members", {
+        const memberId = await ctx.db.insert("organization_members", {
             organizationId: args.organizationId,
             userId: args.userId ?? args.email ?? `member_${now}`,
             nom: args.nom,
@@ -150,6 +162,19 @@ export const add = mutation({
             status: args.email ? "invited" : "active",
             joinedAt: now,
         });
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: args.organizationId,
+            userId: "system",
+            action: "member.add",
+            resourceType: "member" as const,
+            resourceId: String(memberId),
+            details: { email: args.email, role: isAdmin ? "admin" : "membre", level },
+            createdAt: Date.now(),
+        });
+
+        return memberId;
     },
 });
 
@@ -249,6 +274,17 @@ export const update = mutation({
 
         await ctx.db.patch(args.id, patch);
 
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: existing.organizationId,
+            userId: "system",
+            action: "member.update",
+            resourceType: "member" as const,
+            resourceId: String(args.id),
+            details: patch,
+            createdAt: Date.now(),
+        });
+
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
             signalType: "CONFIG_MODIFIEE",
@@ -282,6 +318,17 @@ export const remove = mutation({
         }
 
         await ctx.db.delete(args.id);
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: existing.organizationId,
+            userId: "system",
+            action: "member.remove",
+            resourceType: "member" as const,
+            resourceId: String(args.id),
+            details: { nom: existing.nom, email: existing.email },
+            createdAt: Date.now(),
+        });
 
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
@@ -415,6 +462,22 @@ export const bulkAssignRole = mutation({
             updated++;
         }
 
+        // Audit log
+        if (args.memberIds.length > 0) {
+            const firstMember = await ctx.db.get(args.memberIds[0]);
+            if (firstMember) {
+                await ctx.db.insert("audit_logs", {
+                    organizationId: firstMember.organizationId,
+                    userId: "system",
+                    action: "member.bulk_role_assign",
+                    resourceType: "member" as const,
+                    resourceId: String(args.memberIds[0]),
+                    details: { count: updated, newRole: args.businessRoleId },
+                    createdAt: Date.now(),
+                });
+            }
+        }
+
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
             signalType: "CONFIG_MODIFIEE",
@@ -457,6 +520,17 @@ export const setModuleOverrides = mutation({
             moduleOverrides: args.overrides,
         });
 
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: existing.organizationId,
+            userId: "system",
+            action: "member.module_overrides",
+            resourceType: "member" as const,
+            resourceId: String(args.id),
+            details: { overrides: args.overrides },
+            createdAt: Date.now(),
+        });
+
         // NEOCORTEX: signal
         await ctx.scheduler.runAfter(0, internal.visuel.signalEntite, {
             signalType: "CONFIG_MODIFIEE",
@@ -488,11 +562,11 @@ export const addAssignment = mutation({
         if (!member) throw new Error("Membre introuvable");
 
         const now = Date.now();
-        const assignments = (member as any).assignments ?? [];
+        const assignments = ((member as Record<string, unknown>).assignments ?? []) as MemberAssignment[];
 
         // Vérifier pas de doublon actif (même role + même unit)
         const duplicate = assignments.find(
-            (a: any) =>
+            (a) =>
                 a.businessRoleId === args.businessRoleId &&
                 a.orgUnitId === args.orgUnitId &&
                 (!a.endDate || a.endDate > now)
@@ -503,7 +577,7 @@ export const addAssignment = mutation({
 
         // Si isPrimary, dé-flagguer les autres
         const newAssignments = args.isPrimary
-            ? assignments.map((a: any) => ({ ...a, isPrimary: false }))
+            ? assignments.map((a) => ({ ...a, isPrimary: false }))
             : [...assignments];
 
         newAssignments.push({
@@ -553,7 +627,7 @@ export const updateAssignment = mutation({
         const member = await ctx.db.get(args.id);
         if (!member) throw new Error("Membre introuvable");
 
-        const assignments = [...((member as any).assignments ?? [])];
+        const assignments = [...(((member as Record<string, unknown>).assignments ?? []) as MemberAssignment[])];
         if (args.index < 0 || args.index >= assignments.length) {
             throw new Error("Index d'affectation invalide");
         }
@@ -608,7 +682,7 @@ export const removeAssignment = mutation({
         const member = await ctx.db.get(args.id);
         if (!member) throw new Error("Membre introuvable");
 
-        const assignments = [...((member as any).assignments ?? [])];
+        const assignments = [...(((member as Record<string, unknown>).assignments ?? []) as MemberAssignment[])];
         if (args.index < 0 || args.index >= assignments.length) {
             throw new Error("Index d'affectation invalide");
         }
@@ -646,20 +720,20 @@ export const listAssignments = query({
         if (!member) return [];
 
         const now = Date.now();
-        const assignments = (member as any).assignments ?? [];
+        const assignments = (((member as Record<string, unknown>).assignments ?? []) as MemberAssignment[]);
 
         // Enrichir chaque affectation avec les détails du rôle et de l'unité
         const enriched = [];
         for (const a of assignments) {
             const role = a.businessRoleId
-                ? await ctx.db.get(a.businessRoleId) as any
+                ? await ctx.db.get(a.businessRoleId)
                 : null;
             const unit = a.orgUnitId
-                ? await ctx.db.get(a.orgUnitId) as any
+                ? await ctx.db.get(a.orgUnitId)
                 : null;
             enriched.push({
                 ...a,
-                roleName: role?.intitule ?? "—",
+                roleName: role?.nom ?? "—",
                 roleCategorie: role?.categorie ?? "—",
                 unitName: unit?.nom ?? "—",
                 isActive: !a.endDate || a.endDate > now,

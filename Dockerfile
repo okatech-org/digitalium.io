@@ -14,13 +14,13 @@ RUN npm ci --legacy-peer-deps
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-# Cache-bust: 2026-03-26T14:30 — NEOCORTEX OMEGA M4
+# Cache-bust: 2026-03-29T21:25 — NEXUS-OMEGA M5 Sprint 10
 COPY . .
 
 # ── Build-time environment variables ──────────────────────────
-# NEXT_PUBLIC_* vars are read from .env.production at build time
-# for Next.js static inlining. Server-only vars (GEMINI_API_KEY,
-# CONVEX_DEPLOY_KEY) are injected at runtime via Cloud Run env vars.
+# NEXT_PUBLIC_* vars are baked into the JS bundle at build time.
+# Server-only secrets (GEMINI_API_KEY, CONVEX_DEPLOY_KEY) are
+# injected at runtime via Cloud Run environment variables.
 COPY .env.production .env.production
 
 # Next.js telemetry
@@ -49,8 +49,14 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Inject .env.production to be loaded at runtime by standalone Next.js server
+# Inject .env.production for runtime NEXT_PUBLIC_* fallback
 COPY --from=builder --chown=nextjs:nodejs /app/.env.production ./
+
+# ── Runtime secrets (injected by Cloud Run env vars) ──────────
+# These placeholders document what Cloud Run must provide:
+#   CONVEX_DEPLOY_KEY  — Convex deployment key
+#   GEMINI_API_KEY     — Google Gemini API key
+# They are NOT baked into the image for security.
 
 USER nextjs
 

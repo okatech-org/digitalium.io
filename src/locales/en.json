@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "documents": "iDocument",
+    "archives": "iArchive",
+    "signatures": "iSignature",
+    "assistant": "iAsted",
+    "team": "Team",
+    "organization": "Organization",
+    "settings": "Settings",
+    "compliance": "Compliance",
+    "formation": "Training",
+    "clients": "Clients",
+    "leads": "Leads",
+    "billing": "Billing",
+    "analytics": "Analytics",
+    "logout": "Logout"
+  },
+  "common": {
+    "search": "Search...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close",
+    "retry": "Retry",
+    "noResults": "No results",
+    "actions": "Actions"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email address",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "resetPassword": "Reset password"
+  },
+  "landing": {
+    "title": "Your Business Loses 23% Productivity Without Intelligent Archiving",
+    "subtitle": "DIGITALIUM is the only platform that transforms your archives into business intelligence",
+    "cta": "Configure My Filing Structure",
+    "demo": "Explore the Free Demo",
+    "sovereign": "Sovereign platform for Gabon",
+    "security": "Sovereign Security — Your Data Stays in Gabon"
+  },
+  "modules": {
+    "idocument": "Document Management",
+    "iarchive": "Legal Archiving",
+    "isignature": "E-Signature",
+    "iasted": "AI Assistant"
+  }
+}

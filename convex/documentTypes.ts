@@ -156,7 +156,7 @@ export const seedDefaults = mutation({
         }
 
         const now = Date.now();
-        const defaults = [
+        const defaults: Array<{ code: string; nom: string; icone: string; couleur: string; isDefault?: boolean }> = [
             { code: "CORR", nom: "Correspondance", icone: "Mail", couleur: "#3B82F6" },
             { code: "RAPP", nom: "Rapport", icone: "FileText", couleur: "#8B5CF6" },
             { code: "PV", nom: "Procès-verbal", icone: "ScrollText", couleur: "#EAB308" },
@@ -175,7 +175,7 @@ export const seedDefaults = mutation({
                 code: dt.code,
                 icone: dt.icone,
                 couleur: dt.couleur,
-                isDefault: (dt as any).isDefault ?? false,
+                isDefault: dt.isDefault ?? false,
                 estActif: true,
                 createdAt: now,
                 updatedAt: now,

@@ -51,6 +51,7 @@ import type {
 import { VaultFolderCard } from "@/components/ui/vault/VaultFolderCard";
 import { VaultFileCard } from "@/components/ui/vault/VaultFileCard";
 import { getCategoryConfigFromFolder } from "@/components/ui/vault/category-config";
+import { CATEGORY_COLORS } from "@/config/category-colors";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -100,21 +101,7 @@ const FOLDER_ICONS: Record<string, React.ElementType> = {
 
 // Gradient mapping moved to vault/category-config.ts
 
-const FOLDER_COLORS: Record<string, string> = {
-    fiscal: "text-amber-400",
-    social: "text-blue-400",
-    juridique: "text-emerald-400",
-    client: "text-violet-400",
-    coffre: "text-rose-400",
-};
-
-const FOLDER_BGS: Record<string, string> = {
-    fiscal: "bg-amber-500/15",
-    social: "bg-blue-500/15",
-    juridique: "bg-emerald-500/15",
-    client: "bg-violet-500/15",
-    coffre: "bg-rose-500/15",
-};
+// Colors now sourced from centralized CATEGORY_COLORS (@/config/category-colors)
 
 // ─── (Mock data removed — categories are loaded from Convex) ───
 
@@ -775,8 +762,8 @@ export default function ArchiveListPage({ basePath = "/pro/iarchive" }: { basePa
                             onSort={handleSort}
                             renderFolderIcon={(folder) => {
                                 const FIcon = FOLDER_ICONS[folder.id] || Folder;
-                                const bg = FOLDER_BGS[folder.id] || "bg-violet-500/15";
-                                const clr = FOLDER_COLORS[folder.id] || "text-violet-400";
+                                const bg = CATEGORY_COLORS[folder.id]?.bg || "bg-violet-500/15";
+                                const clr = CATEGORY_COLORS[folder.id]?.color || "text-violet-400";
                                 return (
                                     <div className={`h-6 w-6 rounded-md flex items-center justify-center ${bg}`}>
                                         <FIcon className={`h-3 w-3 ${clr}`} />
@@ -821,7 +808,7 @@ export default function ArchiveListPage({ basePath = "/pro/iarchive" }: { basePa
                             renderFilePreview={renderFilePreview}
                             renderFolderIcon={(folder) => {
                                 const FIcon = FOLDER_ICONS[folder.id] || Folder;
-                                const clr = FOLDER_COLORS[folder.id] || "text-violet-400";
+                                const clr = CATEGORY_COLORS[folder.id]?.color || "text-violet-400";
                                 return <FIcon className={`h-3.5 w-3.5 ${clr} shrink-0`} />;
                             }}
                             renderFileIcon={() => (

@@ -275,6 +275,23 @@ export const updateStatus = mutation({
         const existing = await ctx.db.get(args.id);
         if (!existing) throw new Error("Organisation introuvable");
 
+        // ── Transition validation matrix ──
+        const VALID_TRANSITIONS: Record<string, string[]> = {
+            brouillon: ["prete"],
+            prete: ["active", "trial"],
+            trial: ["active", "suspended"],
+            active: ["suspended"],
+            suspended: ["active", "resiliee"],
+            resiliee: [],
+        };
+
+        const allowed = VALID_TRANSITIONS[existing.status];
+        if (allowed && !allowed.includes(args.status)) {
+            throw new Error(
+                `Transition invalide: ${existing.status} → ${args.status}. Transitions autorisées: ${allowed.join(", ") || "aucune"}`
+            );
+        }
+
         await ctx.db.patch(args.id, {
             status: args.status,
             updatedAt: Date.now(),

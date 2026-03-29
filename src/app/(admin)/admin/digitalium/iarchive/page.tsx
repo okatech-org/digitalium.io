@@ -12,11 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Archive,
-    Landmark,
-    Users2,
-    Scale,
-    Building2,
-    Lock,
     AlertTriangle,
     Clock,
     Hash,
@@ -26,6 +21,7 @@ import {
     Shield,
     HardDrive,
 } from "lucide-react";
+import { CATEGORY_COLORS, CATEGORY_CONFIG } from "@/config/category-colors";
 import {
     PieChart,
     Pie,
@@ -39,80 +35,24 @@ import {
     CartesianGrid,
 } from "recharts";
 
-// ─── Category config ────────────────────────────
+// ─── Category config (colors from centralized source) ──
 
-const CATEGORIES = [
-    {
-        key: "fiscal",
-        label: "Archives Fiscales",
-        icon: Landmark,
-        gradient: "from-amber-600 to-orange-500",
-        color: "text-amber-400",
-        bg: "bg-amber-500/10",
-        border: "border-amber-500/20",
-        retention: "10 ans",
-        count: 47,
-        total: 100,
-        sizeGB: 2.3,
-        chartColor: "#f59e0b",
-    },
-    {
-        key: "social",
-        label: "Archives Sociales",
-        icon: Users2,
-        gradient: "from-blue-600 to-cyan-500",
-        color: "text-blue-400",
-        bg: "bg-blue-500/10",
-        border: "border-blue-500/20",
-        retention: "5 ans",
-        count: 23,
-        total: 50,
-        sizeGB: 0.8,
-        chartColor: "#3b82f6",
-    },
-    {
-        key: "legal",
-        label: "Archives Juridiques",
-        icon: Scale,
-        gradient: "from-emerald-600 to-teal-500",
-        color: "text-emerald-400",
-        bg: "bg-emerald-500/10",
-        border: "border-emerald-500/20",
-        retention: "10 ans",
-        count: 31,
-        total: 60,
-        sizeGB: 1.5,
-        chartColor: "#10b981",
-    },
-    {
-        key: "client",
-        label: "Archives Clients",
-        icon: Building2,
-        gradient: "from-violet-600 to-purple-500",
-        color: "text-violet-400",
-        bg: "bg-violet-500/10",
-        border: "border-violet-500/20",
-        retention: "5 ans",
-        count: 15,
-        total: 40,
-        sizeGB: 0.6,
-        chartColor: "#8b5cf6",
-    },
-    {
-        key: "vault",
-        label: "Coffre-Fort Numérique",
-        icon: Lock,
-        gradient: "from-rose-600 to-pink-500",
-        color: "text-rose-400",
-        bg: "bg-rose-500/10",
-        border: "border-rose-500/20",
-        retention: "Illimité",
-        count: 8,
-        total: 20,
-        sizeGB: 0.4,
-        chartColor: "#f43f5e",
-    },
-];
+const CHART_COLOR_MAP: Record<string, string> = {
+    fiscal: "#f59e0b",
+    social: "#3b82f6",
+    juridique: "#10b981",
+    client: "#8b5cf6",
+    coffre: "#f43f5e",
+};
+
+const CATEGORIES = CATEGORY_CONFIG.map((cat) => ({
+    ...cat,
+    label: { fiscal: "Archives Fiscales", social: "Archives Sociales", juridique: "Archives Juridiques", client: "Archives Clients", coffre: "Coffre-Fort Numérique" }[cat.key] || cat.label,
+    count: { fiscal: 47, social: 23, juridique: 31, client: 15, coffre: 8 }[cat.key] || 0,
+    total: { fiscal: 100, social: 50, juridique: 60, client: 40, coffre: 20 }[cat.key] || 0,
+    sizeGB: { fiscal: 2.3, social: 0.8, juridique: 1.5, client: 0.6, coffre: 0.4 }[cat.key] || 0,
+    chartColor: CHART_COLOR_MAP[cat.key] || "#71717a",
+}));
 
 const TOTAL_DOCS = CATEGORIES.reduce((s, c) => s + c.count, 0);
 const TOTAL_SIZE = CATEGORIES.reduce((s, c) => s + c.sizeGB, 0);
@@ -164,13 +104,7 @@ const CHART_DATA = CATEGORIES.map((c) => ({
     color: c.chartColor,
 }));
 
-const CAT_COLORS: Record<string, string> = {
-    fiscal: "text-amber-400",
-    social: "text-blue-400",
-    legal: "text-emerald-400",
-    client: "text-violet-400",
-    vault: "text-rose-400",
-};
+// CAT_COLORS replaced by centralized CATEGORY_COLORS
 
 // ═════════════════════════════════════════════════
 
@@ -368,7 +302,7 @@ export default function DigitaliumIarchivePage() {
                         {TIMELINE.map((item) => (
                             <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
                                 <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0 mt-0.5">
-                                    <FileText className={`h-4 w-4 ${CAT_COLORS[item.category] || "text-zinc-400"}`} />
+                                    <FileText className={`h-4 w-4 ${CATEGORY_COLORS[item.category]?.color || "text-zinc-400"}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-xs font-medium truncate">{item.title}</p>

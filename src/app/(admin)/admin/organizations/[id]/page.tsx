@@ -416,7 +416,7 @@ function OrganizationDetailInner() {
 
                     {/* ═══ Onglet 3: Structure de Classement ═══ */}
                     <TabsContent value="structure-classement" className="mt-4">
-                        <ClassementTab orgId={orgId} orgType={org.type ?? "enterprise"} />
+                        <ClassementTab orgId={orgId} orgType={org.type ?? "enterprise"} config={org.config as Record<string, any>} onSaveConfig={handleSaveConfig} />
                     </TabsContent>
 
                     {/* ═══ Onglet 4: Configuration Modules ═══ */}

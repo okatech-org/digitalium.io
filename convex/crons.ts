@@ -66,4 +66,27 @@ crons.daily(
     internal.neocortex_monitoring.purgerMetriques
 );
 
+// ═══════════════════════════════════════════════
+// ISIGNATURE — Rappels automatiques
+// ═══════════════════════════════════════════════
+
+// ─── Signature Reminders (quotidien à 8h UTC) ───
+// Envoie des rappels pour les signatures expirant dans 3 jours
+crons.daily(
+    "signature-reminders",
+    { hourUTC: 8, minuteUTC: 0 },
+    internal.signatureReminders.processReminders
+);
+
+// ═══════════════════════════════════════════════
+// COMPLIANCE — Audit automatique quotidien
+// ═══════════════════════════════════════════════
+
+// ─── Compliance Audit (quotidien à 2h UTC) ──────
+crons.daily(
+    "compliance-audit",
+    { hourUTC: 2, minuteUTC: 0 },
+    internal.complianceCheckerMutations.runScheduledAudits
+);
+
 export default crons;

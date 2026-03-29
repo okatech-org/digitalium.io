@@ -25,6 +25,11 @@ import {
   X,
   RotateCcw,
   Save,
+  Layers,
+  Brain,
+  Minimize2,
+  AlertTriangle,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +73,8 @@ const MODULE_LABELS: Record<string, { label: string; color: string }> = {
 interface ClassementTabProps {
   orgId: Id<"organizations">;
   orgType: string;
+  config?: Record<string, any>;
+  onSaveConfig?: (config: Record<string, any>) => Promise<void>;
 }
 
 interface AddCellForm {
@@ -87,6 +94,7 @@ function TreeNode({
   onAddChild,
   onRemove,
   retentionCategories,
+  maxDepth,
 }: {
   node: FilingCellNode;
   depth: number;
@@ -95,7 +103,9 @@ function TreeNode({
   onAddChild: (parentId: string) => void;
   onRemove: (id: string) => void;
   retentionCategories?: { _id: string; name: string; color: string; slug: string }[];
+  maxDepth?: number;
 }) {
+  const isAtMaxDepth = maxDepth !== undefined && depth >= maxDepth - 1;
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = expanded.has(node._id);
   const confidentiality = CONFIDENTIALITY_COLORS[node.accessDefaut] ?? CONFIDENTIALITY_COLORS.public;
@@ -162,15 +172,33 @@ function TreeNode({
           </Badge>
         )}
 
+        {/* Depth warning badge */}
+        {isAtMaxDepth && (
+          <Badge className="text-[8px] py-0 px-1.5 bg-amber-500/10 text-amber-400 border-amber-500/20 gap-0.5">
+            <AlertTriangle className="h-2 w-2" />
+            Profondeur max
+          </Badge>
+        )}
+
         {/* Action buttons (visible on hover) */}
         <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => onAddChild(node._id)}
-            className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
-            title="Ajouter un sous-dossier"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
+          {!isAtMaxDepth ? (
+            <button
+              onClick={() => onAddChild(node._id)}
+              className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+              title="Ajouter un sous-dossier"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          ) : (
+            <button
+              disabled
+              className="p-1 rounded text-white/10 cursor-not-allowed"
+              title={`Profondeur maximale atteinte (${maxDepth} niveaux)`}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          )}
           <button
             onClick={() => onRemove(node._id)}
             className="p-1 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-colors"
@@ -196,6 +224,7 @@ function TreeNode({
               onAddChild={onAddChild}
               onRemove={onRemove}
               retentionCategories={retentionCategories}
+              maxDepth={maxDepth}
             />
           ))}
     </div>
@@ -321,7 +350,7 @@ function AddCellInlineForm({
 
 /* ─── Sub-tab A: Arborescence ──────────────────── */
 
-function ArborescencePanel({ orgId, orgType }: { orgId: Id<"organizations">; orgType: string }) {
+function ArborescencePanel({ orgId, orgType, maxDepth }: { orgId: Id<"organizations">; orgType: string; maxDepth?: number }) {
   const {
     structures,
     activeStructure,
@@ -549,6 +578,7 @@ function ArborescencePanel({ orgId, orgType }: { orgId: Id<"organizations">; org
                     onAddChild={(parentId) => setAddingParentId(parentId)}
                     onRemove={handleRemoveCell}
                     retentionCategories={retCatsList}
+                    maxDepth={maxDepth}
                   />
                 ))
             )}
@@ -1330,9 +1360,169 @@ function HabilitationsPanel({ orgId }: { orgId: Id<"organizations"> }) {
 
 /* ─── Main Component ───────────────────────────── */
 
-export default function ClassementTab({ orgId, orgType }: ClassementTabProps) {
+/* ─── Depth Config Panel ──────────────────────── */
+
+const DEPTH_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
+
+function DepthConfigPanel({
+  config,
+  onSave,
+}: {
+  config?: Record<string, any>;
+  onSave?: (config: Record<string, any>) => Promise<void>;
+}) {
+  const classement = config?.classement ?? {};
+  const [maxDepth, setMaxDepth] = useState<number>(classement.maxDepth ?? 3);
+  const [depthStrategy, setDepthStrategy] = useState<string>(classement.depthStrategy ?? "intelligente");
+  const [customDepth, setCustomDepth] = useState<boolean>(!DEPTH_OPTIONS.includes(classement.maxDepth as any) && classement.maxDepth > 0);
+  const [saving, setSaving] = useState(false);
+
+  const hasChanges = maxDepth !== (classement.maxDepth ?? 3) || depthStrategy !== (classement.depthStrategy ?? "intelligente");
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      await onSave({ classement: { maxDepth, depthStrategy } });
+      toast.success("Configuration de profondeur enregistrée");
+    } catch {
+      toast.error("Erreur lors de la sauvegarde");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <motion.div variants={fadeUp} className="bg-white/[0.02] border border-white/5 rounded-xl p-5 space-y-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings2 className="h-4 w-4 text-violet-400" />
+          <h3 className="text-sm font-semibold">Configuration du classement</h3>
+        </div>
+        {onSave && (
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+            className="bg-gradient-to-r from-violet-600 to-indigo-500 text-white hover:opacity-90 border-0 text-xs gap-1.5"
+          >
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Enregistrer
+          </Button>
+        )}
+      </div>
+
+      {/* Max Depth */}
+      <div className="space-y-2.5">
+        <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Layers className="h-3.5 w-3.5" />
+          Profondeur maximale
+        </label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {DEPTH_OPTIONS.map((d) => (
+            <button
+              key={d}
+              onClick={() => { setMaxDepth(d); setCustomDepth(false); }}
+              className={`h-8 w-8 rounded-lg text-xs font-medium transition-all ${
+                maxDepth === d && !customDepth
+                  ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
+                  : "bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:text-white"
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+          <button
+            onClick={() => setCustomDepth(true)}
+            className={`h-8 px-3 rounded-lg text-xs font-medium transition-all ${
+              customDepth
+                ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30"
+                : "bg-white/[0.03] text-muted-foreground hover:bg-white/[0.06] hover:text-white"
+            }`}
+          >
+            Personnalisé
+          </button>
+          {customDepth && (
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={maxDepth}
+              onChange={(e) => setMaxDepth(Math.min(Math.max(Number(e.target.value) || 1, 1), 20))}
+              className="h-8 w-20 text-xs bg-white/[0.03] border-white/10 text-center"
+            />
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Nombre maximum de niveaux dans l&apos;arborescence (racine = niveau 1).
+        </p>
+      </div>
+
+      {/* Strategy */}
+      <div className="space-y-2.5">
+        <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Brain className="h-3.5 w-3.5" />
+          Stratégie de classement IA
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Synthétique */}
+          <button
+            onClick={() => setDepthStrategy("synthetique")}
+            className={`text-left p-3 rounded-xl border transition-all ${
+              depthStrategy === "synthetique"
+                ? "bg-violet-500/10 border-violet-500/30"
+                : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <Minimize2 className={`h-4 w-4 ${depthStrategy === "synthetique" ? "text-violet-400" : "text-muted-foreground"}`} />
+              <span className={`text-xs font-semibold ${depthStrategy === "synthetique" ? "text-white" : "text-white/70"}`}>
+                Synthétique
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Catégories larges, structure plate. L&apos;IA minimise les sous-dossiers et favorise le regroupement.
+            </p>
+          </button>
+
+          {/* Intelligente */}
+          <button
+            onClick={() => setDepthStrategy("intelligente")}
+            className={`text-left p-3 rounded-xl border transition-all ${
+              depthStrategy === "intelligente"
+                ? "bg-violet-500/10 border-violet-500/30"
+                : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <Brain className={`h-4 w-4 ${depthStrategy === "intelligente" ? "text-violet-400" : "text-muted-foreground"}`} />
+              <span className={`text-xs font-semibold ${depthStrategy === "intelligente" ? "text-white" : "text-white/70"}`}>
+                Intelligente
+              </span>
+              <Badge className="text-[8px] py-0 px-1 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                Recommandé
+              </Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              L&apos;IA adapte la profondeur selon le contenu et le volume, dans la limite configurée.
+            </p>
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── Main Export ──────────────────────────────── */
+
+export default function ClassementTab({ orgId, orgType, config, onSaveConfig }: ClassementTabProps) {
+  const maxDepth = config?.classement?.maxDepth ?? 3;
+
   return (
     <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-4">
+      {/* Depth Config Panel */}
+      <DepthConfigPanel config={config} onSave={onSaveConfig} />
+
       <Tabs defaultValue="arborescence" className="w-full">
         <TabsList className="bg-white/[0.02] border border-white/5 p-1 rounded-lg h-auto flex-wrap">
           <TabsTrigger
@@ -1363,7 +1553,7 @@ export default function ClassementTab({ orgId, orgType }: ClassementTabProps) {
         </TabsList>
 
         <TabsContent value="arborescence" className="mt-4">
-          <ArborescencePanel orgId={orgId} orgType={orgType} />
+          <ArborescencePanel orgId={orgId} orgType={orgType} maxDepth={maxDepth} />
         </TabsContent>
 
         <TabsContent value="matrice" className="mt-4">

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════
 # DIGITALIUM.IO — Production Deployment Script
-# NEXUS-OMEGA M5 Sprint 10
+# NEXUS-OMEGA M5 Sprint 10 — 2026-03-29
 # ═══════════════════════════════════════════════
 #
 # Usage:
@@ -15,6 +15,7 @@
 #   - gcloud CLI authenticated
 #   - firebase CLI authenticated
 #   - Convex CLI authenticated
+#   - .env.local with CONVEX_DEPLOY_KEY & GEMINI_API_KEY
 # ═══════════════════════════════════════════════
 
 set -euo pipefail
@@ -45,12 +46,22 @@ header "NEXUS-OMEGA — Deployment Pre-flight"
 log "Checking .env.production..."
 [ -f .env.production ] || error ".env.production not found"
 
+log "Checking .env.local for runtime secrets..."
+[ -f .env.local ] || error ".env.local not found (needed for CONVEX_DEPLOY_KEY & GEMINI_API_KEY)"
+
+# Load runtime secrets from .env.local
+CONVEX_DEPLOY_KEY=$(grep '^CONVEX_DEPLOY_KEY=' .env.local | cut -d'=' -f2-)
+GEMINI_API_KEY=$(grep '^GEMINI_API_KEY=' .env.local | cut -d'=' -f2-)
+[ -n "$CONVEX_DEPLOY_KEY" ] || error "CONVEX_DEPLOY_KEY not found in .env.local"
+[ -n "$GEMINI_API_KEY" ] || error "GEMINI_API_KEY not found in .env.local"
+success "Runtime secrets loaded from .env.local"
+
 log "Checking build..."
 npm run build 2>&1 | tail -3
 success "Build OK"
 
 # ── Step 1: Deploy Convex ──
-if [[ "$ONLY" == "all" || "$ONLY" == "--only convex" || "$2" == "convex" ]]; then
+if [[ "$ONLY" == "all" || "$ONLY" == "--only convex" || "${2:-}" == "convex" ]]; then
     header "Step 1: Deploy Convex Backend"
     log "Deploying Convex functions..."
     npx convex deploy --cmd "npm run build"
@@ -58,13 +69,13 @@ if [[ "$ONLY" == "all" || "$ONLY" == "--only convex" || "$2" == "convex" ]]; the
 fi
 
 # ── Step 2: Build & Push Docker Image ──
-if [[ "$ONLY" == "all" || "$ONLY" == "--only docker" || "$2" == "docker" ]]; then
+if [[ "$ONLY" == "all" || "$ONLY" == "--only docker" || "${2:-}" == "docker" ]]; then
     header "Step 2: Build & Push Docker Image"
     log "Building Docker image (Node 20, standalone)..."
     gcloud builds submit --tag "${IMAGE}" --project "${PROJECT_ID}"
     success "Docker image pushed: ${IMAGE}"
 
-    log "Deploying to Cloud Run..."
+    log "Deploying to Cloud Run with runtime secrets..."
     gcloud run deploy "${CLOUD_RUN_SERVICE}" \
         --project "${PROJECT_ID}" \
         --image "${IMAGE}" \
@@ -75,12 +86,13 @@ if [[ "$ONLY" == "all" || "$ONLY" == "--only docker" || "$2" == "docker" ]]; the
         --min-instances 0 \
         --max-instances 10 \
         --allow-unauthenticated \
-        --port 3000
+        --port 3000 \
+        --set-env-vars "CONVEX_DEPLOY_KEY=${CONVEX_DEPLOY_KEY},GEMINI_API_KEY=${GEMINI_API_KEY}"
     success "Cloud Run deployed: ${CLOUD_RUN_SERVICE}"
 fi
 
 # ── Step 3: Deploy Firebase Hosting ──
-if [[ "$ONLY" == "all" || "$ONLY" == "--only firebase" || "$2" == "firebase" ]]; then
+if [[ "$ONLY" == "all" || "$ONLY" == "--only firebase" || "${2:-}" == "firebase" ]]; then
     header "Step 3: Deploy Firebase Hosting"
     log "Deploying Firebase Hosting (proxy → Cloud Run)..."
     firebase deploy --only hosting --project "${PROJECT_ID}"

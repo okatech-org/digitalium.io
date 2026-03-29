@@ -21,15 +21,11 @@ import {
     CheckCircle2,
     Loader2,
     Archive,
-    Landmark,
-    Users2,
-    Scale,
-    Building2,
-    Lock,
     Clock,
     Shield,
     AlertCircle,
 } from "lucide-react";
+import { CATEGORY_CONFIG } from "@/config/category-colors";
 
 // ─── Types ──────────────────────────────────────
 
@@ -42,26 +38,11 @@ interface UploadFile {
     error?: string;
 }
 
-type ArchiveCategory = "fiscal" | "social" | "legal" | "client" | "vault";
+type ArchiveCategory = string;
 
-// ─── Category config ────────────────────────────
+// ─── Category config (from centralized source) ──
 
-const CATEGORIES: {
-    key: ArchiveCategory;
-    label: string;
-    icon: React.ComponentType<{ className?: string }>;
-    gradient: string;
-    color: string;
-    bg: string;
-    border: string;
-    retention: string;
-}[] = [
-        { key: "fiscal", label: "Fiscal", icon: Landmark, gradient: "from-amber-600 to-orange-500", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", retention: "10 ans" },
-        { key: "social", label: "Social", icon: Users2, gradient: "from-blue-600 to-cyan-500", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", retention: "5 ans" },
-        { key: "legal", label: "Juridique", icon: Scale, gradient: "from-emerald-600 to-teal-500", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", retention: "10 ans" },
-        { key: "client", label: "Client", icon: Building2, gradient: "from-violet-600 to-purple-500", color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", retention: "5 ans" },
-        { key: "vault", label: "Coffre-fort", icon: Lock, gradient: "from-rose-600 to-pink-500", color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20", retention: "Illimité" },
-    ];
+const CATEGORIES = CATEGORY_CONFIG;
 
 const ACCEPTED_TYPES = [
     "application/pdf",

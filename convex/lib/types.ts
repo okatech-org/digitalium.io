@@ -178,3 +178,24 @@ export const TTL = {
     LONG: 7 * 24 * 60 * 60 * 1000,      // 7 jours
     CRITIQUE: 30 * 24 * 60 * 60 * 1000,  // 30 jours
 } as const;
+
+// ─── OrgConfig ─────────────────────────────────
+// Type runtime pour organizations.config (stocké en v.any() dans le schéma Convex).
+// Utilisé pour caster org.config de manière typée sans modifier le schéma.
+export interface OrgConfig {
+    classement?: {
+        maxDepth?: number;
+        depthStrategy?: "synthetique" | "intelligente";
+    };
+    iArchive?: {
+        yearAlignmentMode?: string;
+        fiscalYearEndMonth?: number;
+        archivageAutomatique?: boolean;
+    };
+    automation?: {
+        archivageApresSignature?: boolean;
+    };
+    iDocument?: boolean;
+    iSignature?: boolean;
+    [key: string]: unknown; // Allow extra fields for forward compat
+}

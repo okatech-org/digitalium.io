@@ -284,7 +284,7 @@ export const resolveModuleAccess = query({
         // 4. Construire les permissions effectives
         // Priorité: override individuel > rôle métier > défaut
         const memberOverrides: Record<string, boolean | undefined> =
-            (member as any).moduleOverrides ?? {};
+            ((member as Record<string, unknown>).moduleOverrides ?? {}) as Record<string, boolean | undefined>;
         const effective: Record<string, boolean> = {};
         for (const [key, defaultVal] of Object.entries(MODULE_DEFAULTS)) {
             const overrideVal = memberOverrides[key];

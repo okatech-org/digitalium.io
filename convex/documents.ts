@@ -29,13 +29,17 @@ export const createFromImport = mutation({
         organizationId: v.optional(v.id("organizations")),
         createdBy: v.string(),
         tags: v.array(v.string()),
-        folderId: v.optional(v.id("folders")),
+        folderId: v.id("folders"),
         parentFolderId: v.optional(v.string()),
         storageId: v.id("_storage"),
         fileName: v.string(),
         fileSize: v.number(),
         mimeType: v.string(),
         excerpt: v.optional(v.string()),
+        contentHash: v.optional(v.string()),
+        extractedText: v.optional(v.string()),
+        aiConfidence: v.optional(v.number()),
+        confidentiality: v.optional(v.string()),
         documentTypeId: v.optional(v.id("document_types")),
         customMetadata: v.optional(v.any()),
     },
@@ -43,21 +47,27 @@ export const createFromImport = mutation({
         const now = Date.now();
         const fileUrl = await ctx.storage.getUrl(args.storageId);
 
+        // ── Détection doublons (v8 — Innovation F) ──
+        if (args.contentHash && args.organizationId) {
+            const existing = await ctx.db
+                .query("documents")
+                .withIndex("by_contentHash", (q) => q.eq("contentHash", args.contentHash!))
+                .first();
+            if (existing && existing.organizationId && String(existing.organizationId) === String(args.organizationId)) {
+                // Doublon détecté — retourner les infos au lieu de créer
+                const existingFolder = existing.folderId ? await ctx.db.get(existing.folderId) : null;
+                return {
+                    duplicate: true as const,
+                    existingDocId: existing._id,
+                    existingTitle: existing.title,
+                    existingFolderName: existingFolder?.name ?? "Inconnu",
+                };
+            }
+        }
+
         // ── Validation : mêmes règles que create (v7) ──
         if (args.organizationId) {
-            // 1. Dossier obligatoire si structure de classement active
-            const activeStructure = await ctx.db
-                .query("filing_structures")
-                .withIndex("by_org_actif", (q) =>
-                    q.eq("organizationId", args.organizationId!).eq("estActif", true)
-                )
-                .first();
-
-            if (activeStructure && !args.folderId) {
-                throw new Error("Un dossier de destination est obligatoire pour importer un document (plan de classement actif).");
-            }
-
-            // 2. Type de document obligatoire si des types existent
+            // 1. Type de document obligatoire si des types existent
             const existingTypes = await ctx.db
                 .query("document_types")
                 .withIndex("by_organizationId", (q) =>
@@ -112,6 +122,11 @@ export const createFromImport = mutation({
             mimeType: args.mimeType,
             documentTypeId: args.documentTypeId,
             customMetadata: args.customMetadata,
+            contentHash: args.contentHash,
+            extractedText: args.extractedText,
+            aiConfidence: args.aiConfidence,
+            confidentiality: args.confidentiality,
+            aiClassifiedAt: args.aiConfidence !== undefined ? now : undefined,
             createdAt: now,
             updatedAt: now,
         });
@@ -127,7 +142,7 @@ export const createFromImport = mutation({
             }
         }
 
-        return docId;
+        return { duplicate: false as const, docId };
     },
 });
 
@@ -154,7 +169,7 @@ export const list = query({
                     .withIndex("by_org_status", (q) =>
                         q
                             .eq("organizationId", args.organizationId!)
-                            .eq("status", args.status as any)
+                            .eq("status", args.status as "draft" | "review" | "approved" | "archived" | "trashed")
                     )
                     .collect();
             } else {
@@ -199,26 +214,15 @@ export const create = mutation({
         organizationId: v.optional(v.id("organizations")),
         createdBy: v.string(),
         tags: v.optional(v.array(v.string())),
-        folderId: v.optional(v.id("folders")),
+        folderId: v.id("folders"),
         documentTypeId: v.optional(v.id("document_types")),
         customMetadata: v.optional(v.any()),
     },
     handler: async (ctx, args) => {
         const now = Date.now();
 
-        // ── Validation : dossier obligatoire si structure de classement active ──
+        // ── Validations organisationnelles ──
         if (args.organizationId) {
-            const activeStructure = await ctx.db
-                .query("filing_structures")
-                .withIndex("by_org_actif", (q) =>
-                    q.eq("organizationId", args.organizationId!).eq("estActif", true)
-                )
-                .first();
-
-            if (activeStructure && !args.folderId) {
-                throw new Error("Un dossier de destination est obligatoire pour créer un document.");
-            }
-
             // ── Validation : type de document obligatoire si des types existent ──
             const existingTypes = await ctx.db
                 .query("document_types")
@@ -676,7 +680,7 @@ export const restore = mutation({
         if (!doc) throw new Error("Document not found");
         if (doc.status !== "trashed") throw new Error("Document is not in trash");
         await ctx.db.patch(args.id, {
-            status: (doc.previousStatus as any) || "draft",
+            status: (doc.previousStatus as "draft" | "review" | "approved" | "archived") || "draft",
             trashedAt: undefined,
             trashedBy: undefined,
             previousStatus: undefined,
@@ -930,6 +934,8 @@ export const batchApplyAIRecommendations = mutation({
             tags: v.optional(v.array(v.string())),
             documentTypeId: v.optional(v.string()),
             archiveCategorySlug: v.optional(v.string()),
+            confidentiality: v.optional(v.string()),
+            aiConfidence: v.optional(v.number()),
         })),
         userId: v.string(),
     },
@@ -1006,6 +1012,21 @@ export const batchApplyAIRecommendations = mutation({
                 if (rec.archiveCategorySlug) {
                     updates.archiveCategorySlug = rec.archiveCategorySlug;
                     archived++;
+                }
+
+                // ── Confidentialité (v8) ──
+                if (rec.confidentiality) {
+                    updates.confidentiality = rec.confidentiality;
+                }
+
+                // ── Confiance IA (v8) ──
+                if (rec.aiConfidence !== undefined) {
+                    updates.aiConfidence = rec.aiConfidence;
+                    updates.aiClassifiedAt = now;
+                    // Seuil de confiance : si < 0.6, marquer pour revue humaine
+                    if (rec.aiConfidence < 0.6) {
+                        updates.status = "review";
+                    }
                 }
 
                 await ctx.db.patch(docId, updates);
