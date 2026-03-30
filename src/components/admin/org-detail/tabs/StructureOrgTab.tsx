@@ -411,7 +411,7 @@ function OrganigrammePanel({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+        <Loader2 className="h-5 w-5 animate-spin text-white/50" />
       </div>
     );
   }
@@ -503,7 +503,7 @@ function OrganigrammePanel({
               placeholder="Nom de l'unit\u00e9"
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
-              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
             />
             <Select
               value={form.type}
@@ -665,7 +665,7 @@ function RolesMetierPanel({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+        <Loader2 className="h-5 w-5 animate-spin text-white/50" />
       </div>
     );
   }
@@ -793,14 +793,14 @@ function RolesMetierPanel({
                       placeholder="Nom du poste"
                       value={form.nom}
                       onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                      className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+                      className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
                       autoFocus
                     />
                     <Input
                       placeholder="Description"
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+                      className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
                     />
                     <Select
                       value={form.categorie}
@@ -864,7 +864,7 @@ function RolesMetierPanel({
                               variant="secondary"
                               className={`text-[9px] border-0 gap-0.5 cursor-pointer ${role.modulePermissions
                                 ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-white/5 text-white/30"
+                                : "bg-white/5 text-white/50"
                                 }`}
                             >
                               <Shield className="h-2.5 w-2.5" />
@@ -875,7 +875,7 @@ function RolesMetierPanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 shrink-0 text-white/30 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                          className="h-6 w-6 shrink-0 text-white/50 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
                           onClick={() => handleRemove(role._id, role.nom)}
                           title="Supprimer"
                         >
@@ -940,7 +940,7 @@ function RolesMetierPanel({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 shrink-0 text-white/30 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                    className="h-6 w-6 shrink-0 text-white/50 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
                     onClick={() => handleRemove(role._id, role.nom)}
                     title="Supprimer"
                   >
@@ -993,7 +993,7 @@ function ModulePermissionsEditor({
                 key={mod.key}
                 className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${perms[mod.key]
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-white/10 bg-white/[0.02] text-white/30 hover:text-white/50"
+                  : "border-white/10 bg-white/[0.02] text-white/50 hover:text-white/50"
                   }`}
                 onClick={() => toggle(mod.key)}
                 title={perms[mod.key] ? `Désactiver ${mod.label}` : `Activer ${mod.label}`}
@@ -1285,7 +1285,7 @@ function PersonnelPanel({
   if (members === undefined) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+        <Loader2 className="h-5 w-5 animate-spin text-white/50" />
       </div>
     );
   }
@@ -1377,7 +1377,7 @@ function PersonnelPanel({
                 </Badge>
               )}
               {!hasOverrides && (
-                <span className="text-[9px] text-white/30 ml-auto">
+                <span className="text-[9px] text-white/50 ml-auto">
                   Cliquez pour ajouter des exceptions individuelles
                 </span>
               )}
@@ -1423,7 +1423,7 @@ function PersonnelPanel({
                                 ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30"
                                 : overrideVal === false
                                   ? "bg-red-500/20 text-red-400 ring-1 ring-red-500/30"
-                                  : "bg-white/5 text-white/30 hover:bg-white/10 hover:text-white/50"
+                                  : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/50"
                               }`}
                             title={
                               overrideVal === true ? "Override: Forcé ✓ — Cliquez pour forcer ✗"
@@ -1459,7 +1459,7 @@ function PersonnelPanel({
             <span className="text-xs font-medium text-white/60">
               Permissions Modules
             </span>
-            <span className="text-[9px] text-white/30 ml-auto">
+            <span className="text-[9px] text-white/50 ml-auto">
               Cliquez sur un membre pour configurer des overrides individuels
             </span>
           </div>
@@ -1510,14 +1510,14 @@ function PersonnelPanel({
               placeholder="Nom complet *"
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
-              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
             />
             <Input
               placeholder="Email"
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
             />
             <Input
               placeholder="Téléphone"
@@ -1525,13 +1525,13 @@ function PersonnelPanel({
               onChange={(e) =>
                 setForm({ ...form, telephone: e.target.value })
               }
-              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
             />
             <Input
               placeholder="Poste / Fonction"
               value={form.poste}
               onChange={(e) => setForm({ ...form, poste: e.target.value })}
-              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/30"
+              className="border-white/10 bg-white/[0.03] text-sm text-white placeholder:text-white/50"
             />
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-white/10 bg-white/[0.03]">
               <input
@@ -1691,7 +1691,7 @@ function PersonnelPanel({
                             value={editForm.nom}
                             onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
                             placeholder="Nom *"
-                            className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/30"
+                            className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/50"
                           />
                         </td>
                         <td className="py-2 px-2 hidden sm:table-cell">
@@ -1701,13 +1701,13 @@ function PersonnelPanel({
                               onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                               placeholder="Email"
                               type="email"
-                              className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/30"
+                              className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/50"
                             />
                             <Input
                               value={editForm.telephone}
                               onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })}
                               placeholder="Téléphone"
-                              className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/30"
+                              className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/50"
                             />
                           </div>
                         </td>
@@ -1716,7 +1716,7 @@ function PersonnelPanel({
                             value={editForm.poste}
                             onChange={(e) => setEditForm({ ...editForm, poste: e.target.value })}
                             placeholder="Poste"
-                            className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/30"
+                            className="h-7 border-white/10 bg-white/[0.05] text-xs text-white placeholder:text-white/50"
                           />
                         </td>
                         <td className="py-2 px-2 hidden lg:table-cell">
@@ -1735,7 +1735,7 @@ function PersonnelPanel({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span className="text-white/30">—</span>
+                            <span className="text-white/50">—</span>
                           )}
                         </td>
                         <td className="py-2 px-2 hidden lg:table-cell">
@@ -1761,7 +1761,7 @@ function PersonnelPanel({
                                 </SelectContent>
                               </Select>
                             ) : (
-                              <span className="text-white/30">—</span>
+                              <span className="text-white/50">—</span>
                             );
                           })()}
                         </td>
@@ -1870,7 +1870,7 @@ function PersonnelPanel({
                             {unitName}
                           </Badge>
                         ) : (
-                          <span className="text-white/30">—</span>
+                          <span className="text-white/50">—</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 hidden lg:table-cell">
@@ -1897,7 +1897,7 @@ function PersonnelPanel({
                             {roleName}
                           </Badge>
                         ) : (
-                          <span className="text-white/30">—</span>
+                          <span className="text-white/50">—</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3">
@@ -1935,7 +1935,7 @@ function PersonnelPanel({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-white/30 hover:bg-violet-500/10 hover:text-violet-400"
+                            className="h-6 w-6 text-white/50 hover:bg-violet-500/10 hover:text-violet-400"
                             onClick={() => startEdit(m)}
                             title="Modifier infos"
                           >
@@ -1944,7 +1944,7 @@ function PersonnelPanel({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-white/30 hover:bg-cyan-500/10 hover:text-cyan-400"
+                            className="h-6 w-6 text-white/50 hover:bg-cyan-500/10 hover:text-cyan-400"
                             onClick={() => {
                               setOpenAssignmentsMemberId(m._id);
                             }}
@@ -1957,7 +1957,7 @@ function PersonnelPanel({
                             size="icon"
                             className={`h-6 w-6 ${isLastAdmin(m)
                               ? "text-white/10 cursor-not-allowed"
-                              : "text-white/30 hover:bg-red-500/10 hover:text-red-400"
+                              : "text-white/50 hover:bg-red-500/10 hover:text-red-400"
                               }`}
                             onClick={() => handleRemove(m._id, m.nom ?? "?")}
                             disabled={isLastAdmin(m)}
@@ -2086,7 +2086,7 @@ function MultiAssignmentsModal({
             <h4 className="text-sm font-medium text-white/80">Affectations actuelles</h4>
             {assignments === undefined ? (
               <div className="flex justify-center p-4">
-                <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
               </div>
             ) : assignments.length === 0 ? (
               <div className="rounded-xl border border-white/5 bg-white/[0.02] p-6 text-center">
@@ -2131,7 +2131,7 @@ function MultiAssignmentsModal({
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemove(index)}
-                        className="h-7 w-7 text-white/30 hover:bg-red-500/10 hover:text-red-400"
+                        className="h-7 w-7 text-white/50 hover:bg-red-500/10 hover:text-red-400"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

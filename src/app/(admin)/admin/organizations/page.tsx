@@ -347,7 +347,7 @@ export default function AdminOrganizationsPage() {
                                                 <Users className="h-3.5 w-3.5" /> Gérer membres
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator className="bg-white/5" />
-                                            <div className="px-2 py-1 text-[10px] text-white/30 font-medium uppercase">Statut</div>
+                                            <div className="px-2 py-1 text-[10px] text-white/50 font-medium uppercase">Statut</div>
                                             {org.status === "brouillon" && (
                                                 <>
                                                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction(org._id, "trial", org.name); }} className="text-xs gap-2">
@@ -415,11 +415,11 @@ export default function AdminOrganizationsPage() {
                                     {modules.map((mod) => {
                                         const cfg = MODULE_CONFIG[mod];
                                         return cfg ? (
-                                            <Badge key={mod} variant="secondary" className={`text-[8px] ${cfg.bg} ${cfg.color} border-0 px-1.5`}>
+                                            <Badge key={mod} variant="secondary" className={`text-[10px] ${cfg.bg} ${cfg.color} border-0 px-1.5`}>
                                                 {cfg.label}
                                             </Badge>
                                         ) : (
-                                            <Badge key={mod} variant="secondary" className="text-[8px] bg-white/5 text-zinc-500 border-0 px-1.5">
+                                            <Badge key={mod} variant="secondary" className="text-[10px] bg-white/5 text-zinc-500 border-0 px-1.5">
                                                 {mod}
                                             </Badge>
                                         );

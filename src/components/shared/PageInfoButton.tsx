@@ -129,7 +129,7 @@ export function PageInfoButton({ info, accentColor = "violet" }: PageInfoButtonP
                                                     <p className="text-xs font-medium">
                                                         {el.nom}
                                                         {el.obligatoire && (
-                                                            <Badge variant="secondary" className="ml-1.5 h-4 text-[8px] px-1 bg-red-500/15 text-red-400 border-0">
+                                                            <Badge variant="secondary" className="ml-1.5 h-4 text-[10px] px-1 bg-red-500/15 text-red-400 border-0">
                                                                 Requis
                                                             </Badge>
                                                         )}

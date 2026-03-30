@@ -34,9 +34,10 @@ export default function InfoButton({
                     <span
                         role="button"
                         tabIndex={0}
-                        className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 hover:text-violet-300 transition-all duration-200 shrink-0 cursor-pointer ${className}`}
+                        className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 hover:text-violet-300 transition-all duration-200 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 ${className}`}
                         aria-label={`Info: ${title}`}
                         onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); } }}
                     >
                         <Info className="h-3 w-3" />
                     </span>

@@ -37,7 +37,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     render() {
         if (this.state.hasError) {
             return (
-                <div className="flex min-h-screen items-center justify-center bg-[#09090b] p-6">
+                <div role="alert" className="flex min-h-screen items-center justify-center bg-[#09090b] p-6">
                     <div className="w-full max-w-md rounded-xl border border-white/5 bg-white/[0.02] p-8 text-center">
                         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10">
                             <svg

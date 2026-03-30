@@ -208,7 +208,7 @@ export default function LegalHoldManager() {
                                         </p>
 
                                         {/* Hold details */}
-                                        <div className="flex flex-wrap items-center gap-3 mt-2 text-[10px] text-white/30">
+                                        <div className="flex flex-wrap items-center gap-3 mt-2 text-[10px] text-white/50">
                                             {archive.legalHoldAppliedAt && (
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="h-3 w-3" />

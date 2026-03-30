@@ -282,13 +282,13 @@ export default function DocumentTemplatesPage() {
                                                 {tpl.fields.slice(0, 3).map((f) => (
                                                     <span
                                                         key={f}
-                                                        className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground"
+                                                        className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground"
                                                     >
                                                         {f}
                                                     </span>
                                                 ))}
                                                 {tpl.fields.length > 3 && (
-                                                    <span className="text-[8px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">
                                                         +{tpl.fields.length - 3}
                                                     </span>
                                                 )}

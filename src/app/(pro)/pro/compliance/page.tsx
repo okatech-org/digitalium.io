@@ -229,7 +229,7 @@ export default function ProCompliancePage() {
                                         <div className="flex items-center gap-2 mt-1">
                                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                                 <div className="h-3 w-3 rounded-sm bg-white/10 flex items-center justify-center shrink-0">
-                                                    <span className="text-[8px] font-bold">{entry.user.charAt(0)}</span>
+                                                    <span className="text-[10px] font-bold">{entry.user.charAt(0)}</span>
                                                 </div>
                                                 <span className="truncate max-w-[80px]">{entry.user}</span>
                                             </div>

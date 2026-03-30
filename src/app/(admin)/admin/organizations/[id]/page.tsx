@@ -313,7 +313,7 @@ function OrganizationDetailInner() {
                                                     <Icon className={`h-3.5 w-3.5 ${t.color}`} />
                                                     {t.label}
                                                     {t.target === "trial" && (
-                                                        <span className="ml-auto text-[10px] text-white/30">14 jours</span>
+                                                        <span className="ml-auto text-[10px] text-white/50">14 jours</span>
                                                     )}
                                                 </DropdownMenuItem>
                                             );

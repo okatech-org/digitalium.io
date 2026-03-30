@@ -79,7 +79,7 @@ function ChangeDetails({ changes, changeType }: { changes: unknown; changeType: 
                 // For creates: simple value display
                 if (typeof value !== "object" || value === null || !("old" in value)) {
                     return (
-                        <Badge key={field} className="bg-white/[0.04] text-white/30 border-white/10 text-[9px] px-1.5 py-0 h-4">
+                        <Badge key={field} className="bg-white/[0.04] text-white/50 border-white/10 text-[9px] px-1.5 py-0 h-4">
                             {field}: {String(value)}
                         </Badge>
                     );
@@ -88,7 +88,7 @@ function ChangeDetails({ changes, changeType }: { changes: unknown; changeType: 
                 // For updates: old → new
                 const diff = value as { old: unknown; new: unknown };
                 return (
-                    <Badge key={field} className="bg-white/[0.04] text-white/30 border-white/10 text-[9px] px-1.5 py-0 h-4 gap-1">
+                    <Badge key={field} className="bg-white/[0.04] text-white/50 border-white/10 text-[9px] px-1.5 py-0 h-4 gap-1">
                         {field}: <span className="text-red-300/60 line-through">{String(diff.old ?? "—")}</span>
                         <span className="text-white/15">→</span>
                         <span className="text-emerald-300/80">{String(diff.new ?? "—")}</span>
@@ -155,7 +155,7 @@ export default function PolicyChangelogPanel({ orgId }: PolicyChangelogPanelProp
                 <h3 className="text-sm font-semibold text-white/70">
                     Historique des politiques d&apos;archivage
                 </h3>
-                <Badge className="bg-white/[0.04] text-white/30 border-white/10 text-[10px] px-1.5 py-0 h-4">
+                <Badge className="bg-white/[0.04] text-white/50 border-white/10 text-[10px] px-1.5 py-0 h-4">
                     {changelog.length} entrée{changelog.length > 1 ? "s" : ""}
                 </Badge>
             </div>

@@ -76,7 +76,7 @@ export default function RetentionCalendar({ categories }: RetentionCalendarProps
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center">
                 <CalendarDays className="w-10 h-10 text-white/10 mb-3" />
-                <p className="text-sm text-white/30">Aucune catégorie de rétention configurée</p>
+                <p className="text-sm text-white/50">Aucune catégorie de rétention configurée</p>
                 <p className="text-xs text-white/20 mt-1">Créez des catégories dans l&apos;onglet Rétention &amp; OHADA</p>
             </div>
         );
@@ -166,7 +166,7 @@ export default function RetentionCalendar({ categories }: RetentionCalendarProps
                                                 title={`Active: ${activeYears} ans`}
                                             >
                                                 {activeYears >= 2 && (
-                                                    <span className="absolute inset-0 flex items-center justify-center text-[8px] text-white/80 font-medium">
+                                                    <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/80 font-medium">
                                                         {activeYears}a
                                                     </span>
                                                 )}
@@ -179,7 +179,7 @@ export default function RetentionCalendar({ categories }: RetentionCalendarProps
                                                 title={`Semi-active: ${semiYears} ans`}
                                             >
                                                 {semiYears >= 2 && (
-                                                    <span className="absolute inset-0 flex items-center justify-center text-[8px] text-white/50 font-medium">
+                                                    <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/50 font-medium">
                                                         {semiYears}a
                                                     </span>
                                                 )}
@@ -192,7 +192,7 @@ export default function RetentionCalendar({ categories }: RetentionCalendarProps
                                                 title={`Archivée: ${archivedYears} ans`}
                                             >
                                                 {archivedYears >= 2 && (
-                                                    <span className="absolute inset-0 flex items-center justify-center text-[8px] text-white/30 font-medium">
+                                                    <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/50 font-medium">
                                                         {archivedYears}a
                                                     </span>
                                                 )}

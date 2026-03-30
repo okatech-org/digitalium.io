@@ -80,13 +80,13 @@ export function VaultFileCard({
 					<div className="absolute inset-x-0 flex justify-center pointer-events-none">
 						{retentionCategory ? (
 							<span className={cn(
-								"text-[8px] font-medium px-1.5 py-0.5 rounded inline-flex items-center gap-1 leading-tight pointer-events-auto",
+								"text-[10px] font-medium px-1.5 py-0.5 rounded inline-flex items-center gap-1 leading-tight pointer-events-auto",
 								retentionColor || "bg-cyan-500/10 text-cyan-400"
 							)}>
 								{retentionCategory}
 							</span>
 						) : (
-							<span className="text-[8px] text-muted-foreground/30 italic pointer-events-auto">Non classé</span>
+							<span className="text-[10px] text-muted-foreground/30 italic pointer-events-auto">Non classé</span>
 						)}
 					</div>
 				</div>
@@ -127,7 +127,7 @@ export function VaultFileCard({
 					<div className="flex items-center gap-1">
 						{statusBadge}
 					</div>
-					<div className="flex items-center gap-1.5 text-[8px] text-muted-foreground/50">
+					<div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
 						{version !== undefined && (
 							<span className="font-mono bg-white/[0.04] px-1 rounded">v{version}</span>
 						)}

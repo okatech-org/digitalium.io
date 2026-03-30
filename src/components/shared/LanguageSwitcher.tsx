@@ -22,10 +22,10 @@ export function LanguageSwitcher() {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setLocale("fr")} className={locale === "fr" ? "bg-accent" : ""}>
+                <DropdownMenuItem onClick={() => setLocale("fr")} className={locale === "fr" ? "bg-accent" : ""} aria-current={locale === "fr" ? "true" : undefined}>
                     Fran\u00e7ais (FR)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLocale("en")} className={locale === "en" ? "bg-accent" : ""}>
+                <DropdownMenuItem onClick={() => setLocale("en")} className={locale === "en" ? "bg-accent" : ""} aria-current={locale === "en" ? "true" : undefined}>
                     English (EN)
                 </DropdownMenuItem>
             </DropdownMenuContent>

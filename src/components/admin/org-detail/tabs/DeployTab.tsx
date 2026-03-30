@@ -209,8 +209,8 @@ function DomainAvailabilityIndicator({
     if (domain !== debouncedDomain || result === undefined) {
         return (
             <div className="flex items-center gap-1.5 mt-2">
-                <Loader2 className="w-3 h-3 text-white/30 animate-spin" />
-                <span className="text-xs text-white/30">Vérification…</span>
+                <Loader2 className="w-3 h-3 text-white/50 animate-spin" />
+                <span className="text-xs text-white/50">Vérification…</span>
             </div>
         );
     }
@@ -261,10 +261,10 @@ function MiniPreview({ config, orgName }: { config: PageConfigState; orgName?: s
                     className="absolute inset-x-0 top-0 h-8 opacity-10"
                     style={{ background: `radial-gradient(${config.primaryColor}, transparent)` }}
                 />
-                <p className="text-white/80 font-bold text-[8px] mb-0.5 truncate">
+                <p className="text-white/80 font-bold text-[10px] mb-0.5 truncate">
                     {config.heroTitle || orgName || "Titre"}
                 </p>
-                <p className="text-white/30 text-[5px] truncate">
+                <p className="text-white/50 text-[5px] truncate">
                     {config.heroSubtitle || "Sous-titre"}
                 </p>
             </div>
@@ -448,7 +448,7 @@ export default function DeployTab({
                         );
                     })}
                 </div>
-                <p className="text-[10px] text-white/30 mt-3">
+                <p className="text-[10px] text-white/50 mt-3">
                     {local.types.length} type{local.types.length > 1 ? "s" : ""} sélectionné{local.types.length > 1 ? "s" : ""}
                 </p>
             </div>
@@ -486,7 +486,7 @@ export default function DeployTab({
                                 className="flex-1 bg-white/[0.04] border-white/10 text-white/90"
                                 placeholder="votre-org"
                             />
-                            <span className="text-sm text-white/30 whitespace-nowrap">
+                            <span className="text-sm text-white/50 whitespace-nowrap">
                                 .digitalium.io
                             </span>
                         </div>
@@ -498,7 +498,7 @@ export default function DeployTab({
                         {local.domain && (
                             <div className="flex items-center gap-1.5 mt-1">
                                 <ExternalLink className="w-3 h-3 text-white/25" />
-                                <span className="text-xs text-white/30">
+                                <span className="text-xs text-white/50">
                                     {fullDomain}
                                 </span>
                             </div>
@@ -589,11 +589,11 @@ export default function DeployTab({
                                                     }
                                                 `}
                                             >
-                                                <Icon className={`w-6 h-6 mx-auto mb-2 ${isActive ? "text-violet-400" : "text-white/30"}`} />
+                                                <Icon className={`w-6 h-6 mx-auto mb-2 ${isActive ? "text-violet-400" : "text-white/50"}`} />
                                                 <p className={`text-xs font-medium ${isActive ? "text-white/90" : "text-white/60"}`}>
                                                     {tpl.label}
                                                 </p>
-                                                <p className="text-[10px] text-white/30 mt-0.5">{tpl.description}</p>
+                                                <p className="text-[10px] text-white/50 mt-0.5">{tpl.description}</p>
                                                 {isActive && (
                                                     <div className="absolute top-2 right-2">
                                                         <CheckCircle2 className="w-3.5 h-3.5 text-violet-400" />
@@ -731,7 +731,7 @@ export default function DeployTab({
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
                                         <div className="flex items-center gap-2">
-                                            <Layers className="w-4 h-4 text-white/30" />
+                                            <Layers className="w-4 h-4 text-white/50" />
                                             <span className="text-sm text-white/70">Afficher les modules</span>
                                         </div>
                                         <Switch
@@ -741,7 +741,7 @@ export default function DeployTab({
                                     </div>
                                     <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
                                         <div className="flex items-center gap-2">
-                                            <Users className="w-4 h-4 text-white/30" />
+                                            <Users className="w-4 h-4 text-white/50" />
                                             <span className="text-sm text-white/70">Afficher le contact</span>
                                         </div>
                                         <Switch

@@ -296,7 +296,7 @@ const DOC_COLUMNS: ListColumn[] = [
                 return (
                     <div className="flex items-center gap-1.5">
                         <div className="h-5 w-5 rounded-full bg-violet-500/15 flex items-center justify-center">
-                            <span className="text-[8px] text-violet-300 font-bold">{meta.authorInitials as string}</span>
+                            <span className="text-[10px] text-violet-300 font-bold">{meta.authorInitials as string}</span>
                         </div>
                         <span className="text-muted-foreground text-xs">{meta.author as string}</span>
                     </div>
@@ -389,6 +389,8 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const batchApplyAIMut = useMutation(api.documents.batchApplyAIRecommendations);
     const convexOrgDoc = useQuery(api.organizations.getById, convexOrgId ? { id: convexOrgId } : "skip");
     const syncFoldersMut = useMutation(api.filingCells.syncFoldersFromCells);
+    const cleanupEmptyFoldersMut = useMutation(api.folders.cleanupEmptyFolders);
+    const syncFromFoldersMut = useMutation(api.filingCells.syncFromFolders);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { setRule: _setRule } = useAccessRules(convexOrgId);
 
@@ -614,7 +616,10 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
     const [reorgPlan, setReorgPlan] = useState<ReorgPlan | null>(null);
     const [reorgLoading, setReorgLoading] = useState(false);
     const [reorgProgress, setReorgProgress] = useState(0);
-    const [reorgResult, setReorgResult] = useState<{ moved: number; foldersCreated: number; tagged: number; typed: number; archived: number } | null>(null);
+    const [reorgResult, setReorgResult] = useState<{
+        moved: number; foldersCreated: number; tagged: number; typed: number; archived: number;
+        foldersCleanedUp: number; cellsCreated: number; cellsRemoved: number;
+    } | null>(null);
 
     // Deferred: AI folder tree for reorganization
     const folderTreeForReorg = useQuery(
@@ -2175,13 +2180,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                 <div className="flex gap-1 mt-0.5">
                     <button
                         onClick={(e) => { e.stopPropagation(); handleRestoreItem(folder.id); }}
-                        className="text-[8px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded hover:bg-emerald-500/20 transition-colors flex items-center gap-0.5"
+                        className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded hover:bg-emerald-500/20 transition-colors flex items-center gap-0.5"
                     >
                         <RotateCcw className="h-2.5 w-2.5" /> Restaurer
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); handleDeleteItem(folder.id); }}
-                        className="text-[8px] px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded hover:bg-red-500/20 transition-colors flex items-center gap-0.5"
+                        className="text-[10px] px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded hover:bg-red-500/20 transition-colors flex items-center gap-0.5"
                     >
                         <Trash2 className="h-2.5 w-2.5" /> Suppr.
                     </button>
@@ -2921,7 +2926,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                         {/* ── Métadonnées personnalisées (v7) ── */}
                         {metadataFields && metadataFields.length > 0 && (
                             <div className="space-y-3 pt-2 border-t border-white/5">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30">Métadonnées</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Métadonnées</p>
                                 {metadataFields.map((field) => (
                                     <div key={field._id} className="space-y-1">
                                         <Label className="text-xs text-white/60">
@@ -3538,17 +3543,17 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                     )}
                                     <div className="flex flex-wrap gap-1.5">
                                         {reorgPlan.organizationAnalysis.detectedSector && (
-                                            <Badge className="text-[8px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20">
+                                            <Badge className="text-[10px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20">
                                                 Secteur: {reorgPlan.organizationAnalysis.detectedSector}
                                             </Badge>
                                         )}
                                         {reorgPlan.organizationAnalysis.detectedClients?.map((c) => (
-                                            <Badge key={c} className="text-[8px] h-4 bg-cyan-500/10 text-cyan-300 border-cyan-500/20">
+                                            <Badge key={c} className="text-[10px] h-4 bg-cyan-500/10 text-cyan-300 border-cyan-500/20">
                                                 Client: {c}
                                             </Badge>
                                         ))}
                                         {reorgPlan.organizationAnalysis.detectedProjects?.map((p) => (
-                                            <Badge key={p} className="text-[8px] h-4 bg-amber-500/10 text-amber-300 border-amber-500/20">
+                                            <Badge key={p} className="text-[10px] h-4 bg-amber-500/10 text-amber-300 border-amber-500/20">
                                                 Projet: {p}
                                             </Badge>
                                         ))}
@@ -3647,19 +3652,19 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                 {move.recommendations && (
                                                     <div className="flex flex-wrap gap-1 mt-1">
                                                         {move.recommendations.suggestedDocTypeCode && (
-                                                            <Badge className="text-[8px] h-3.5 bg-blue-500/10 text-blue-300 border-blue-500/20 gap-0.5">
+                                                            <Badge className="text-[10px] h-3.5 bg-blue-500/10 text-blue-300 border-blue-500/20 gap-0.5">
                                                                 <FileText className="h-2 w-2" />
                                                                 {move.recommendations.suggestedDocTypeCode}
                                                             </Badge>
                                                         )}
                                                         {move.recommendations.suggestedRetentionSlug && (
-                                                            <Badge className="text-[8px] h-3.5 bg-violet-500/10 text-violet-300 border-violet-500/20 gap-0.5">
+                                                            <Badge className="text-[10px] h-3.5 bg-violet-500/10 text-violet-300 border-violet-500/20 gap-0.5">
                                                                 <Archive className="h-2 w-2" />
                                                                 {move.recommendations.suggestedRetentionSlug}
                                                             </Badge>
                                                         )}
                                                         {move.recommendations.suggestedConfidentiality && (
-                                                            <Badge className={`text-[8px] h-3.5 gap-0.5 ${
+                                                            <Badge className={`text-[10px] h-3.5 gap-0.5 ${
                                                                 move.recommendations.suggestedConfidentiality === "secret"
                                                                     ? "bg-red-500/10 text-red-300 border-red-500/20"
                                                                     : move.recommendations.suggestedConfidentiality === "confidential"
@@ -3671,19 +3676,19 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                             </Badge>
                                                         )}
                                                         {move.recommendations.suggestedTags?.slice(0, 4).map((tag) => (
-                                                            <Badge key={tag} className="text-[8px] h-3.5 bg-white/5 text-zinc-400 border-white/10">
+                                                            <Badge key={tag} className="text-[10px] h-3.5 bg-white/5 text-zinc-400 border-white/10">
                                                                 {tag}
                                                             </Badge>
                                                         ))}
                                                         {(move.recommendations.suggestedTags?.length ?? 0) > 4 && (
-                                                            <Badge className="text-[8px] h-3.5 bg-white/5 text-zinc-500 border-white/10">
+                                                            <Badge className="text-[10px] h-3.5 bg-white/5 text-zinc-500 border-white/10">
                                                                 +{(move.recommendations.suggestedTags?.length ?? 0) - 4}
                                                             </Badge>
                                                         )}
                                                     </div>
                                                 )}
                                                 {move.recommendations?.retentionReasoning && (
-                                                    <p className="text-[8px] text-violet-400/60 mt-0.5">{move.recommendations.retentionReasoning}</p>
+                                                    <p className="text-[10px] text-violet-400/60 mt-0.5">{move.recommendations.retentionReasoning}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -3694,7 +3699,7 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                             {/* Folder recommendations (deep_audit) */}
                             {reorgPlan.folderRecommendations && reorgPlan.folderRecommendations.length > 0 && (
                                 <div className="space-y-2">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30 flex items-center gap-1">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50 flex items-center gap-1">
                                         <Folder className="h-3 w-3" /> Recommandations Dossiers
                                     </p>
                                     <div className="space-y-1.5">
@@ -3706,13 +3711,13 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                                     <span className="font-medium truncate">{folderName}</span>
                                                     <div className="flex gap-1 ml-auto shrink-0">
                                                         {fr.suggestedRetentionSlug && (
-                                                            <Badge className="text-[8px] h-3.5 bg-violet-500/10 text-violet-300 border-violet-500/20">{fr.suggestedRetentionSlug}</Badge>
+                                                            <Badge className="text-[10px] h-3.5 bg-violet-500/10 text-violet-300 border-violet-500/20">{fr.suggestedRetentionSlug}</Badge>
                                                         )}
                                                         {fr.suggestedConfidentiality && (
-                                                            <Badge className="text-[8px] h-3.5 bg-amber-500/10 text-amber-300 border-amber-500/20">{fr.suggestedConfidentiality}</Badge>
+                                                            <Badge className="text-[10px] h-3.5 bg-amber-500/10 text-amber-300 border-amber-500/20">{fr.suggestedConfidentiality}</Badge>
                                                         )}
                                                         {fr.suggestedVisibility && (
-                                                            <Badge className="text-[8px] h-3.5 bg-cyan-500/10 text-cyan-300 border-cyan-500/20">{fr.suggestedVisibility}</Badge>
+                                                            <Badge className="text-[10px] h-3.5 bg-cyan-500/10 text-cyan-300 border-cyan-500/20">{fr.suggestedVisibility}</Badge>
                                                         )}
                                                     </div>
                                                 </div>
@@ -3741,45 +3746,103 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
 
                     {/* Step: Done */}
                     {reorgStep === "done" && reorgResult && (
-                        <div className="flex flex-col items-center justify-center py-12 gap-4">
-                            <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                        <div className="flex flex-col gap-6 py-6">
+                            {/* Header */}
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="h-14 w-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                    <CheckCircle2 className="h-7 w-7 text-emerald-400" />
+                                </div>
+                                <p className="text-sm font-semibold">Réorganisation terminée !</p>
                             </div>
-                            <p className="text-sm font-semibold">Réorganisation terminée !</p>
-                            <div className="flex flex-wrap justify-center gap-4 text-sm">
-                                {reorgResult.moved > 0 && (
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-amber-400">{reorgResult.moved}</p>
-                                        <p className="text-[10px] text-muted-foreground">Documents déplacés</p>
+
+                            {/* Section: Documents */}
+                            {(reorgResult.moved > 0 || reorgResult.tagged > 0 || reorgResult.typed > 0 || reorgResult.archived > 0) && (
+                                <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3">
+                                    <p className="text-xs font-semibold text-white/60 flex items-center gap-1.5">
+                                        <FileText className="h-3.5 w-3.5" /> Documents
+                                    </p>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        <div className="text-center p-2 rounded-lg bg-white/[0.02]">
+                                            <p className="text-xl font-bold text-amber-400">{reorgResult.moved}</p>
+                                            <p className="text-[10px] text-muted-foreground">Déplacés</p>
+                                        </div>
+                                        <div className="text-center p-2 rounded-lg bg-white/[0.02]">
+                                            <p className="text-xl font-bold text-blue-400">{reorgResult.tagged}</p>
+                                            <p className="text-[10px] text-muted-foreground">Tagués</p>
+                                        </div>
+                                        <div className="text-center p-2 rounded-lg bg-white/[0.02]">
+                                            <p className="text-xl font-bold text-purple-400">{reorgResult.typed}</p>
+                                            <p className="text-[10px] text-muted-foreground">Typés</p>
+                                        </div>
+                                        <div className="text-center p-2 rounded-lg bg-white/[0.02]">
+                                            <p className="text-xl font-bold text-orange-400">{reorgResult.archived}</p>
+                                            <p className="text-[10px] text-muted-foreground">Rétentions</p>
+                                        </div>
                                     </div>
-                                )}
-                                {reorgResult.foldersCreated > 0 && (
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-emerald-400">{reorgResult.foldersCreated}</p>
-                                        <p className="text-[10px] text-muted-foreground">Dossiers créés</p>
+                                </div>
+                            )}
+
+                            {/* Section: Dossiers */}
+                            {(reorgResult.foldersCreated > 0 || reorgResult.foldersCleanedUp > 0) && (
+                                <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3">
+                                    <p className="text-xs font-semibold text-white/60 flex items-center gap-1.5">
+                                        <FolderTree className="h-3.5 w-3.5" /> Restructuration dossiers
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {reorgResult.foldersCreated > 0 && (
+                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                                                <FolderPlus className="h-5 w-5 text-emerald-400 shrink-0" />
+                                                <div>
+                                                    <p className="text-lg font-bold text-emerald-400">{reorgResult.foldersCreated}</p>
+                                                    <p className="text-[10px] text-muted-foreground">Dossiers créés</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {reorgResult.foldersCleanedUp > 0 && (
+                                            <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/5 border border-rose-500/10">
+                                                <Trash2 className="h-5 w-5 text-rose-400 shrink-0" />
+                                                <div>
+                                                    <p className="text-lg font-bold text-rose-400">{reorgResult.foldersCleanedUp}</p>
+                                                    <p className="text-[10px] text-muted-foreground">Dossiers vides supprimés</p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                {reorgResult.tagged > 0 && (
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-blue-400">{reorgResult.tagged}</p>
-                                        <p className="text-[10px] text-muted-foreground">Documents tagués</p>
+                                    <p className="text-[10px] text-muted-foreground italic">
+                                        Les dossiers supprimés sont dans la Poubelle et peuvent être restaurés.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Section: Classement */}
+                            {(reorgResult.cellsCreated > 0 || reorgResult.cellsRemoved > 0) && (
+                                <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3">
+                                    <p className="text-xs font-semibold text-white/60 flex items-center gap-1.5">
+                                        <Shield className="h-3.5 w-3.5" /> Arborescence de classement
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {reorgResult.cellsCreated > 0 && (
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-emerald-400 font-bold">+{reorgResult.cellsCreated}</span>
+                                                <span className="text-muted-foreground">cellule(s) ajoutée(s)</span>
+                                            </div>
+                                        )}
+                                        {reorgResult.cellsRemoved > 0 && (
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-rose-400 font-bold">-{reorgResult.cellsRemoved}</span>
+                                                <span className="text-muted-foreground">cellule(s) désactivée(s)</span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                {reorgResult.typed > 0 && (
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-purple-400">{reorgResult.typed}</p>
-                                        <p className="text-[10px] text-muted-foreground">Types assignés</p>
-                                    </div>
-                                )}
-                                {reorgResult.archived > 0 && (
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-orange-400">{reorgResult.archived}</p>
-                                        <p className="text-[10px] text-muted-foreground">Rétentions appliquées</p>
-                                    </div>
-                                )}
-                            </div>
-                            {reorgResult.moved === 0 && reorgResult.tagged === 0 && reorgResult.typed === 0 && reorgResult.archived === 0 && (
-                                <p className="text-xs text-muted-foreground">Aucune modification n&apos;a été nécessaire.</p>
+                                    <p className="text-[10px] text-muted-foreground italic">
+                                        La structure de classement a été synchronisée avec la nouvelle arborescence.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Aucune modification */}
+                            {reorgResult.moved === 0 && reorgResult.tagged === 0 && reorgResult.typed === 0 && reorgResult.archived === 0 && reorgResult.foldersCreated === 0 && reorgResult.foldersCleanedUp === 0 && (
+                                <p className="text-xs text-muted-foreground text-center">Aucune modification n&apos;a été nécessaire.</p>
                             )}
                         </div>
                     )}
@@ -4076,6 +4139,37 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                             userId: user?.email || "system",
                                         });
 
+                                        setReorgProgress(80);
+
+                                        // 4. Phase D: Nettoyer les dossiers vides
+                                        let foldersCleanedUp = 0;
+                                        if (convexOrgId) {
+                                            try {
+                                                const cleanupResult = await cleanupEmptyFoldersMut({ organizationId: convexOrgId });
+                                                foldersCleanedUp = cleanupResult.cleaned;
+                                            } catch (cleanupErr) {
+                                                console.warn("[Reorg] Cleanup warning:", cleanupErr);
+                                            }
+                                        }
+
+                                        setReorgProgress(90);
+
+                                        // 5. Phase E: Synchroniser l'arborescence de classement
+                                        let cellsCreated = 0;
+                                        let cellsRemoved = 0;
+                                        if (activeStructure?._id && convexOrgId) {
+                                            try {
+                                                const syncResult = await syncFromFoldersMut({
+                                                    filingStructureId: activeStructure._id,
+                                                    organizationId: convexOrgId,
+                                                });
+                                                cellsCreated = syncResult.cellsCreated;
+                                                cellsRemoved = syncResult.cellsRemoved;
+                                            } catch (syncErr) {
+                                                console.warn("[Reorg] Filing sync warning:", syncErr);
+                                            }
+                                        }
+
                                         setReorgProgress(100);
                                         setReorgResult({
                                             moved: applyResult.moved,
@@ -4083,13 +4177,18 @@ export default function DocumentListPage({ basePath = "/pro/idocument" }: { base
                                             tagged: applyResult.tagged,
                                             typed: applyResult.typed,
                                             archived: applyResult.archived,
+                                            foldersCleanedUp,
+                                            cellsCreated,
+                                            cellsRemoved,
                                         });
                                         setReorgStep("done");
                                         const parts = [`${applyResult.moved} déplacé(s)`];
                                         if (foldersCreated > 0) parts.push(`${foldersCreated} dossier(s) créé(s)`);
+                                        if (foldersCleanedUp > 0) parts.push(`${foldersCleanedUp} dossier(s) vide(s) supprimé(s)`);
                                         if (applyResult.tagged > 0) parts.push(`${applyResult.tagged} tagué(s)`);
                                         if (applyResult.typed > 0) parts.push(`${applyResult.typed} typé(s)`);
                                         if (applyResult.archived > 0) parts.push(`${applyResult.archived} rétention(s) appliquée(s)`);
+                                        if (cellsCreated > 0 || cellsRemoved > 0) parts.push(`classement restructuré (+${cellsCreated}/-${cellsRemoved})`);
                                         toast.success(`Réorganisation terminée : ${parts.join(", ")}`);
                                     } catch (err) {
                                         console.error("[Reorg] Execution error:", err);

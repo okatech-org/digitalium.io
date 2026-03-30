@@ -331,6 +331,7 @@ function NavLink({
             className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
                 transition-all duration-200 group relative
+                focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:outline-none
                 ${active
                     ? `${theme.activeBg} text-foreground`
                     : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
@@ -338,7 +339,7 @@ function NavLink({
                 ${collapsed ? "justify-center px-2" : ""}
             `}
         >
-            <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
+            <Icon aria-hidden="true" className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
             {!collapsed && (
                 <>
                     <span className="truncate">{item.label}</span>
@@ -402,7 +403,7 @@ function NavGroup({
                         href={item.href}
                         className={`flex items-center justify-center px-2 py-2.5 rounded-full text-sm font-medium transition-all ${isChildActive ? `${theme.activeBg} text-foreground` : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"}`}
                     >
-                        <Icon className={`h-[18px] w-[18px] ${isChildActive ? theme.activeText : ""}`} />
+                        <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${isChildActive ? theme.activeText : ""}`} />
                     </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
@@ -416,7 +417,7 @@ function NavGroup({
                 onClick={() => setExpanded((p) => !p)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium transition-all ${isChildActive ? `${theme.activeBg.replace("/20", "/15")} text-foreground` : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"}`}
             >
-                <Icon className={`h-[18px] w-[18px] shrink-0 ${isChildActive ? theme.activeText : ""}`} />
+                <Icon aria-hidden="true" className={`h-[18px] w-[18px] shrink-0 ${isChildActive ? theme.activeText : ""}`} />
                 <span className="truncate flex-1 text-left">{item.label}</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-0" : "-rotate-90"}`} />
             </button>
@@ -720,7 +721,7 @@ export default function AdminUnifiedLayout({
                                 <Menu className="h-4 w-4" />
                             </Button>
 
-                            <nav className="hidden sm:flex items-center gap-1 text-sm">
+                            <nav aria-label="Fil d'Ariane" className="hidden sm:flex items-center gap-1 text-sm">
                                 {breadcrumbs.map((crumb, i) => (
                                     <React.Fragment key={crumb.href}>
                                         {i > 0 && (
@@ -788,6 +789,7 @@ export default function AdminUnifiedLayout({
                                 <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
+                                    aria-label="Rechercher"
                                     className={`h-9 w-56 pl-9 text-sm bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 rounded-lg ${theme.ringColor}`}
                                 />
                             </div>
@@ -804,7 +806,7 @@ export default function AdminUnifiedLayout({
                             })()}
 
                             {/* Notifications */}
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground relative">
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground relative" aria-label="Notifications">
                                 <Bell className="h-[18px] w-[18px]" />
                                 {notifications > 0 && (
                                     <span className={`absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full ${theme.notifBg} text-white text-[9px] font-bold flex items-center justify-center`}>

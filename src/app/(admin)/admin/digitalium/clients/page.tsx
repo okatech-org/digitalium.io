@@ -318,10 +318,10 @@ export default function DigitaliumClientsPage() {
                                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => router.push(`/admin/clients/${org._id}`)}>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-semibold truncate">{org.name}</span>
-                                        <Badge className={`text-[8px] py-0 border-0 ${typeConf.bg} ${typeConf.color}`}>
+                                        <Badge className={`text-[10px] py-0 border-0 ${typeConf.bg} ${typeConf.color}`}>
                                             {typeConf.label}
                                         </Badge>
-                                        <Badge className={`text-[8px] py-0 border-0 ${statusConf.bg} ${statusConf.color}`}>
+                                        <Badge className={`text-[10px] py-0 border-0 ${statusConf.bg} ${statusConf.color}`}>
                                             <StatusIcon className="h-2 w-2 mr-0.5" />
                                             {statusConf.label}
                                         </Badge>

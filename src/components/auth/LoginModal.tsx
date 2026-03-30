@@ -234,7 +234,7 @@ export default function LoginModal({
                                     <div className="relative">
                                         <Mail
                                             size={16}
-                                            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
                                         />
                                         <Input
                                             id="modal-login-email"
@@ -244,10 +244,12 @@ export default function LoginModal({
                                             placeholder="votre@email.com"
                                             className="pl-10 bg-white/5 border-white/10 focus:border-blue-500/50 rounded-xl h-11"
                                             autoComplete="email"
+                                            aria-invalid={!!formErrors.email}
+                                            aria-describedby={formErrors.email ? "login-email-error" : undefined}
                                         />
                                     </div>
                                     {formErrors.email && (
-                                        <p className="text-xs text-red-400">
+                                        <p id="login-email-error" className="text-xs text-red-400">
                                             {formErrors.email}
                                         </p>
                                     )}
@@ -272,7 +274,7 @@ export default function LoginModal({
                                     <div className="relative">
                                         <Lock
                                             size={16}
-                                            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
                                         />
                                         <Input
                                             id="modal-login-password"
@@ -284,13 +286,15 @@ export default function LoginModal({
                                             placeholder="••••••••"
                                             className="pl-10 pr-10 bg-white/5 border-white/10 focus:border-blue-500/50 rounded-xl h-11"
                                             autoComplete="current-password"
+                                            aria-invalid={!!formErrors.password}
+                                            aria-describedby={formErrors.password ? "login-password-error" : undefined}
                                         />
                                         <button
                                             type="button"
                                             onClick={() =>
                                                 setShowPassword(!showPassword)
                                             }
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/60"
                                         >
                                             {showPassword ? (
                                                 <EyeOff size={16} />
@@ -300,7 +304,7 @@ export default function LoginModal({
                                         </button>
                                     </div>
                                     {formErrors.password && (
-                                        <p className="text-xs text-red-400">
+                                        <p id="login-password-error" className="text-xs text-red-400">
                                             {formErrors.password}
                                         </p>
                                     )}
@@ -335,7 +339,7 @@ export default function LoginModal({
                                     <span className="w-full border-t border-white/10" />
                                 </div>
                                 <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="px-3 text-white/30 bg-transparent backdrop-blur-sm">
+                                    <span className="px-3 text-white/50 bg-transparent backdrop-blur-sm">
                                         ou
                                     </span>
                                 </div>
@@ -390,7 +394,7 @@ export default function LoginModal({
                                         </h3>
                                         <button
                                             onClick={() => setShowReset(false)}
-                                            className="text-white/30 hover:text-white/60"
+                                            className="text-white/50 hover:text-white/60"
                                         >
                                             <X size={18} />
                                         </button>

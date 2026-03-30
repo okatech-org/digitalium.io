@@ -150,7 +150,7 @@ const ARCHIVE_COLUMNS: ListColumn[] = [
                 return (
                     <div className="flex items-center gap-1.5">
                         <div className="h-5 w-5 rounded-full bg-violet-500/15 flex items-center justify-center">
-                            <span className="text-[8px] text-violet-300 font-bold">{meta.archivedByInitials as string}</span>
+                            <span className="text-[10px] text-violet-300 font-bold">{meta.archivedByInitials as string}</span>
                         </div>
                         <span className="text-muted-foreground text-xs">{meta.archivedBy as string}</span>
                     </div>

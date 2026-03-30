@@ -466,3 +466,104 @@ export const shareFolder = mutation({
         return { success: true };
     },
 });
+
+// ─── Cleanup: suppression des dossiers vides après réorganisation ──
+
+export const cleanupEmptyFolders = mutation({
+    args: {
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        let totalCleaned = 0;
+
+        // Itérer jusqu'à 3 fois (un parent peut devenir vide après suppression de ses enfants)
+        for (let iteration = 0; iteration < 3; iteration++) {
+            const allFolders = await ctx.db
+                .query("folders")
+                .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+                .collect();
+
+            const activeFolders = allFolders.filter((f) => f.status === "active");
+            let cleanedThisPass = 0;
+
+            // Trier par profondeur décroissante (leaf-first) — les dossiers sans enfants d'abord
+            const folderDepths = new Map<string, number>();
+            for (const folder of activeFolders) {
+                let depth = 0;
+                let current = folder;
+                while (current.parentFolderId) {
+                    depth++;
+                    const parent = activeFolders.find((f) => String(f._id) === String(current.parentFolderId));
+                    if (!parent) break;
+                    current = parent;
+                    if (depth > 20) break;
+                }
+                folderDepths.set(String(folder._id), depth);
+            }
+
+            const sortedFolders = [...activeFolders].sort(
+                (a, b) => (folderDepths.get(String(b._id)) ?? 0) - (folderDepths.get(String(a._id)) ?? 0)
+            );
+
+            for (const folder of sortedFolders) {
+                // Ne jamais supprimer les dossiers système
+                if (folder.isSystem) continue;
+
+                // Vérifier le fileCount
+                if ((folder.fileCount ?? 0) > 0) continue;
+
+                // Vérifier les documents réels dans ce dossier (double check)
+                const docsInFolder = await ctx.db
+                    .query("documents")
+                    .withIndex("by_folderId", (q) => q.eq("folderId", folder._id))
+                    .first();
+                if (docsInFolder && docsInFolder.status !== "trashed") continue;
+
+                // Vérifier s'il a des sous-dossiers actifs
+                const activeChildren = activeFolders.filter(
+                    (f) => String(f.parentFolderId) === String(folder._id) && f.status === "active"
+                );
+                if (activeChildren.length > 0) continue;
+
+                // Soft-delete le dossier
+                await ctx.db.patch(folder._id, {
+                    status: "trashed",
+                    trashedAt: now,
+                    trashedBy: "system-cleanup",
+                    updatedAt: now,
+                });
+
+                // Soft-delete la filing_cell liée si elle existe
+                if (folder.filingCellId) {
+                    const cell = await ctx.db.get(folder.filingCellId as any);
+                    if (cell) {
+                        await ctx.db.patch(folder.filingCellId as any, {
+                            estActif: false,
+                            updatedAt: now,
+                        });
+                    }
+                }
+
+                // Audit log
+                await ctx.db.insert("audit_logs", {
+                    organizationId: args.organizationId,
+                    userId: "system",
+                    action: "folder.auto_cleanup",
+                    resourceType: "folder" as const,
+                    resourceId: String(folder._id),
+                    details: { folderName: folder.name, reason: "empty_after_reorg" },
+                    createdAt: now,
+                });
+
+                cleanedThisPass++;
+                totalCleaned++;
+            }
+
+            // Si aucun dossier nettoyé dans ce pass, arrêter
+            if (cleanedThisPass === 0) break;
+        }
+
+        return { cleaned: totalCleaned };
+    },
+});

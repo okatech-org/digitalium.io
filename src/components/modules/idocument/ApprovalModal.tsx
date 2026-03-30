@@ -222,7 +222,7 @@ export default function ApprovalModal({
                                     {cfg.commentRequired && (
                                         <Badge
                                             variant="outline"
-                                            className="text-[8px] h-4 border-amber-500/20 text-amber-400"
+                                            className="text-[10px] h-4 border-amber-500/20 text-amber-400"
                                         >
                                             Obligatoire
                                         </Badge>

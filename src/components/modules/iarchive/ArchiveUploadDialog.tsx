@@ -526,7 +526,7 @@ export default function ArchiveUploadDialog({
                                                     {step.label}
                                                 </span>
                                                 {isDone && (
-                                                    <Badge variant="outline" className="ml-auto text-[8px] h-4 border-emerald-500/20 text-emerald-400">
+                                                    <Badge variant="outline" className="ml-auto text-[10px] h-4 border-emerald-500/20 text-emerald-400">
                                                         ✓
                                                     </Badge>
                                                 )}

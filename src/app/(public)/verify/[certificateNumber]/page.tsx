@@ -95,7 +95,7 @@ export default function PublicVerificationPage() {
 
                     <form onSubmit={handleSearch} className="max-w-lg mx-auto relative group">
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-white/30 group-focus-within:text-violet-400 transition-colors" />
+                            <Search className="h-5 w-5 text-white/50 group-focus-within:text-violet-400 transition-colors" />
                         </div>
                         <Input
                             value={searchInput}
@@ -174,7 +174,7 @@ export default function PublicVerificationPage() {
                                             </div>
 
                                             <div className="rounded-2xl bg-white/5 p-5 border border-white/5 space-y-4">
-                                                <h4 className="text-xs font-bold uppercase tracking-wider text-white/30 mb-2">Empreintes Numériques (Hashes)</h4>
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-2">Empreintes Numériques (Hashes)</h4>
                                                 <div className="space-y-3">
                                                     <div className="space-y-1 text-left">
                                                         <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Hash Global (SHA-256)</p>
@@ -243,7 +243,7 @@ export default function PublicVerificationPage() {
 
                                             {result.cert.originalSha256Hash && (
                                                 <div className="rounded-2xl bg-white/5 p-5 border border-white/5 space-y-4">
-                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white/30 mb-2">Empreinte de l'Archive Détruite</h4>
+                                                    <h4 className="text-xs font-bold uppercase tracking-wider text-white/50 mb-2">Empreinte de l'Archive Détruite</h4>
                                                     <div className="space-y-1 text-left">
                                                         <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Hash Global Original (SHA-256)</p>
                                                         <p className="text-xs font-mono text-red-400 break-all bg-red-500/10 p-2 rounded border border-red-500/20">
@@ -270,7 +270,7 @@ export default function PublicVerificationPage() {
 
             {/* Footer */}
             <footer className="mt-auto py-8 text-center relative z-10 border-t border-white/5 bg-black/40 mt-12">
-                <p className="text-xs text-white/30">
+                <p className="text-xs text-white/50">
                     © {new Date().getFullYear()} Digitalium. Plateforme sécurisée de confiance.
                 </p>
             </footer>

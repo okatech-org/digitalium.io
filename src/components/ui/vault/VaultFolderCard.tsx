@@ -49,9 +49,10 @@ export function VaultFolderCard({
 				whileHover={{ scale: 1.05 }}
 				whileTap={{ scale: 0.97 }}
 				onClick={onClick}
+				onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
 				onMouseEnter={() => setIsHovered(true)}
 				onMouseLeave={() => setIsHovered(false)}
-				className="relative flex flex-col items-center justify-center cursor-pointer outline-none rounded-xl p-3 hover:bg-muted/40 transition-colors w-[140px]"
+				className="relative flex flex-col items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 rounded-xl p-3 hover:bg-muted/40 transition-colors w-[140px]"
 			>
 				{/* Top bar for badges tightly clamped */}
 				<div className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-10 w-full text-center">

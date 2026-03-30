@@ -436,7 +436,7 @@ export default function RetentionCategoryTable({
 
             {/* Empty state */}
             {sorted.length === 0 && (
-                <div className="text-center py-8 text-white/30 text-sm">
+                <div className="text-center py-8 text-white/50 text-sm">
                     Aucune catégorie configurée. Utilisez le bouton ci-dessus pour appliquer le référentiel OHADA.
                 </div>
             )}

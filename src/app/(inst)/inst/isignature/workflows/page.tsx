@@ -323,7 +323,7 @@ export default function WorkflowTemplatesPage() {
                                                 <RoleIcon className={`h-2.5 w-2.5 ${roleCfg.color}`} />
                                                 <span className="text-[10px] font-medium">{step.label}</span>
                                                 {!step.required && (
-                                                    <span className="text-[8px] text-zinc-500">(opt)</span>
+                                                    <span className="text-[10px] text-zinc-500">(opt)</span>
                                                 )}
                                             </div>
                                             {si < wf.steps.length - 1 && (
@@ -347,11 +347,11 @@ export default function WorkflowTemplatesPage() {
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     {wf.isTemplate && (
-                                        <Badge variant="secondary" className="text-[8px] h-4 bg-amber-500/10 text-amber-400 border-0">
+                                        <Badge variant="secondary" className="text-[10px] h-4 bg-amber-500/10 text-amber-400 border-0">
                                             Système
                                         </Badge>
                                     )}
-                                    <Badge variant="secondary" className="text-[8px] h-4 bg-white/5 text-zinc-400 border-0">
+                                    <Badge variant="secondary" className="text-[10px] h-4 bg-white/5 text-zinc-400 border-0">
                                         Par {wf.createdBy}
                                     </Badge>
                                 </div>
@@ -404,7 +404,7 @@ export default function WorkflowTemplatesPage() {
                                                 <div className="flex-1">
                                                     <p className="text-sm font-medium">{step.label}</p>
                                                     <div className="flex items-center gap-1.5 mt-0.5">
-                                                        <Badge variant="outline" className={`text-[8px] h-4 ${roleCfg.bg} ${roleCfg.color} border-white/5`}>
+                                                        <Badge variant="outline" className={`text-[10px] h-4 ${roleCfg.bg} ${roleCfg.color} border-white/5`}>
                                                             <RoleIcon className="h-2 w-2 mr-0.5" />
                                                             {roleCfg.label}
                                                         </Badge>

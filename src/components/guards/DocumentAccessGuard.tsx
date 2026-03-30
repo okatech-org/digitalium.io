@@ -42,7 +42,7 @@ export function DocumentAccessGuard({
     if (access.isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
                 <span className="ml-2 text-sm text-white/40">
                     Vérification des accès…
                 </span>

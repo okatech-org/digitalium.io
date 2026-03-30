@@ -139,9 +139,11 @@ function NavLink({
     const content = (
         <Link
             href={item.href}
+            aria-current={active ? "page" : undefined}
             className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-full text-sm font-medium
                 transition-all duration-200 group relative
+                focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:outline-none
                 ${active
                     ? "bg-digitalium-blue/20 text-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
@@ -336,9 +338,14 @@ export default function AdminSpaceLayout({
 
     return (
         <TooltipProvider delayDuration={0}>
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-violet-600 focus:text-white focus:rounded-lg">
+                Aller au contenu principal
+            </a>
             <div className="min-h-screen flex bg-[var(--layout-bg)] p-3 gap-3">
                 {/* ── Desktop Sidebar ── */}
                 <motion.aside
+                    role="navigation"
+                    aria-label="Menu administration"
                     initial={false}
                     animate={{ width: collapsed ? 64 : 256 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
@@ -380,7 +387,7 @@ export default function AdminSpaceLayout({
                                 <Menu className="h-4 w-4" />
                             </Button>
 
-                            <nav className="flex items-center gap-1 text-sm">
+                            <nav aria-label="Fil d'Ariane" className="flex items-center gap-1 text-sm">
                                 {breadcrumbs.map((crumb, i) => (
                                     <React.Fragment key={crumb.href}>
                                         {i > 0 && (
@@ -410,6 +417,7 @@ export default function AdminSpaceLayout({
                                 <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
+                                    aria-label="Rechercher"
                                     className="h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 focus-visible:ring-digitalium-blue/30"
                                 />
                             </div>
@@ -425,6 +433,7 @@ export default function AdminSpaceLayout({
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-muted-foreground relative"
+                                aria-label="Notifications"
                             >
                                 <Bell className="h-4 w-4" />
                                 {notifications > 0 && (
@@ -470,7 +479,7 @@ export default function AdminSpaceLayout({
                     </header>
 
                     {/* ── Page content ── */}
-                    <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+                    <main id="main-content" className="flex-1 overflow-y-auto p-4 lg:p-6">
                         {children}
                     </main>
                 </div>

@@ -520,11 +520,11 @@ export default function FolderDocumentContextMenu({
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="rounded-lg bg-white/[0.03] border border-white/5 p-2">
-                                    <p className="text-[8px] text-muted-foreground/50 uppercase tracking-wider mb-0.5">Créé le</p>
+                                    <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-0.5">Créé le</p>
                                     <p className="text-[11px] font-medium">{itemCreatedAt || "—"}</p>
                                 </div>
                                 <div className="rounded-lg bg-white/[0.03] border border-white/5 p-2">
-                                    <p className="text-[8px] text-muted-foreground/50 uppercase tracking-wider mb-0.5">Modifié le</p>
+                                    <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-0.5">Modifié le</p>
                                     <p className="text-[11px] font-medium">{itemUpdatedAt || "—"}</p>
                                 </div>
                             </div>
@@ -591,7 +591,7 @@ export default function FolderDocumentContextMenu({
                             <DialogDescription className="text-xs mt-1">
                                 {itemType === "folder" ? <FolderIcon className="h-3 w-3 inline mr-1" /> : <FileText className="h-3 w-3 inline mr-1" />}
                                 <span className="font-medium text-white/60">{itemName}</span>
-                                <span className="text-white/30"> — configurez la rétention, le cycle de vie et la confidentialité</span>
+                                <span className="text-white/50"> — configurez la rétention, le cycle de vie et la confidentialité</span>
                             </DialogDescription>
                         </DialogHeader>
                     </div>

@@ -212,7 +212,7 @@ export default function ConfigChangeConfirmDialog({
                                                                 ? "bg-red-500/15 text-red-400"
                                                                 : item.count > 0
                                                                     ? "bg-amber-500/15 text-amber-400"
-                                                                    : "bg-white/5 text-white/30"
+                                                                    : "bg-white/5 text-white/50"
                                                         }`}
                                                     >
                                                         {item.count}

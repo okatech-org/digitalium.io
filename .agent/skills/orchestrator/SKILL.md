@@ -75,6 +75,26 @@ Ce skill est le **cerveau central**. Il s'active **AUTOMATIQUEMENT** à chaque r
 | `éditeur`, `editor`, `tiptap`, `rich text`, `prosemirror`, `yjs` | `tiptap-editor` | Éditeur riche Tiptap |
 | `docker`, `container`, `cloud run`, `Dockerfile`, `GCP`, `artifact` | `docker-cloud-run` | Docker & Cloud Run |
 | `turbo`, `monorepo`, `workspace`, `turborepo`, `packages/` | `turborepo-monorepo` | Architecture monorepo |
+| `document`, `Word`, `.docx`, `rapport`, `mémo`, `lettre` | `docx` | Création/édition Word |
+| `PDF`, `.pdf`, `fusionner`, `extraire`, `formulaire`, `OCR` | `pdf` | Traitement PDF |
+| `présentation`, `slides`, `deck`, `.pptx`, `diapo` | `pptx` | Présentations PowerPoint |
+| `Excel`, `spreadsheet`, `.xlsx`, `tableau`, `formule`, `CSV` | `xlsx` | Tableurs Excel |
+| `planifier`, `cron`, `tâche récurrente`, `schedule`, `automatiser` | `schedule` | Tâches planifiées |
+| `créer skill`, `améliorer skill`, `eval`, `benchmark skill` | `skill-creator` | Création/amélioration skills |
+| `3D`, `Three.js`, `WebGL`, `R3F`, `react-three-fiber`, `Spline` | `3d-web-experience` | Expériences 3D web |
+| `accessibilité`, `a11y`, `WCAG`, `aria`, `screen reader` | `accessibility-compliance-accessibility-audit` + `wcag-audit-patterns` | Audit accessibilité |
+| `mémoire agent`, `vector store`, `embedding`, `chunking`, `RAG store` | `agent-memory-systems` | Mémoire d'agents IA |
+| `outil agent`, `tool schema`, `JSON Schema`, `MCP`, `function calling` | `agent-tool-builder` | Création d'outils pour agents |
+| `LLM`, `GPT`, `Claude API`, `RAG`, `prompt engineering`, `fine-tune` | `ai-engineer` + `ai-product` | Ingénierie IA |
+| `API design`, `REST`, `GraphQL`, `contract`, `OpenAPI`, `Swagger` | `api-design-principles` | Design d'API |
+| `sécurité API`, `OWASP`, `injection`, `CSRF`, `XSS`, `rate limit sec` | `api-security-best-practices` + `backend-security-coder` | Sécurité API/Backend |
+| `ADR`, `decision record`, `architecture decision` | `architecture-decision-records` | Records de décisions arch. |
+| `clean architecture`, `hexagonal`, `DDD`, `ports adapters` | `architecture-patterns` | Patterns d'architecture |
+| `computer use`, `desktop control`, `screen automation`, `vision agent` | `computer-use-agents` | Agents computer-use |
+| `dépendances`, `npm audit`, `vulnérabilité`, `CVE`, `supply chain` | `dependency-management-deps-audit` | Audit dépendances |
+| `XSS`, `sanitize`, `DOMPurify`, `dangerouslySetInnerHTML` | `frontend-mobile-security-xss-scan` | Sécurité frontend XSS |
+| `UI design`, `UX`, `palette couleurs`, `typographie`, `design system` | `ui-ux-pro-max` + `web-design-guidelines` | Design UI/UX |
+| `visual test`, `screenshot`, `pixel perfect`, `regression visuelle` | `ui-visual-validator` | Validation visuelle UI |
 
 ## 3. Règles d'Auto-Activation
 
@@ -140,67 +160,110 @@ Ces skills sont fournis par le système Claude et s'activent EN COMPLEMENT des s
 | `convex-create-component` | Création composant réutilisable, isolation, packaging | `convex-backend` |
 | `convex-quickstart` | Nouveau projet Convex, initialisation, scaffolding | `convex-backend` |
 
-## 7. Inventaire Complet des 28 Skills
+## 7. Inventaire Complet des 53 Skills
 
-### Skills Locaux (.agent/skills/) — 23 skills
-
-#### Backend & Data (7)
+### A. OkaTech Core — Backend & Data (7)
 | # | Skill | Domaine |
 |---|---|---|
-| 1 | `convex-backend` | Backend Convex (enrichi patterns officiels get-convex) |
-| 2 | `convex-agent` | **NOUVEAU** — Agents IA avec Convex (threads, streaming, RAG) |
-| 3 | `convex-components` | **NOUVEAU** — Ecosystem Convex (Rate Limiter, Workflow, Stripe, etc.) |
-| 4 | `supabase-backend` | Backend Supabase (enrichi Postgres best practices officielles) |
-| 5 | `express-api` | Backend Express.js |
-| 6 | `prisma-database` | ORM Prisma |
-| 7 | `tanstack-query` | **NOUVEAU** — TanStack React Query (fetching, cache, mutations) |
+| 1 | `convex-backend` | Backend Convex (patterns officiels get-convex) |
+| 2 | `convex-agent` | Agents IA Convex (threads, streaming, RAG, tool calling) |
+| 3 | `convex-components` | Ecosystem Convex (Rate Limiter, Workflow, Stripe, Aggregate) |
+| 4 | `supabase-backend` | Backend Supabase (Postgres best practices officielles) |
+| 5 | `express-api` | Backend Express.js (idetude.ga, sgg.ga) |
+| 6 | `prisma-database` | ORM Prisma (evenement.ga) |
+| 7 | `tanstack-query` | TanStack React Query (fetching, cache, mutations) |
 
-#### Frontend (5)
+### B. OkaTech Core — Frontend (5)
 | # | Skill | Domaine |
 |---|---|---|
 | 8 | `react-vite-spa` | Frontend Vite + React |
-| 9 | `nextjs-app-router` | Frontend Next.js (enrichi Server Actions, Streaming, ISR) |
+| 9 | `nextjs-app-router` | Frontend Next.js (Server Actions, Streaming, ISR) |
 | 10 | `shadcn-ui` | Composants UI Shadcn |
 | 11 | `tailwind-styling` | Styling Tailwind CSS |
 | 12 | `framer-motion-animations` | Animations Framer Motion |
 
-#### Authentification (3)
+### C. OkaTech Core — Authentification (3)
 | # | Skill | Domaine |
 |---|---|---|
-| 13 | `auth-patterns` | Hub central auth (enrichi Better Auth, Clerk, MFA) |
-| 14 | `better-auth` | **NOUVEAU** — Better Auth + Convex (17 rôles, RBAC) |
-| 15 | `clerk-auth` | **NOUVEAU** — Clerk + Next.js + Convex |
+| 13 | `auth-patterns` | Hub central auth (Better Auth, Clerk, MFA, RBAC) |
+| 14 | `better-auth` | Better Auth + Convex (17 rôles, TaskCode) |
+| 15 | `clerk-auth` | Clerk + Next.js + Convex (JWT "convex") |
 
-#### Intégrations (4)
+### D. OkaTech Core — Intégrations (4)
 | # | Skill | Domaine |
 |---|---|---|
-| 16 | `stripe-payments` | **NOUVEAU** — Paiements Stripe (checkout, subscriptions) |
-| 17 | `livekit-realtime` | **NOUVEAU** — Video/Audio LiveKit |
-| 18 | `mapbox-leaflet-maps` | **NOUVEAU** — Cartes Mapbox & Leaflet |
-| 19 | `tiptap-editor` | **NOUVEAU** — Éditeur riche Tiptap + collaboration |
+| 16 | `stripe-payments` | Paiements Stripe (checkout, subscriptions, webhooks) |
+| 17 | `livekit-realtime` | Video/Audio temps réel LiveKit |
+| 18 | `mapbox-leaflet-maps` | Cartes interactives Mapbox & Leaflet |
+| 19 | `tiptap-editor` | Éditeur riche Tiptap + collaboration Yjs |
 
-#### Architecture & Patterns (3)
+### E. OkaTech Core — Architecture & Patterns (3)
 | # | Skill | Domaine |
 |---|---|---|
 | 20 | `convex-brain-architecture` | Architecture Cerveau neuro-mimétique |
-| 21 | `workflow-state-machine` | State Machine & workflows |
-| 22 | `module-architecture` | Modules iX transversaux |
+| 21 | `workflow-state-machine` | State Machine & workflows (RequestWorkflow, PTM) |
+| 22 | `module-architecture` | Modules iX transversaux (23+ modules) |
 
-#### DevOps & Infrastructure (3)
+### F. OkaTech Core — DevOps & Infrastructure (3)
 | # | Skill | Domaine |
 |---|---|---|
-| 23 | `deployment-cicd` | CI/CD & Deploy (enrichi Cloud Run, Turbo CI) |
-| 24 | `docker-cloud-run` | **NOUVEAU** — Docker & Google Cloud Run |
-| 25 | `turborepo-monorepo` | **NOUVEAU** — Architecture monorepo Turborepo |
+| 23 | `deployment-cicd` | CI/CD, Deploy (Vercel, Cloud Run, Turbo) |
+| 24 | `docker-cloud-run` | Docker & Google Cloud Run (AGASA) |
+| 25 | `turborepo-monorepo` | Architecture monorepo Turborepo |
 
-#### Transversaux (3)
+### G. OkaTech Core — Transversaux (3)
 | # | Skill | Domaine |
 |---|---|---|
-| 26 | `typescript-patterns` | TypeScript strict |
+| 26 | `typescript-patterns` | TypeScript strict mode |
 | 27 | `i18n-translations` | Internationalisation i18next |
 | 28 | `orchestrator` | Cerveau central (TOUJOURS actif) |
 
-### Skills Système Convex (5)
+### H. Vibeship — Sécurité & Qualité (6)
+| # | Skill | Domaine |
+|---|---|---|
+| 29 | `api-security-best-practices` | Sécurité API (OWASP, JWT, OAuth, rate limiting) |
+| 30 | `backend-security-coder` | Sécurité backend (injection, CSRF, headers) |
+| 31 | `frontend-mobile-security-xss-scan` | Scanner XSS frontend (DOMPurify, React) |
+| 32 | `dependency-management-deps-audit` | Audit dépendances (CVE, supply chain) |
+| 33 | `auth-implementation-patterns` | Patterns auth avancés (JWT, OAuth2, MFA, sessions) |
+| 34 | `accessibility-compliance-accessibility-audit` | Audit accessibilité WCAG |
+
+### I. Vibeship — Architecture & IA (6)
+| # | Skill | Domaine |
+|---|---|---|
+| 35 | `architecture-patterns` | Clean, Hexagonal, DDD patterns |
+| 36 | `architecture-decision-records` | ADR documentation décisions |
+| 37 | `api-design-principles` | Design API REST/GraphQL |
+| 38 | `ai-engineer` | LLM, RAG, agents, embeddings production |
+| 39 | `ai-product` | Prompt engineering, coûts IA, streaming UX |
+| 40 | `agent-memory-systems` | Vector stores, chunking, retrieval IA |
+
+### J. Vibeship — UI/UX & Qualité (5)
+| # | Skill | Domaine |
+|---|---|---|
+| 41 | `ui-ux-pro-max` | Design intelligence (50+ styles, palettes, fonts) |
+| 42 | `ui-visual-validator` | Validation visuelle, pixel perfect, regression |
+| 43 | `web-design-guidelines` | Guidelines interfaces web |
+| 44 | `wcag-audit-patterns` | Audit WCAG 2.2 complet |
+| 45 | `3d-web-experience` | Three.js, R3F, WebGL, Spline |
+
+### K. Vibeship — Agents & Tools (2)
+| # | Skill | Domaine |
+|---|---|---|
+| 46 | `agent-tool-builder` | Création outils agents (JSON Schema, MCP) |
+| 47 | `computer-use-agents` | Agents computer-use (vision, desktop control) |
+
+### L. Documents & Productivité (6)
+| # | Skill | Domaine |
+|---|---|---|
+| 48 | `docx` | Création/édition Word (.docx) |
+| 49 | `pdf` | Traitement PDF (extraction, fusion, OCR) |
+| 50 | `pptx` | Présentations PowerPoint (.pptx) |
+| 51 | `xlsx` | Tableurs Excel (.xlsx, .csv) |
+| 52 | `schedule` | Tâches planifiées (cron, one-time, ad-hoc) |
+| 53 | `skill-creator` | Création et amélioration de skills |
+
+### Skills Système Convex (5 — activation complémentaire)
 | Skill | Source |
 |---|---|
 | `convex-setup-auth` | get-convex/agent-skills (officiel) |

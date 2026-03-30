@@ -568,7 +568,7 @@ export default function DemoAccountSwitcher() {
                                                                             {account.role}
                                                                         </p>
                                                                         {isActive && (
-                                                                            <Badge className="text-[8px] h-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                                                                            <Badge className="text-[10px] h-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                                                                                 ✓ ACTIF
                                                                             </Badge>
                                                                         )}

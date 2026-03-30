@@ -205,7 +205,7 @@ function NavLink({
                 ${collapsed ? "justify-center px-2" : ""}
             `}
         >
-            <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
+            <Icon aria-hidden="true" className={`h-[18px] w-[18px] shrink-0 ${active ? theme.activeText : ""}`} />
             {!collapsed && (
                 <>
                     <span className="truncate">{item.label}</span>
@@ -562,7 +562,7 @@ export default function ProLayout({
                                 <Menu className="h-4 w-4" />
                             </Button>
 
-                            <nav className="flex items-center gap-1 text-sm">
+                            <nav aria-label="Fil d'Ariane" className="flex items-center gap-1 text-sm">
                                 {breadcrumbs.map((crumb, i) => (
                                     <React.Fragment key={crumb.href}>
                                         {i > 0 && (
@@ -588,6 +588,7 @@ export default function ProLayout({
                                 <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                                 <Input
                                     placeholder="Rechercher…"
+                                    aria-label="Rechercher"
                                     className={`h-8 w-48 pl-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 ${layoutTheme.ringColor}`}
                                 />
                             </div>
@@ -598,7 +599,7 @@ export default function ProLayout({
                                 return info ? <><PageArchitectButton info={info} accentColor={layoutTheme.pageInfoAccent} /><PageInfoButton info={info} accentColor={layoutTheme.pageInfoAccent} /></> : null;
                             })()}
 
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground relative" aria-label="Notifications">
                                 <Bell className="h-4 w-4" />
                                 {notifications > 0 && (
                                     <span className={`absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full ${layoutTheme.notifBg} text-white text-[9px] font-bold flex items-center justify-center`}>

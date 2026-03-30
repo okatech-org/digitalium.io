@@ -130,6 +130,11 @@ export interface UseDocumentReorgParams {
     getOrCreateFolderMut: (args: any) => Promise<{ id: Id<"folders">; created: boolean }>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     batchApplyAIMut: (args: any) => Promise<{ moved: number; tagged: number; typed: number; archived: number }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cleanupEmptyFoldersMut?: (args: any) => Promise<{ cleaned: number }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    syncFromFoldersMut?: (args: any) => Promise<{ cellsCreated: number; cellsRemoved: number }>;
+    activeFilingStructureId?: Id<"filing_structures"> | null;
 }
 
 // ─── Hook ───────────────────────────────────────────────────────
@@ -147,6 +152,9 @@ export function useDocumentReorg({
     deepReorganizeAction,
     getOrCreateFolderMut,
     batchApplyAIMut,
+    cleanupEmptyFoldersMut,
+    syncFromFoldersMut,
+    activeFilingStructureId,
 }: UseDocumentReorgParams) {
     // ─── State ──────────────────────────────────────────────────
     const [showReorgDialog, setShowReorgDialog] = useState(false);
@@ -443,6 +451,39 @@ export function useDocumentReorg({
                 userId: user?.email || "system",
             });
 
+            setReorgProgress(80);
+
+            // 4. Phase D: Nettoyer les dossiers vides
+            let foldersCleanedUp = 0;
+            if (cleanupEmptyFoldersMut && convexOrgId) {
+                try {
+                    const cleanupResult = await cleanupEmptyFoldersMut({
+                        organizationId: convexOrgId,
+                    });
+                    foldersCleanedUp = cleanupResult.cleaned;
+                } catch (err) {
+                    console.warn("[Reorg] Cleanup warning:", err);
+                }
+            }
+
+            setReorgProgress(90);
+
+            // 5. Phase E: Synchroniser l'arborescence de classement (filing_cells)
+            let cellsCreated = 0;
+            let cellsRemoved = 0;
+            if (syncFromFoldersMut && activeFilingStructureId && convexOrgId) {
+                try {
+                    const syncResult = await syncFromFoldersMut({
+                        filingStructureId: activeFilingStructureId,
+                        organizationId: convexOrgId,
+                    });
+                    cellsCreated = syncResult.cellsCreated;
+                    cellsRemoved = syncResult.cellsRemoved;
+                } catch (err) {
+                    console.warn("[Reorg] Filing sync warning:", err);
+                }
+            }
+
             setReorgProgress(100);
             setReorgResult({
                 moved: applyResult.moved,
@@ -454,9 +495,11 @@ export function useDocumentReorg({
             setReorgStep("done");
             const parts = [`${applyResult.moved} déplacé(s)`];
             if (foldersCreated > 0) parts.push(`${foldersCreated} dossier(s) créé(s)`);
+            if (foldersCleanedUp > 0) parts.push(`${foldersCleanedUp} dossier(s) vide(s) supprimé(s)`);
             if (applyResult.tagged > 0) parts.push(`${applyResult.tagged} tagué(s)`);
             if (applyResult.typed > 0) parts.push(`${applyResult.typed} typé(s)`);
             if (applyResult.archived > 0) parts.push(`${applyResult.archived} rétention(s) appliquée(s)`);
+            if (cellsCreated > 0 || cellsRemoved > 0) parts.push(`classement restructuré (+${cellsCreated}/-${cellsRemoved})`);
             toast.success(`Réorganisation terminée : ${parts.join(", ")}`);
         } catch (err) {
             console.error("[Reorg] Execution error:", err);
@@ -464,7 +507,7 @@ export function useDocumentReorg({
             setReorgStep("preview");
         }
         setReorgLoading(false);
-    }, [reorgPlan, convexOrgId, folders, documents, documentTypes, user, getOrCreateFolderMut, batchApplyAIMut]);
+    }, [reorgPlan, convexOrgId, folders, documents, documentTypes, user, getOrCreateFolderMut, batchApplyAIMut, cleanupEmptyFoldersMut, syncFromFoldersMut, activeFilingStructureId]);
 
     // ─── Toggle move selection ──────────────────────────────────
     const handleToggleMoveSelection = useCallback((index: number) => {

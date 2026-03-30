@@ -230,7 +230,7 @@ export default function RetentionAlertEditor({
                                                 className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-white/[0.03] group"
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <Clock className="w-3 h-3 text-white/30" />
+                                                    <Clock className="w-3 h-3 text-white/50" />
                                                     <span className="text-xs text-white/70">
                                                         {alert.label}
                                                     </span>

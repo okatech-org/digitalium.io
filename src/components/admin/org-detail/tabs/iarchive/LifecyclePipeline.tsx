@@ -86,7 +86,7 @@ export default function LifecyclePipeline() {
                     <span className={`w-2 h-2 rounded-full ${DOT_MAP[gelNode.color]}`} />
                     {gelNode.label}
                 </div>
-                <span className="text-xs text-white/30">
+                <span className="text-xs text-white/50">
                     (suspension temporaire — tout état)
                 </span>
             </motion.div>

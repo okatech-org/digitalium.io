@@ -310,7 +310,7 @@ export default function SmartImportZone({
                     <p className="text-xs text-white/50 mb-2">
                         Glissez-déposez un fichier ou cliquez pour sélectionner
                     </p>
-                    <p className="text-[10px] text-white/30 mb-2">
+                    <p className="text-[10px] text-white/50 mb-2">
                         L&apos;IA analyse et extrait automatiquement les données
                     </p>
                     <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -343,7 +343,7 @@ export default function SmartImportZone({
             {/* ── File badge ── */}
             {fileName && !analyzing && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                    {FORMAT_CONFIG[fileType]?.icon ?? <FileText className="h-4 w-4 text-white/30" />}
+                    {FORMAT_CONFIG[fileType]?.icon ?? <FileText className="h-4 w-4 text-white/50" />}
                     <span className="text-xs text-violet-300 flex-1 truncate">{fileName}</span>
                     {aiConfidence > 0 && (
                         <Badge variant="secondary" className="text-[9px] bg-emerald-500/15 text-emerald-400 border-0 gap-1">
@@ -352,7 +352,7 @@ export default function SmartImportZone({
                         </Badge>
                     )}
                     <button
-                        className="text-white/30 hover:text-white/60 transition-colors"
+                        className="text-white/50 hover:text-white/60 transition-colors"
                         onClick={handleReset}
                         title="Supprimer"
                     >
@@ -376,7 +376,7 @@ export default function SmartImportZone({
                     <div className="max-h-[240px] overflow-y-auto overflow-x-auto">
                         <table className="w-full text-[10px]">
                             <thead>
-                                <tr className="border-b border-white/5 text-white/30">
+                                <tr className="border-b border-white/5 text-white/50">
                                     <th className="text-left py-1.5 px-3 font-medium w-[30px]">#</th>
                                     {schema.map((f) => (
                                         <th key={f.key} className="text-left py-1.5 px-3 font-medium whitespace-nowrap">

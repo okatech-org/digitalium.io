@@ -126,7 +126,7 @@ export default function SubAdminTeamDocumentsPage() {
                                 <p className="text-sm font-medium truncate group-hover:text-violet-300 transition-colors">{doc.title}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <div className="h-4 w-4 rounded-full bg-violet-500/15 flex items-center justify-center">
-                                        <span className="text-[8px] text-violet-300 font-bold">{doc.avatar}</span>
+                                        <span className="text-[10px] text-violet-300 font-bold">{doc.avatar}</span>
                                     </div>
                                     <span className="text-[11px] text-zinc-500">{doc.author}</span>
                                     <span className="text-[11px] text-zinc-600">·</span>

@@ -103,7 +103,7 @@ export default function DocumentGraph({ documentId, onNavigate }: DocumentGraphP
                                 <span className="text-xs text-white/70 truncate flex-1 group-hover:text-white">
                                     {rel.linkedDocTitle}
                                 </span>
-                                <Badge className="text-[8px] py-0 bg-white/5 text-white/40 border-white/10 shrink-0">
+                                <Badge className="text-[10px] py-0 bg-white/5 text-white/40 border-white/10 shrink-0">
                                     {RELATION_LABELS[rel.relationType] ?? rel.relationType}
                                 </Badge>
                                 <span className="text-[9px] text-muted-foreground shrink-0">

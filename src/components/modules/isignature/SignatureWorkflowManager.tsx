@@ -187,7 +187,7 @@ export default function SignatureWorkflowManager() {
                                         onClick={() =>
                                             setExpandedId(isExpanded ? null : wf._id)
                                         }
-                                        className="text-white/30 hover:text-white/60"
+                                        className="text-white/50 hover:text-white/60"
                                     >
                                         {isExpanded ? (
                                             <ChevronDown className="h-4 w-4" />
@@ -232,7 +232,7 @@ export default function SignatureWorkflowManager() {
                                 {/* Expanded: Steps */}
                                 {isExpanded && (
                                     <div className="px-4 pb-4 border-t border-white/5 pt-3">
-                                        <p className="text-[10px] text-white/30 font-semibold uppercase tracking-wider mb-2">
+                                        <p className="text-[10px] text-white/50 font-semibold uppercase tracking-wider mb-2">
                                             Étapes du workflow
                                         </p>
                                         <div className="flex items-center gap-1 flex-wrap">
@@ -328,7 +328,7 @@ export default function SignatureWorkflowManager() {
                                     key={idx}
                                     className="flex items-center gap-2 p-2.5 rounded-lg bg-white/[0.02] border border-white/5"
                                 >
-                                    <span className="text-[10px] text-white/30 font-mono w-4">
+                                    <span className="text-[10px] text-white/50 font-mono w-4">
                                         {step.order}
                                     </span>
                                     <Input

@@ -422,13 +422,13 @@ export default function DigitaliumSubscriptionsPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-sm font-semibold truncate">{sub.orgName}</span>
-                                        <Badge className={`text-[8px] py-0 border-0 ${statusConf.bg} ${statusConf.color}`}>
+                                        <Badge className={`text-[10px] py-0 border-0 ${statusConf.bg} ${statusConf.color}`}>
                                             {statusConf.label}
                                         </Badge>
-                                        <Badge variant="secondary" className="text-[8px] py-0 border-0 bg-white/5">
+                                        <Badge variant="secondary" className="text-[10px] py-0 border-0 bg-white/5">
                                             {planConf.label}
                                         </Badge>
-                                        <Badge variant="secondary" className="text-[8px] py-0 border-0 bg-white/5">
+                                        <Badge variant="secondary" className="text-[10px] py-0 border-0 bg-white/5">
                                             {sub.billingCycle === "annual" ? "Annuel" : "Mensuel"}
                                         </Badge>
                                     </div>
@@ -453,7 +453,7 @@ export default function DigitaliumSubscriptionsPage() {
                                                 return (
                                                     <span key={mod} className="inline-flex items-center gap-0.5 bg-white/5 rounded px-1 py-0.5">
                                                         <ModIcon className="h-2 w-2" />
-                                                        <span className="text-[8px]">{mod}</span>
+                                                        <span className="text-[10px]">{mod}</span>
                                                     </span>
                                                 );
                                             })}

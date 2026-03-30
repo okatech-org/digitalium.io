@@ -157,7 +157,7 @@ export default function AskAIBar({ orgId, orgName, orgSector }: AskAIBarProps) {
                                     <div className="flex items-center gap-2 mb-2">
                                         <Brain className="h-3.5 w-3.5 text-cyan-400" />
                                         <span className="text-xs font-semibold text-cyan-300">Réponse IA</span>
-                                        <Badge className="text-[8px] py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                                        <Badge className="text-[10px] py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
                                             {Math.round(response.confidence * 100)}% confiance
                                         </Badge>
                                     </div>

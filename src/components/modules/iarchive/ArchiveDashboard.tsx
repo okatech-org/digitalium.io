@@ -210,7 +210,7 @@ export default function ArchiveDashboard() {
                                 </div>
                                 <div className="flex items-end justify-between">
                                     <span className="text-2xl font-bold tabular-nums">{count}</span>
-                                    <Badge variant="outline" className="text-[8px] border-white/10 text-zinc-500">
+                                    <Badge variant="outline" className="text-[10px] border-white/10 text-zinc-500">
                                         {cat.isPerpetual ? "∞" : `${cat.retentionYears}a`}
                                     </Badge>
                                 </div>

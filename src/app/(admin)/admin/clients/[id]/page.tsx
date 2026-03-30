@@ -312,11 +312,11 @@ export default function ClientDetailPage() {
                                                 <p className="text-[10px] text-muted-foreground">{member.poste}</p>
                                             )}
                                         </div>
-                                        <Badge className="text-[8px] py-0 border-0 bg-white/5 text-muted-foreground">
+                                        <Badge className="text-[10px] py-0 border-0 bg-white/5 text-muted-foreground">
                                             {ROLE_LABELS[member.role] ?? member.role}
                                         </Badge>
                                         <Badge
-                                            className={`text-[8px] py-0 border-0 ${member.status === "active"
+                                            className={`text-[10px] py-0 border-0 ${member.status === "active"
                                                 ? "bg-emerald-500/15 text-emerald-400"
                                                 : member.status === "invited"
                                                     ? "bg-blue-500/15 text-blue-400"

@@ -349,7 +349,7 @@ export default function SignatureAnalyticsPage() {
                                         <td className="py-2.5 px-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="h-6 w-6 rounded-full bg-violet-500/20 flex items-center justify-center">
-                                                    <span className="text-[8px] text-violet-300 font-bold">
+                                                    <span className="text-[10px] text-violet-300 font-bold">
                                                         {signer.name.split(" ").map((n) => n[0]).join("")}
                                                     </span>
                                                 </div>

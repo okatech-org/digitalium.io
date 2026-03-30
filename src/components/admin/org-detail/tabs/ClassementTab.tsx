@@ -124,9 +124,9 @@ function TreeNode({
             className="text-muted-foreground hover:text-white transition-colors shrink-0"
           >
             {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="h-5 w-5" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-5 w-5" />
             )}
           </button>
         ) : (
@@ -148,7 +148,7 @@ function TreeNode({
 
         {/* Access level badge */}
         <Badge
-          className={`text-[8px] py-0 px-1.5 ${confidentiality.bg} ${confidentiality.text} ${confidentiality.border}`}
+          className={`text-[10px] py-0 px-1.5 ${confidentiality.bg} ${confidentiality.text} ${confidentiality.border}`}
         >
           {CONFIDENTIALITY_LABELS[node.accessDefaut]}
         </Badge>
@@ -156,7 +156,7 @@ function TreeNode({
         {/* Module badge */}
         {moduleInfo && (
           <Badge
-            className={`text-[8px] py-0 px-1.5 bg-${moduleInfo.color}-500/10 text-${moduleInfo.color}-400 border-${moduleInfo.color}-500/20`}
+            className={`text-[10px] py-0 px-1.5 bg-${moduleInfo.color}-500/10 text-${moduleInfo.color}-400 border-${moduleInfo.color}-500/20`}
           >
             {moduleInfo.label}
           </Badge>
@@ -165,7 +165,7 @@ function TreeNode({
         {/* Retention category badge */}
         {retCat && (
           <Badge
-            className={`text-[8px] py-0 px-1.5 bg-${retCat.color}-500/10 text-${retCat.color}-400 border-${retCat.color}-500/20 gap-0.5`}
+            className={`text-[10px] py-0 px-1.5 bg-${retCat.color}-500/10 text-${retCat.color}-400 border-${retCat.color}-500/20 gap-0.5`}
           >
             <Archive className="h-2 w-2" />
             {retCat.name}
@@ -174,7 +174,7 @@ function TreeNode({
 
         {/* Depth warning badge */}
         {isAtMaxDepth && (
-          <Badge className="text-[8px] py-0 px-1.5 bg-amber-500/10 text-amber-400 border-amber-500/20 gap-0.5">
+          <Badge className="text-[10px] py-0 px-1.5 bg-amber-500/10 text-amber-400 border-amber-500/20 gap-0.5">
             <AlertTriangle className="h-2 w-2" />
             Profondeur max
           </Badge>
@@ -185,26 +185,26 @@ function TreeNode({
           {!isAtMaxDepth ? (
             <button
               onClick={() => onAddChild(node._id)}
-              className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
+              className="p-1.5 rounded hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
               title="Ajouter un sous-dossier"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
           ) : (
             <button
               disabled
-              className="p-1 rounded text-white/10 cursor-not-allowed"
+              className="p-1.5 rounded text-white/10 cursor-not-allowed"
               title={`Profondeur maximale atteinte (${maxDepth} niveaux)`}
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
           )}
           <button
             onClick={() => onRemove(node._id)}
-            className="p-1 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-colors"
+            className="p-1.5 rounded hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-colors"
             title="Supprimer"
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -537,7 +537,7 @@ function ArborescencePanel({ orgId, orgType, maxDepth }: { orgId: Id<"organizati
         <div className="flex items-center gap-2">
           <FolderTree className="h-4 w-4 text-violet-400" />
           <span className="text-sm font-semibold">{activeStructure.nom}</span>
-          <Badge className="text-[8px] bg-violet-500/10 text-violet-400 border-violet-500/20 py-0">
+          <Badge className="text-[10px] bg-violet-500/10 text-violet-400 border-violet-500/20 py-0">
             {activeStructure.type === "standard" ? "Standard" : "Personnalise"}
           </Badge>
         </div>
@@ -950,9 +950,9 @@ function MatriceAccesPanel({ orgId }: { orgId: Id<"organizations"> }) {
                 {/* Sub-labels row (unit names) */}
                 {columns.some((c) => c.subLabel) && (
                   <tr className="border-b border-white/5">
-                    <th className="text-left py-1.5 px-3 font-medium text-white/30 min-w-[200px]" />
+                    <th className="text-left py-1.5 px-3 font-medium text-white/50 min-w-[200px]" />
                     {columns.map((col) => (
-                      <th key={`sub-${col.key}`} className="py-1.5 px-2 font-normal text-[9px] text-white/30 text-center">
+                      <th key={`sub-${col.key}`} className="py-1.5 px-2 font-normal text-[9px] text-white/50 text-center">
                         {col.subLabel}
                       </th>
                     ))}
@@ -1014,7 +1014,7 @@ function MatriceAccesPanel({ orgId }: { orgId: Id<"organizations"> }) {
             className="fixed z-50 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl py-1 min-w-[160px]"
             style={{ left: fillMenu.x, top: fillMenu.y }}
           >
-            <p className="text-[9px] text-white/30 px-3 py-1 uppercase tracking-wider">
+            <p className="text-[9px] text-white/50 px-3 py-1 uppercase tracking-wider">
               Remplir {fillMenu.type === "col" ? "la colonne" : "la ligne"}
             </p>
             {ACCESS_LEVELS.map((level) => {
@@ -1499,7 +1499,7 @@ function DepthConfigPanel({
               <span className={`text-xs font-semibold ${depthStrategy === "intelligente" ? "text-white" : "text-white/70"}`}>
                 Intelligente
               </span>
-              <Badge className="text-[8px] py-0 px-1 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+              <Badge className="text-[10px] py-0 px-1 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                 Recommandé
               </Badge>
             </div>

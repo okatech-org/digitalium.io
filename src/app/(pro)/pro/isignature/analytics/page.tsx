@@ -369,6 +369,16 @@ export default function SignatureAnalyticsPage() {
                             </div>
                         )}
                     </div>
+                    {/* Accessible data table for screen readers */}
+                    <table className="sr-only">
+                        <caption>Signatures par mois</caption>
+                        <thead><tr><th>Mois</th><th>Cr&eacute;&eacute;es</th><th>Compl&eacute;t&eacute;es</th></tr></thead>
+                        <tbody>
+                            {monthlyData.map((m) => (
+                                <tr key={m.month}><td>{m.month}</td><td>{m.created}</td><td>{m.completed}</td></tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </motion.div>
 
                 {/* Status Distribution Pie */}
@@ -432,6 +442,16 @@ export default function SignatureAnalyticsPage() {
                             </div>
                         ))}
                     </div>
+                    {/* Accessible data table for screen readers */}
+                    <table className="sr-only">
+                        <caption>Distribution des statuts</caption>
+                        <thead><tr><th>Statut</th><th>Nombre</th></tr></thead>
+                        <tbody>
+                            {statusDistribution.map((s) => (
+                                <tr key={s.name}><td>{s.name}</td><td>{s.value}</td></tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </motion.div>
             </div>
 

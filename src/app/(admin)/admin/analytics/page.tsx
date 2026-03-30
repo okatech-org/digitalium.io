@@ -263,7 +263,7 @@ export default function AdminAnalyticsPage() {
                                         <div className="flex items-center gap-2">
                                             <span className="text-muted-foreground w-4 text-right">{i + 1}.</span>
                                             <span className="font-medium">{f.feature}</span>
-                                            <Badge variant="secondary" className="text-[8px] bg-white/5 border-0">
+                                            <Badge variant="secondary" className="text-[10px] bg-white/5 border-0">
                                                 {f.module}
                                             </Badge>
                                         </div>

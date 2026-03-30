@@ -97,7 +97,7 @@ function ColumnFolderItem({
             }
             <span className="truncate flex-1 text-left font-medium">{folder.name}</span>
             {folder.isSystem && (
-                <span className="text-[8px] text-zinc-500 bg-zinc-500/10 px-1 py-0.5 rounded shrink-0">
+                <span className="text-[10px] text-zinc-500 bg-zinc-500/10 px-1 py-0.5 rounded shrink-0">
                     Sys
                 </span>
             )}

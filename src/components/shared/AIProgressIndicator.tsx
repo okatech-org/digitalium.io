@@ -321,7 +321,7 @@ export default function AIProgressIndicator({
     }, [phase]);
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-5" aria-busy={phase !== "done" && phase !== "error"}>
             {/* ── Circular progress + label ── */}
             <div className="flex flex-col items-center gap-4">
                 <motion.div
@@ -346,7 +346,7 @@ export default function AIProgressIndicator({
                 </motion.div>
 
                 {/* Labels */}
-                <div className="text-center space-y-1.5">
+                <div className="text-center space-y-1.5" aria-live="polite">
                     <AnimatePresence mode="wait">
                         <motion.p
                             key={operationLabel ?? phaseConfig.label}
@@ -459,7 +459,7 @@ export default function AIProgressIndicator({
                             className="flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.03] border border-white/5"
                         >
                             <div className="h-6 w-6 rounded-md bg-white/5 flex items-center justify-center shrink-0">
-                                <FileText className="h-3 w-3 text-white/30" />
+                                <FileText className="h-3 w-3 text-white/50" />
                             </div>
                             <p className="text-xs flex-1 truncate text-white/70">{file.name}</p>
                             {file.status === "done" ? (

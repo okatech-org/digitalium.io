@@ -99,7 +99,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
                                         {isActive && (
                                             <motion.div layoutId="org-active-nav" className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-violet-500 rounded-r-full shadow-[0_0_10px_rgba(139,92,246,0.5)]" />
                                         )}
-                                        <Icon className="h-4 w-4 shrink-0" />
+                                        <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
                                         <span>{item.label}</span>
                                     </div>
                                 </Link>
@@ -167,7 +167,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
                             <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 -ml-2 text-zinc-400 hover:text-white" onClick={() => setIsMobileOpen(true)}>
                                 <Menu className="h-5 w-5" />
                             </Button>
-                            <nav className="hidden sm:flex items-center text-sm font-medium text-zinc-400 max-w-[50vw] overflow-hidden whitespace-nowrap">
+                            <nav aria-label="Fil d'Ariane" className="hidden sm:flex items-center text-sm font-medium text-zinc-400 max-w-[50vw] overflow-hidden whitespace-nowrap">
                                 {breadcrumbs.map((crumb, idx) => (
                                     <React.Fragment key={crumb.href}>
                                         {idx > 0 && <ChevronRightIcon className="h-4 w-4 mx-2 text-zinc-600 shrink-0" />}

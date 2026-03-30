@@ -33,6 +33,7 @@ export default function GlobalError({
 
     return (
         <div
+            role="alert"
             style={{
                 display: "flex",
                 flexDirection: "column",

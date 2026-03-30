@@ -328,7 +328,7 @@ export default function DigitaliumIsignaturePage() {
                                                     title={`${signer.name} — ${signer.status}`}
                                                 >
                                                     <div className="h-6 w-6 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center">
-                                                        <span className="text-[8px] text-zinc-400 font-bold">
+                                                        <span className="text-[10px] text-zinc-400 font-bold">
                                                             {signer.name.split(" ").map((n) => n[0]).join("")}
                                                         </span>
                                                     </div>

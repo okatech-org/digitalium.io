@@ -127,7 +127,7 @@ export default function ComplianceDashboard({ orgId }: { orgId: Id<"organization
                     <div className="flex items-center gap-2 mb-4">
                         <TrendingUp className="h-4 w-4 text-cyan-400" />
                         <h3 className="text-sm font-semibold">Prévisions {new Date().getFullYear()}</h3>
-                        <Badge className="text-[8px] bg-cyan-500/10 text-cyan-400 border-cyan-500/20">Innovation K</Badge>
+                        <Badge className="text-[10px] bg-cyan-500/10 text-cyan-400 border-cyan-500/20">Innovation K</Badge>
                     </div>
                     <div className="grid grid-cols-4 gap-3">
                         {(["q1", "q2", "q3", "q4"] as const).map((q, i) => (
@@ -155,7 +155,7 @@ export default function ComplianceDashboard({ orgId }: { orgId: Id<"organization
                     <div className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4 text-amber-400" />
                         <h3 className="text-sm font-semibold">Anomalies détectées</h3>
-                        <Badge className="text-[8px] bg-amber-500/10 text-amber-400 border-amber-500/20">
+                        <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20">
                             {auditReport.issues.length}
                         </Badge>
                     </div>
@@ -168,10 +168,10 @@ export default function ComplianceDashboard({ orgId }: { orgId: Id<"organization
                                     <Icon className={`h-4 w-4 ${config.color} shrink-0 mt-0.5`} />
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
-                                            <Badge className={`text-[8px] py-0 ${config.bg} ${config.color} ${config.border}`}>
+                                            <Badge className={`text-[10px] py-0 ${config.bg} ${config.color} ${config.border}`}>
                                                 {config.label}
                                             </Badge>
-                                            <Badge className="text-[8px] py-0 bg-white/5 text-white/40 border-white/10">
+                                            <Badge className="text-[10px] py-0 bg-white/5 text-white/40 border-white/10">
                                                 {issue.category}
                                             </Badge>
                                         </div>

@@ -160,12 +160,16 @@ function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
             <AnimatePresence>
                 {mobileMenuOpen && (
                     <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Menu de navigation"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-4 md:hidden"
                         onClick={() => setMobileMenuOpen(false)}
+                        onKeyDown={(e) => { if (e.key === "Escape") setMobileMenuOpen(false); }}
                     >
                         {/* Backdrop */}
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -181,6 +185,7 @@ function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
                         >
                             {/* Close button */}
                             <button
+                                autoFocus
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="absolute -top-2 -right-2 z-10 w-8 h-8 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/20 transition-all"
                             >

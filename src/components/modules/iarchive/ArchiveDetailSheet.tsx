@@ -117,7 +117,7 @@ function LifecycleTimeline({ phases }: { phases: LifecyclePhase[] }) {
                         {phase.status === "done" && <CheckCircle2 className="h-2.5 w-2.5" />}
                         {phase.status === "current" && <div className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />}
                         <span>{phase.label}</span>
-                        {phase.date && <span className="text-[8px] opacity-70">({phase.date})</span>}
+                        {phase.date && <span className="text-[10px] opacity-70">({phase.date})</span>}
                     </div>
                     {i < phases.length - 1 && <ArrowRight className="h-2.5 w-2.5 text-zinc-600 shrink-0" />}
                 </React.Fragment>
@@ -382,7 +382,7 @@ export default function ArchiveDetailSheet({ open, onClose, archiveId, onDownloa
                                         <span className="text-[11px] text-zinc-500 shrink-0">Tags</span>
                                         <div className="flex flex-wrap gap-1 justify-end">
                                             {archive.tags.map((tag: string) => (
-                                                <Badge key={tag} variant="outline" className="text-[8px] h-4 border-white/10 text-zinc-400">
+                                                <Badge key={tag} variant="outline" className="text-[10px] h-4 border-white/10 text-zinc-400">
                                                     {tag}
                                                 </Badge>
                                             ))}

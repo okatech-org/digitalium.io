@@ -662,3 +662,163 @@ export const syncFoldersFromCells = mutation({
         return { synced, total: cells.length };
     },
 });
+
+// ─── Sync: reconstruire les filing_cells depuis l'arborescence de dossiers ──
+
+export const syncFromFolders = mutation({
+    args: {
+        filingStructureId: v.id("filing_structures"),
+        organizationId: v.id("organizations"),
+    },
+    handler: async (ctx, args) => {
+        const now = Date.now();
+        let cellsCreated = 0;
+        let cellsRemoved = 0;
+
+        // 1. Récupérer toutes les filing_cells de cette structure
+        const existingCells = await ctx.db
+            .query("filing_cells")
+            .withIndex("by_filingStructureId", (q) => q.eq("filingStructureId", args.filingStructureId))
+            .collect();
+
+        // 2. Récupérer tous les dossiers actifs de l'org
+        const allFolders = await ctx.db
+            .query("folders")
+            .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+        const activeFolders = allFolders.filter((f) => f.status === "active");
+
+        // 3. Supprimer les cells dont le dossier lié est trashed ou inexistant
+        for (const cell of existingCells) {
+            if (!cell.estActif) continue;
+
+            // Trouver le dossier lié via filingCellId (reverse lookup)
+            const linkedFolder = activeFolders.find(
+                (f) => f.filingCellId && String(f.filingCellId) === String(cell._id)
+            );
+
+            if (!linkedFolder) {
+                // Le dossier n'existe plus ou est trashed → désactiver la cell
+                await ctx.db.patch(cell._id, {
+                    estActif: false,
+                    updatedAt: now,
+                });
+                cellsRemoved++;
+            }
+        }
+
+        // 4. Créer des cells pour les dossiers actifs sans cell liée
+        // Trier par profondeur (parents d'abord)
+        const folderDepths = new Map<string, number>();
+        for (const folder of activeFolders) {
+            let depth = 0;
+            let current = folder;
+            while (current.parentFolderId) {
+                depth++;
+                const parent = activeFolders.find((f) => String(f._id) === String(current.parentFolderId));
+                if (!parent) break;
+                current = parent;
+                if (depth > 20) break;
+            }
+            folderDepths.set(String(folder._id), depth);
+        }
+
+        const sortedFolders = [...activeFolders].sort(
+            (a, b) => (folderDepths.get(String(a._id)) ?? 0) - (folderDepths.get(String(b._id)) ?? 0)
+        );
+
+        // Map de folder._id → cell._id pour résolution des parents
+        const folderToCellMap = new Map<string, Id<"filing_cells">>();
+        for (const cell of existingCells) {
+            if (!cell.estActif) continue;
+            const linkedFolder = activeFolders.find(
+                (f) => f.filingCellId && String(f.filingCellId) === String(cell._id)
+            );
+            if (linkedFolder) {
+                folderToCellMap.set(String(linkedFolder._id), cell._id);
+            }
+        }
+
+        for (const folder of sortedFolders) {
+            // Vérifier si une cell existe déjà pour ce dossier
+            const hasCell = folderToCellMap.has(String(folder._id));
+            if (hasCell) continue;
+
+            // Vérifier si le dossier a un filingCellId qui pointe vers une cell active
+            if (folder.filingCellId) {
+                const existingCell = existingCells.find(
+                    (c) => String(c._id) === String(folder.filingCellId) && c.estActif
+                );
+                if (existingCell) {
+                    folderToCellMap.set(String(folder._id), existingCell._id);
+                    continue;
+                }
+            }
+
+            // Générer un code automatique depuis le nom du dossier
+            const rawCode = folder.name
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprimer accents
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .substring(0, 6);
+            let code = rawCode || "DOC";
+
+            // S'assurer de l'unicité du code
+            const existingCodes = new Set(existingCells.map((c) => c.code));
+            let suffix = 1;
+            while (existingCodes.has(code)) {
+                code = `${rawCode.substring(0, 5)}${suffix}`;
+                suffix++;
+            }
+            existingCodes.add(code);
+
+            // Résoudre le parent cell depuis le parent folder
+            let parentCellId: Id<"filing_cells"> | undefined;
+            if (folder.parentFolderId) {
+                parentCellId = folderToCellMap.get(String(folder.parentFolderId));
+            }
+
+            const depth = folderDepths.get(String(folder._id)) ?? 0;
+
+            // Créer la filing_cell
+            const cellId = await ctx.db.insert("filing_cells", {
+                filingStructureId: args.filingStructureId,
+                organizationId: args.organizationId,
+                code,
+                intitule: folder.name,
+                parentId: parentCellId,
+                niveau: depth,
+                description: folder.description ?? "",
+                accessDefaut: "restreint",
+                tags: folder.tags ?? [],
+                ordre: cellsCreated,
+                estActif: true,
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            // Lier le dossier à la nouvelle cell
+            await ctx.db.patch(folder._id, {
+                filingCellId: cellId,
+                isSystem: true, // Marquer comme géré par le classement
+                updatedAt: now,
+            });
+
+            folderToCellMap.set(String(folder._id), cellId);
+            cellsCreated++;
+        }
+
+        // Audit log
+        await ctx.db.insert("audit_logs", {
+            organizationId: args.organizationId,
+            userId: "system",
+            action: "filing_structure.sync_from_folders",
+            resourceType: "filing_structure" as const,
+            resourceId: String(args.filingStructureId),
+            details: { cellsCreated, cellsRemoved },
+            createdAt: now,
+        });
+
+        return { cellsCreated, cellsRemoved };
+    },
+});

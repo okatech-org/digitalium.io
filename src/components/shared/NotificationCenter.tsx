@@ -161,7 +161,7 @@ export default function NotificationCenter() {
                             <button
                                 onClick={() => setIsOpen(false)}
                                 title="Fermer les notifications"
-                                className="p-1 rounded hover:bg-white/[0.06] text-white/30 hover:text-white/60"
+                                className="p-1 rounded hover:bg-white/[0.06] text-white/50 hover:text-white/60"
                             >
                                 <X className="h-4 w-4" />
                             </button>
@@ -210,7 +210,7 @@ export default function NotificationCenter() {
                                                 <Icon className={`h-4 w-4 ${
                                                     isUnread
                                                         ? "text-violet-400"
-                                                        : "text-white/30"
+                                                        : "text-white/50"
                                                 }`} />
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -221,7 +221,7 @@ export default function NotificationCenter() {
                                                 }`}>
                                                     {notif.title}
                                                 </p>
-                                                <p className="text-xs text-white/30 mt-0.5 truncate">
+                                                <p className="text-xs text-white/50 mt-0.5 truncate">
                                                     {notif.description}
                                                 </p>
                                                 <p className="text-[10px] text-white/20 mt-1">

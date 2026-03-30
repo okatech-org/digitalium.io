@@ -186,7 +186,7 @@ export default function BillingPage() {
                         <div>
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold">Plan Pro</span>
-                                <Badge className="text-[8px] bg-emerald-500/15 text-emerald-400 border-0">Actif</Badge>
+                                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-0">Actif</Badge>
                             </div>
                             <p className="text-[11px] text-zinc-400">8 utilisateurs · 47 Go utilisés / 50 Go · Mensuel</p>
                         </div>
@@ -221,7 +221,7 @@ export default function BillingPage() {
                         }`}
                     >
                         Annuel
-                        <Badge className="text-[8px] bg-emerald-500/15 text-emerald-400 border-0">-15%</Badge>
+                        <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-0">-15%</Badge>
                     </button>
                 </div>
             </motion.div>

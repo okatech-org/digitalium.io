@@ -362,7 +362,7 @@ export default function SignatureRequestModal({ open, onClose, onSubmit, documen
                                                 </div>
                                                 <Badge
                                                     variant="outline"
-                                                    className={`text-[8px] h-4 ${roleCfg.bg} ${roleCfg.color} ${roleCfg.border}`}
+                                                    className={`text-[10px] h-4 ${roleCfg.bg} ${roleCfg.color} ${roleCfg.border}`}
                                                 >
                                                     <RoleIcon className="h-2 w-2 mr-0.5" />
                                                     {roleCfg.label}
@@ -398,7 +398,7 @@ export default function SignatureRequestModal({ open, onClose, onSubmit, documen
                                     {signers.map((s) => {
                                         const cfg = ROLE_CONFIG[s.role];
                                         return (
-                                            <Badge key={s.id} variant="outline" className={`text-[8px] h-4 ${cfg.border} ${cfg.color}`}>
+                                            <Badge key={s.id} variant="outline" className={`text-[10px] h-4 ${cfg.border} ${cfg.color}`}>
                                                 {s.name}
                                             </Badge>
                                         );

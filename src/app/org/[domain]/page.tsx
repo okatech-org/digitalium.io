@@ -159,7 +159,7 @@ function Footer({ org, primaryColor }: { org: OrgData; primaryColor: string }) {
                         )}
                         <span className="text-sm font-medium text-white/70">{org.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-white/30">
+                    <div className="flex items-center gap-2 text-xs text-white/50">
                         <span>Propulsé par</span>
                         <a
                             href="https://digitalium.io"
@@ -344,7 +344,7 @@ function CorporateTemplate({ org }: { org: OrgData }) {
                                 <a href={`mailto:${org.email}`} className="flex items-center gap-3 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-all">
                                     <Mail className="w-5 h-5 shrink-0" style={{ color: primary }} />
                                     <div className="min-w-0">
-                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Email</p>
+                                        <p className="text-[10px] text-white/50 uppercase tracking-wider">Email</p>
                                         <p className="text-sm text-white/70 truncate">{org.email}</p>
                                     </div>
                                 </a>
@@ -353,7 +353,7 @@ function CorporateTemplate({ org }: { org: OrgData }) {
                                 <a href={`tel:${org.telephone}`} className="flex items-center gap-3 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-all">
                                     <Phone className="w-5 h-5 shrink-0" style={{ color: primary }} />
                                     <div className="min-w-0">
-                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Téléphone</p>
+                                        <p className="text-[10px] text-white/50 uppercase tracking-wider">Téléphone</p>
                                         <p className="text-sm text-white/70">{org.telephone}</p>
                                     </div>
                                 </a>
@@ -362,7 +362,7 @@ function CorporateTemplate({ org }: { org: OrgData }) {
                                 <div className="flex items-center gap-3 p-4 rounded-xl border border-white/5 bg-white/[0.02]">
                                     <MapPin className="w-5 h-5 shrink-0" style={{ color: primary }} />
                                     <div className="min-w-0">
-                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Adresse</p>
+                                        <p className="text-[10px] text-white/50 uppercase tracking-wider">Adresse</p>
                                         <p className="text-sm text-white/70">{org.adresse}{org.ville ? `, ${org.ville}` : ""}</p>
                                     </div>
                                 </div>
@@ -507,7 +507,7 @@ function StartupTemplate({ org }: { org: OrgData }) {
                                         </div>
                                         <h3 className="font-bold text-lg mb-2">{MODULE_LABELS[mod] || mod}</h3>
                                         <p className="text-sm text-white/40 leading-relaxed">{MODULE_DESCRIPTIONS[mod] || ""}</p>
-                                        <ChevronRight className="absolute bottom-6 right-6 w-5 h-5 text-white/10 group-hover:text-white/30 transition-colors" />
+                                        <ChevronRight className="absolute bottom-6 right-6 w-5 h-5 text-white/10 group-hover:text-white/50 transition-colors" />
                                     </motion.div>
                                 );
                             })}
@@ -574,7 +574,7 @@ function InstitutionTemplate({ org }: { org: OrgData }) {
             <header className="border-b border-white/5 bg-[#060a14]/90 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto px-6">
                     {/* Top bar */}
-                    <div className="flex items-center justify-between py-2 border-b border-white/5 text-[10px] text-white/30">
+                    <div className="flex items-center justify-between py-2 border-b border-white/5 text-[10px] text-white/50">
                         <span>République du {org.pays || "Gabon"}</span>
                         <span>{org.ville || ""}</span>
                     </div>
@@ -659,7 +659,7 @@ function InstitutionTemplate({ org }: { org: OrgData }) {
                                     >
                                         <stat.icon className="w-5 h-5 mx-auto mb-2" style={{ color: primary }} />
                                         <p className="text-xs font-bold">{stat.value}</p>
-                                        <p className="text-[10px] text-white/30">{stat.label}</p>
+                                        <p className="text-[10px] text-white/50">{stat.label}</p>
                                     </div>
                                 ))}
                             </div>
@@ -729,7 +729,7 @@ function InstitutionTemplate({ org }: { org: OrgData }) {
                                     <div className="flex items-start gap-3">
                                         <MapPin className="w-5 h-5 shrink-0 mt-0.5" style={{ color: primary }} />
                                         <div>
-                                            <p className="text-xs font-medium text-white/30 uppercase tracking-wider mb-1">Adresse</p>
+                                            <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-1">Adresse</p>
                                             <p className="text-sm text-white/70">{org.adresse}</p>
                                             {org.ville && <p className="text-sm text-white/70">{org.ville}, {org.pays || "Gabon"}</p>}
                                         </div>
@@ -739,7 +739,7 @@ function InstitutionTemplate({ org }: { org: OrgData }) {
                                     <div className="flex items-start gap-3">
                                         <Phone className="w-5 h-5 shrink-0 mt-0.5" style={{ color: primary }} />
                                         <div>
-                                            <p className="text-xs font-medium text-white/30 uppercase tracking-wider mb-1">Téléphone</p>
+                                            <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-1">Téléphone</p>
                                             <a href={`tel:${org.telephone}`} className="text-sm text-white/70 hover:text-white/90 transition-colors">{org.telephone}</a>
                                         </div>
                                     </div>
@@ -748,7 +748,7 @@ function InstitutionTemplate({ org }: { org: OrgData }) {
                                     <div className="flex items-start gap-3">
                                         <Mail className="w-5 h-5 shrink-0 mt-0.5" style={{ color: primary }} />
                                         <div>
-                                            <p className="text-xs font-medium text-white/30 uppercase tracking-wider mb-1">Email</p>
+                                            <p className="text-xs font-medium text-white/50 uppercase tracking-wider mb-1">Email</p>
                                             <a href={`mailto:${org.email}`} className="text-sm text-white/70 hover:text-white/90 transition-colors">{org.email}</a>
                                         </div>
                                     </div>

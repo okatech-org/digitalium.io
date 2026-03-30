@@ -417,7 +417,7 @@ function IDocumentPanel({
 
                         {FORMAT_CATEGORIES.map((cat) => (
                             <div key={cat.label} className="mb-3 last:mb-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/30 mb-1.5">
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-white/50 mb-1.5">
                                     {cat.label}
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
@@ -446,7 +446,7 @@ function IDocumentPanel({
                         ))}
 
                         <div className="mt-3 pt-2 border-t border-white/5">
-                            <p className="text-[10px] text-white/30">
+                            <p className="text-[10px] text-white/50">
                                 {local.allowedFormats.length} format{local.allowedFormats.length > 1 ? "s" : ""} sélectionné{local.allowedFormats.length > 1 ? "s" : ""} :{" "}
                                 <span className="text-white/50">{local.allowedFormats.join(", ")}</span>
                             </p>
@@ -505,21 +505,21 @@ function IDocumentPanel({
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dt.couleur || "#6B7280" }} />
                                     <span className="text-xs font-medium text-white/80 truncate">{dt.nom}</span>
-                                    <span className="text-[10px] font-mono text-white/30 bg-white/[0.04] px-1.5 py-0.5 rounded">{dt.code}</span>
+                                    <span className="text-[10px] font-mono text-white/50 bg-white/[0.04] px-1.5 py-0.5 rounded">{dt.code}</span>
                                     {dt.isDefault && <span className="text-[9px] text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">Défaut</span>}
                                 </div>
                                 <div className="flex gap-1 shrink-0">
-                                    <button aria-label="Modifier le type" onClick={() => { setEditingType(dt); setTypeForm({ nom: dt.nom, code: dt.code, description: dt.description || "", icone: dt.icone || "File", couleur: dt.couleur || "#6B7280", retentionCategorySlug: dt.retentionCategorySlug || "", isDefault: dt.isDefault || false }); setShowTypeDialog(true); }} className="p-1 rounded text-white/30 hover:text-violet-400 hover:bg-violet-500/10 transition-colors">
+                                    <button aria-label="Modifier le type" onClick={() => { setEditingType(dt); setTypeForm({ nom: dt.nom, code: dt.code, description: dt.description || "", icone: dt.icone || "File", couleur: dt.couleur || "#6B7280", retentionCategorySlug: dt.retentionCategorySlug || "", isDefault: dt.isDefault || false }); setShowTypeDialog(true); }} className="p-1 rounded text-white/50 hover:text-violet-400 hover:bg-violet-500/10 transition-colors">
                                         <Edit3 className="h-3 w-3" />
                                     </button>
-                                    <button aria-label={dt.estActif ? "Désactiver le type" : "Réactiver le type"} onClick={async () => { try { if (dt.estActif) { await updateType({ id: dt._id, estActif: false }); toast.success("Type désactivé"); } else { await updateType({ id: dt._id, estActif: true }); toast.success("Type réactivé"); } } catch (err: any) { toast.error(err.message); } }} className="p-1 rounded text-white/30 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
+                                    <button aria-label={dt.estActif ? "Désactiver le type" : "Réactiver le type"} onClick={async () => { try { if (dt.estActif) { await updateType({ id: dt._id, estActif: false }); toast.success("Type désactivé"); } else { await updateType({ id: dt._id, estActif: true }); toast.success("Type réactivé"); } } catch (err: any) { toast.error(err.message); } }} className="p-1 rounded text-white/50 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
                                         <Power className="h-3 w-3" />
                                     </button>
                                 </div>
                             </div>
                         ))}
                         {(!documentTypes || documentTypes.length === 0) && (
-                            <p className="text-xs text-white/30 text-center py-4">Aucun type de document configuré. Cliquez sur &quot;Initialiser par défaut&quot; pour commencer.</p>
+                            <p className="text-xs text-white/50 text-center py-4">Aucun type de document configuré. Cliquez sur &quot;Initialiser par défaut&quot; pour commencer.</p>
                         )}
                     </div>
 
@@ -588,16 +588,16 @@ function IDocumentPanel({
                             <div key={f._id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-white/5 bg-white/[0.02]">
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <span className="text-xs font-medium text-white/80">{f.fieldLabel}</span>
-                                    <span className="text-[10px] text-white/30 bg-white/[0.04] px-1.5 py-0.5 rounded">{f.fieldType}</span>
+                                    <span className="text-[10px] text-white/50 bg-white/[0.04] px-1.5 py-0.5 rounded">{f.fieldType}</span>
                                     {f.isRequired && <span className="text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Obligatoire</span>}
                                 </div>
-                                <button aria-label="Supprimer le champ" onClick={async () => { try { await removeMeta({ id: f._id }); toast.success("Champ supprimé"); } catch (err: any) { toast.error(err.message); }}} className="p-1 rounded text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                                <button aria-label="Supprimer le champ" onClick={async () => { try { await removeMeta({ id: f._id }); toast.success("Champ supprimé"); } catch (err: any) { toast.error(err.message); }}} className="p-1 rounded text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors">
                                     <Trash2 className="h-3 w-3" />
                                 </button>
                             </div>
                         ))}
                         {(!metadataFields || metadataFields.length === 0) && (
-                            <p className="text-xs text-white/30 text-center py-4">Aucun champ de métadonnées personnalisé.</p>
+                            <p className="text-xs text-white/50 text-center py-4">Aucun champ de métadonnées personnalisé.</p>
                         )}
                     </div>
 
@@ -679,7 +679,7 @@ function IDocumentPanel({
                                         <div className="flex items-center gap-2">
                                             <Shield className="h-3.5 w-3.5 text-amber-400" />
                                             <span className="text-xs font-semibold text-white/80">{group.nom}</span>
-                                            <Badge className="text-[8px] bg-white/5 text-white/40 border-white/10 py-0">
+                                            <Badge className="text-[10px] bg-white/5 text-white/40 border-white/10 py-0">
                                                 {(group.members ?? []).length} membre(s)
                                             </Badge>
                                         </div>
@@ -765,7 +765,7 @@ function IDocumentPanel({
                                         ) : (
                                             <button
                                                 onClick={() => setAddMemberGroupId(group._id)}
-                                                className="p-0.5 rounded-full border border-dashed border-white/20 text-white/30 hover:text-white/60 hover:border-white/40 transition-colors"
+                                                className="p-0.5 rounded-full border border-dashed border-white/20 text-white/50 hover:text-white/60 hover:border-white/40 transition-colors"
                                                 title="Ajouter un membre"
                                             >
                                                 <UserPlus className="h-3 w-3" />
@@ -1041,7 +1041,7 @@ export default function ModulesConfigTab({
                             <p className="text-sm font-medium text-white/60 mb-1">
                                 iAsted - Assistant IA
                             </p>
-                            <p className="text-xs text-white/30">
+                            <p className="text-xs text-white/50">
                                 Configuration avancee bientot disponible
                             </p>
                         </div>

@@ -210,7 +210,7 @@ export default function LoginPage() {
                             <div className="relative">
                                 <Mail
                                     size={16}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
                                 />
                                 <Input
                                     id="email"
@@ -248,7 +248,7 @@ export default function LoginPage() {
                             <div className="relative">
                                 <Lock
                                     size={16}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
                                 />
                                 <Input
                                     id="password"
@@ -266,7 +266,7 @@ export default function LoginPage() {
                                     onClick={() =>
                                         setShowPassword(!showPassword)
                                     }
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/60"
                                 >
                                     {showPassword ? (
                                         <EyeOff size={16} />
@@ -311,7 +311,7 @@ export default function LoginPage() {
                             <span className="w-full border-t border-white/10" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                            <span className="px-3 text-white/30 bg-transparent backdrop-blur-sm">
+                            <span className="px-3 text-white/50 bg-transparent backdrop-blur-sm">
                                 ou
                             </span>
                         </div>
@@ -365,7 +365,7 @@ export default function LoginPage() {
                                 </h3>
                                 <button
                                     onClick={() => setShowReset(false)}
-                                    className="text-white/30 hover:text-white/60"
+                                    className="text-white/50 hover:text-white/60"
                                 >
                                     <X size={18} />
                                 </button>

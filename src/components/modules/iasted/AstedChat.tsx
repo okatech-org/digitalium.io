@@ -374,7 +374,7 @@ export default function AstedChat() {
                                     )}
                                 </Button>
                             </form>
-                            <p className="text-[8px] text-zinc-600 text-center mt-1.5">
+                            <p className="text-[10px] text-zinc-600 text-center mt-1.5">
                                 iAsted IA · Powered by Gemini
                             </p>
                         </div>

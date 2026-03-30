@@ -224,7 +224,7 @@ function WorkflowStepPipeline({ steps }: { steps: WorkflowConfig["steps"] }) {
                                     {step.label}
                                 </p>
                                 {step.assignTo && (
-                                    <p className="text-[9px] text-white/30">
+                                    <p className="text-[9px] text-white/50">
                                         {step.assignTo.type}: {step.assignTo.value}
                                     </p>
                                 )}
@@ -261,7 +261,7 @@ function WorkflowCard({
             <div className="flex items-center gap-3 p-4">
                 <button
                     onClick={() => setExpanded(!expanded)}
-                    className="mt-0.5 text-white/30 hover:text-white/60 transition-colors"
+                    className="mt-0.5 text-white/50 hover:text-white/60 transition-colors"
                 >
                     {expanded ? (
                         <ChevronDown className="h-4 w-4" />
@@ -306,7 +306,7 @@ function WorkflowCard({
             {/* Expanded: Step Pipeline */}
             {expanded && (
                 <div className="px-4 pb-4 pt-0 border-t border-white/5">
-                    <p className="text-[10px] text-white/30 font-medium mt-3 mb-1 flex items-center gap-1">
+                    <p className="text-[10px] text-white/50 font-medium mt-3 mb-1 flex items-center gap-1">
                         <Settings2 className="h-3 w-3" />
                         Pipeline des étapes
                     </p>
@@ -674,7 +674,7 @@ export default function AutomationTab({
                         />
                     ))}
                     {preset.workflows.length === 0 && (
-                        <p className="text-xs text-white/30 text-center py-6">
+                        <p className="text-xs text-white/50 text-center py-6">
                             Aucun workflow disponible pour ce type d&apos;organisation.
                         </p>
                     )}

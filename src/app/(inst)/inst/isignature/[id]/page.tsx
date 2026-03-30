@@ -365,7 +365,7 @@ export default function SignatureDetailPage() {
                                                 window.addEventListener("mouseup", handleUp);
                                             }}
                                         />
-                                        <p className="absolute bottom-1 right-2 text-[8px] text-zinc-600">
+                                        <p className="absolute bottom-1 right-2 text-[10px] text-zinc-600">
                                             Dessinez ici
                                         </p>
                                     </div>
